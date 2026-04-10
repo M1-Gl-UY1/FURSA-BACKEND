@@ -17,3 +17,5 @@ spring:
   sql:
     init:
       mode: always
+  security:
+    enabled: false
