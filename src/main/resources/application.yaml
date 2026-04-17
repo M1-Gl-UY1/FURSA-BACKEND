@@ -4,7 +4,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/fursa
     username: postgres
-    password: postgres
+    password: scorp
     driver-class-name: org.postgresql.Driver
 
   jpa:
