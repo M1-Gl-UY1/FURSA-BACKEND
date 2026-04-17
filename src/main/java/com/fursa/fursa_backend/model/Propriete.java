@@ -40,4 +40,12 @@ public class Propriete {
     @OneToMany(mappedBy = "propriete", cascade = CascadeType.ALL)
     private List<Document> documents;
 
+
+// ces deux lignes sont à ajouter pour la relation avec les revenus et les possessions par moime, elles permettent de récupérer les revenus et les possessions associés à une propriété
+    @OneToMany(mappedBy = "propriete")
+    private List<Revenus> revenus;
+
+    @OneToMany(mappedBy = "propriete")
+    private List<Possession> possessions;
+
 }
