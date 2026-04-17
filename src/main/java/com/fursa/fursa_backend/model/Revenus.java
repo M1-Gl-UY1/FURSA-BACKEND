@@ -28,7 +28,7 @@ public class Revenus {
 
     @ManyToOne
     @JoinColumn(name = "id_prop")
-    private List<Propriete> proprietes;
+    private Propriete propriete;
 
     @OneToMany(mappedBy = "revenus", cascade = CascadeType.ALL)
     private List<Dividende> dividendes;
