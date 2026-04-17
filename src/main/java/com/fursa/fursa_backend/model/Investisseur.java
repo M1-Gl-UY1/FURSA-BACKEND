@@ -28,4 +28,5 @@ public class Investisseur extends User{
             inverseJoinColumns = @JoinColumn(name = "id_not")
     )
     private List<Notification> notifications;
+
 }
