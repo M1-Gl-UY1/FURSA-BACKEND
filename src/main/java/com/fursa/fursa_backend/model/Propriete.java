@@ -28,6 +28,7 @@ public class Propriete {
     @Column(columnDefinition = "TEXT")
     private String description;
     private Integer nombreTotalPart;
+    private Integer partsDisponibles;
     private BigDecimal prixUnitairePart;
 
     @Enumerated(EnumType.STRING)

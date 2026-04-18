@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.model;
 
+import com.fursa.fursa_backend.model.enumeration.StatutTransaction;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -28,6 +29,9 @@ public class Transaction {
     private BigDecimal montant;
 
     private LocalDateTime dateTransaction;
+
+    @Enumerated(EnumType.STRING)
+    private StatutTransaction statut;
 
     @ManyToOne
     @JoinColumn(name = "id_paie")
