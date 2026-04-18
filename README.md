@@ -140,9 +140,9 @@ Acheter des parts d'une propriete.
 
 ---
 
-#### `GET /api/marche-primaire/possessions/{investisseurId}`
+#### `GET /api/marche-primaire/possessions`
 
-Consulter le portefeuille (toutes les parts possedees) d'un investisseur.
+Recuperer toutes les possessions (tous les investisseurs).
 
 **Response (200 OK) :**
 
@@ -162,9 +162,9 @@ Consulter le portefeuille (toutes les parts possedees) d'un investisseur.
 
 ---
 
-#### `GET /api/marche-primaire/transactions/{investisseurId}`
+#### `GET /api/marche-primaire/transactions`
 
-Historique des transactions d'un investisseur.
+Recuperer toutes les transactions.
 
 **Response (200 OK) :**
 
@@ -185,9 +185,9 @@ Historique des transactions d'un investisseur.
 
 ---
 
-#### `GET /api/marche-primaire/paiements/{investisseurId}`
+#### `GET /api/marche-primaire/paiements`
 
-Historique des paiements d'un investisseur.
+Recuperer tous les paiements.
 
 **Response (200 OK) :**
 
@@ -204,6 +204,30 @@ Historique des paiements d'un investisseur.
   }
 ]
 ```
+
+---
+
+#### `GET /api/marche-primaire/possessions/{investisseurId}`
+
+Consulter le portefeuille d'un investisseur specifique.
+
+**Response (200 OK) :** meme format que `/possessions` mais filtre par investisseur.
+
+---
+
+#### `GET /api/marche-primaire/transactions/{investisseurId}`
+
+Historique des transactions d'un investisseur specifique.
+
+**Response (200 OK) :** meme format que `/transactions` mais filtre par investisseur.
+
+---
+
+#### `GET /api/marche-primaire/paiements/{investisseurId}`
+
+Historique des paiements d'un investisseur specifique.
+
+**Response (200 OK) :** meme format que `/paiements` mais filtre par investisseur.
 
 ---
 

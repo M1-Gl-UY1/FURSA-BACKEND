@@ -152,6 +152,52 @@ public class MarchePrimaireService {
     }
 
     /**
+     * Récupérer toutes les possessions
+     */
+    public List<PossessionResponse> getAllPossessions() {
+        return possessionRepository.findAll().stream().map(p -> new PossessionResponse(
+                p.getId(),
+                p.getPropriete().getNom(),
+                p.getPropriete().getLocalisation(),
+                p.getNombreDeParts(),
+                p.getPropriete().getPrixUnitairePart(),
+                p.getPropriete().getPrixUnitairePart().multiply(BigDecimal.valueOf(p.getNombreDeParts())),
+                p.getPropriete().getRentabilitePrevue()
+        )).toList();
+    }
+
+    /**
+     * Récupérer toutes les transactions
+     */
+    public List<TransactionResponse> getAllTransactions() {
+        return transactionRepository.findAll().stream().map(t -> new TransactionResponse(
+                t.getId(),
+                t.getHashTransaction(),
+                t.getTypeOperation(),
+                t.getStatut().name(),
+                t.getNombreParts(),
+                t.getMontant(),
+                t.getPaiement().getPropriete().getNom(),
+                t.getDateTransaction()
+        )).toList();
+    }
+
+    /**
+     * Récupérer tous les paiements
+     */
+    public List<PaiementResponse> getAllPaiements() {
+        return paiementRepository.findAll().stream().map(p -> new PaiementResponse(
+                p.getId(),
+                p.getMontant(),
+                p.getType().name(),
+                p.getStatut().name(),
+                p.getNombre_parts(),
+                p.getPropriete().getNom(),
+                p.getDate()
+        )).toList();
+    }
+
+    /**
      * Récupérer le portefeuille (possessions) d'un investisseur
      */
     public List<PossessionResponse> getPortefeuille(Long investisseurId) {

@@ -28,6 +28,33 @@ public class MarchePrimaireController {
     }
 
     /**
+     * GET /api/marche-primaire/possessions
+     * Toutes les possessions
+     */
+    @GetMapping("/possessions")
+    public ResponseEntity<List<PossessionResponse>> getAllPossessions() {
+        return ResponseEntity.ok(marchePrimaireService.getAllPossessions());
+    }
+
+    /**
+     * GET /api/marche-primaire/transactions
+     * Toutes les transactions
+     */
+    @GetMapping("/transactions")
+    public ResponseEntity<List<TransactionResponse>> getAllTransactions() {
+        return ResponseEntity.ok(marchePrimaireService.getAllTransactions());
+    }
+
+    /**
+     * GET /api/marche-primaire/paiements
+     * Tous les paiements
+     */
+    @GetMapping("/paiements")
+    public ResponseEntity<List<PaiementResponse>> getAllPaiements() {
+        return ResponseEntity.ok(marchePrimaireService.getAllPaiements());
+    }
+
+    /**
      * GET /api/marche-primaire/possessions/{investisseurId}
      * Consulter le portefeuille d'un investisseur
      */
