@@ -4,8 +4,9 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/fursa
     username: postgres
-    password:
+    password: 1234
     driver-class-name: org.postgresql.Driver
+
 
   jpa:
     hibernate:
@@ -19,3 +20,4 @@ spring:
       mode: always
   security:
     enabled: false
+    

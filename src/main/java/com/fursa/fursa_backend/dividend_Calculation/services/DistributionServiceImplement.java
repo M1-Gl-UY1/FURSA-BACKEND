@@ -8,10 +8,8 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
-import com.fursa.fursa_backend.dividend_Calculation.repository.PossessionRepository;
-import com.fursa.fursa_backend.dividend_Calculation.repository.DividendeRepository;
-import com.fursa.fursa_backend.dividend_Calculation.repository.RevenusRepository;
-import com.fursa.fursa_backend.model.StatutPaiement;
+import com.fursa.fursa_backend.possession.repository.PossessionRepository;
+import com.fursa.fursa_backend.dividende.repository.DividendeRepository;
 
 import com.fursa.fursa_backend.model.Dividende;
 import com.fursa.fursa_backend.model.Possession;
@@ -25,7 +23,7 @@ import com.fursa.fursa_backend.model.Revenus;
 public class DistributionServiceImplement implements DistributionService {
 
     private final DividendeRepository dividendeRepo;
-    private final RevenusRepository revenusRepo;
+    private final com.fursa.fursa_backend.revenus.repository.RevenusRepository revenusRepo;
     private final PossessionRepository possessionRepository;
 
     @Override
@@ -44,14 +42,14 @@ public class DistributionServiceImplement implements DistributionService {
         // =========================
         // 2. Vérifier les propriétés associées
         // =========================
-        List<Propriete> proprietes = revenus.getProprietes();
+        Propriete proprietes = revenus.getPropriete();
 
-        if (proprietes == null || proprietes.isEmpty()) {
+        if (proprietes == null) {
             throw new RuntimeException("Aucune propriété associée à ce revenu");
         }
 
         //  plusieurs propriétés doivent être gérées
-        Propriete propriete = proprietes.get(0);
+        Propriete propriete = proprietes;
 
         // 3. Récupérer les possessions (investisseurs + parts)
         List<Possession> listePossessions =

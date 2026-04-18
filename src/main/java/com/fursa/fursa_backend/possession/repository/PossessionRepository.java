@@ -1,4 +1,4 @@
-package com.fursa.fursa_backend.dividend_Calculation.repository;
+package com.fursa.fursa_backend.possession.repository;
 
 import java.util.List;
 

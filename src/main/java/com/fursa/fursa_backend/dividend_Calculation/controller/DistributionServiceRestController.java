@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @AllArgsConstructor
 @RequestMapping("/api/distribution")
 public class DistributionServiceRestController {
-    private final com.fursa.fursa_backend.dividend_Calculation.servies.DistributionService distributionService;
+    private final com.fursa.fursa_backend.dividend_Calculation.services.DistributionService distributionService;
 
     @GetMapping("/{revenuId}")
     public String lancerLaDistribution(@RequestParam Long revenuIdLong) {
