@@ -56,7 +56,10 @@ src/main/java/com/fursa/fursa_backend/
 │   └── MarchePrimaireController.java
 ├── dto/                     # Objets de transfert de donnees
 │   ├── AchatRequest.java
-│   └── AchatResponse.java
+│   ├── AchatResponse.java
+│   ├── PossessionResponse.java
+│   ├── TransactionResponse.java
+│   └── PaiementResponse.java
 ├── model/                   # Entites JPA
 │   ├── User.java
 │   ├── Admin.java
@@ -104,7 +107,7 @@ Ce module gere le flux complet d'achat de parts d'une propriete sur le marche pr
 2. **Creation de la Transaction** : une `Transaction` est generee avec un hash blockchain simule (V1)
 3. **Logique metier critique** : si la transaction est `SUCCES`, les parts sont attribuees a l'investisseur dans la table `Possession` et les parts disponibles de la propriete sont diminuees
 
-### Endpoint
+### Endpoints
 
 #### `POST /api/marche-primaire/acheter`
 
@@ -134,6 +137,75 @@ Acheter des parts d'une propriete.
   "dateTransaction": "2026-04-18T16:30:00"
 }
 ```
+
+---
+
+#### `GET /api/marche-primaire/possessions/{investisseurId}`
+
+Consulter le portefeuille (toutes les parts possedees) d'un investisseur.
+
+**Response (200 OK) :**
+
+```json
+[
+  {
+    "possessionId": 1,
+    "proprieteNom": "Fumba Town Villa",
+    "proprieteLocalisation": "Zanzibar, Tanzanie",
+    "nombreParts": 5,
+    "prixUnitairePart": 100.00,
+    "valeurTotale": 500.00,
+    "rentabilitePrevue": 8.5
+  }
+]
+```
+
+---
+
+#### `GET /api/marche-primaire/transactions/{investisseurId}`
+
+Historique des transactions d'un investisseur.
+
+**Response (200 OK) :**
+
+```json
+[
+  {
+    "transactionId": 1,
+    "hashTransaction": "0x4a3b2c1d5e6f7890abcdef1234567890",
+    "typeOperation": "ACHAT",
+    "statut": "SUCCES",
+    "nombreParts": 5,
+    "montant": 500.00,
+    "proprieteNom": "Fumba Town Villa",
+    "dateTransaction": "2026-04-18T16:30:00"
+  }
+]
+```
+
+---
+
+#### `GET /api/marche-primaire/paiements/{investisseurId}`
+
+Historique des paiements d'un investisseur.
+
+**Response (200 OK) :**
+
+```json
+[
+  {
+    "paiementId": 1,
+    "montant": 500.00,
+    "typePaiement": "CRYPTO",
+    "statut": "VALIDE",
+    "nombreParts": 5,
+    "proprieteNom": "Fumba Town Villa",
+    "date": "2026-04-18T16:30:00"
+  }
+]
+```
+
+---
 
 **Erreurs possibles :**
 

@@ -11,8 +11,13 @@ import com.fursa.fursa_backend.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fursa.fursa_backend.dto.PaiementResponse;
+import com.fursa.fursa_backend.dto.PossessionResponse;
+import com.fursa.fursa_backend.dto.TransactionResponse;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -144,5 +149,67 @@ public class MarchePrimaireService {
                 propriete.getNom(),
                 transaction.getDateTransaction()
         );
+    }
+
+    /**
+     * Récupérer le portefeuille (possessions) d'un investisseur
+     */
+    public List<PossessionResponse> getPortefeuille(Long investisseurId) {
+        investisseurRepository.findById(investisseurId)
+                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+
+        List<Possession> possessions = possessionRepository.findByInvestisseurId(investisseurId);
+
+        return possessions.stream().map(p -> new PossessionResponse(
+                p.getId(),
+                p.getPropriete().getNom(),
+                p.getPropriete().getLocalisation(),
+                p.getNombreDeParts(),
+                p.getPropriete().getPrixUnitairePart(),
+                p.getPropriete().getPrixUnitairePart().multiply(BigDecimal.valueOf(p.getNombreDeParts())),
+                p.getPropriete().getRentabilitePrevue()
+        )).toList();
+    }
+
+    /**
+     * Récupérer l'historique des transactions d'un investisseur
+     */
+    public List<TransactionResponse> getTransactions(Long investisseurId) {
+        investisseurRepository.findById(investisseurId)
+                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+
+        List<Paiement> paiements = paiementRepository.findByInvestisseurId(investisseurId);
+
+        return paiements.stream()
+                .flatMap(p -> p.getTransactions().stream().map(t -> new TransactionResponse(
+                        t.getId(),
+                        t.getHashTransaction(),
+                        t.getTypeOperation(),
+                        t.getStatut().name(),
+                        t.getNombreParts(),
+                        t.getMontant(),
+                        p.getPropriete().getNom(),
+                        t.getDateTransaction()
+                ))).toList();
+    }
+
+    /**
+     * Récupérer l'historique des paiements d'un investisseur
+     */
+    public List<PaiementResponse> getPaiements(Long investisseurId) {
+        investisseurRepository.findById(investisseurId)
+                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+
+        List<Paiement> paiements = paiementRepository.findByInvestisseurId(investisseurId);
+
+        return paiements.stream().map(p -> new PaiementResponse(
+                p.getId(),
+                p.getMontant(),
+                p.getType().name(),
+                p.getStatut().name(),
+                p.getNombre_parts(),
+                p.getPropriete().getNom(),
+                p.getDate()
+        )).toList();
     }
 }
