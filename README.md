@@ -299,6 +299,47 @@ Au premier demarrage, le `DataSeeder` insere automatiquement :
 
 ---
 
+## Deploiement
+
+### Docker local
+
+```bash
+docker compose up -d --build
+```
+
+Demarre 2 containers :
+- `fursa-db` : PostgreSQL 16 (volume persistant `fursa-db-data`)
+- `fursa-backend` : API Spring Boot (port 8081)
+
+### Deploiement VPS (production)
+
+API en production : **http://api.fursas.duckdns.org:8081**
+
+- VPS Contabo (Ubuntu 24.04, IP 84.247.183.206)
+- Repo deploye dans `~/Fursa/FURSA-BACKEND/`
+- Orchestration Docker (meme `docker-compose.yml` qu'en local)
+
+### CI/CD (GitHub Actions)
+
+Workflow : `.github/workflows/deploy.yml`
+
+Tout push sur `main` declenche automatiquement :
+1. Connexion SSH au VPS (cle `koursa_deploy`)
+2. `git pull origin main` (auth via `GITHUB_TOKEN` ephemere)
+3. `docker compose build fursa-backend`
+4. `docker compose up -d` (redemarrage sans downtime sur la DB)
+5. `docker image prune -f`
+6. Verification de sante de l'API
+
+**Secrets GitHub requis** (deja configures) :
+- `VPS_HOST` : `api.fursas.duckdns.org`
+- `VPS_USER` : `softengine`
+- `VPS_SSH_KEY` : cle privee SSH du VPS
+
+Deploiement manuel possible via onglet *Actions* → *Deploy FURSA Backend to VPS* → *Run workflow*.
+
+---
+
 ## Configuration
 
 Le fichier `src/main/resources/application.yaml` contient :
