@@ -46,6 +46,16 @@ jobs:
 
       - name: Verify API is up
         run: |
-          sleep 10
-          curl -fsS --max-time 30 --retry 5 --retry-delay 10 \
-            https://${{ secrets.VPS_HOST }}/api/marche-primaire/possessions
+          echo "Waiting for Spring Boot to finish starting..."
+          for i in $(seq 1 30); do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
+              https://${{ secrets.VPS_HOST }}/api/marche-primaire/possessions || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "API is up (HTTP 200 after ${i} attempt(s))"
+              exit 0
+            fi
+            echo "Attempt $i/30: HTTP $code, retrying in 10s..."
+            sleep 10
+          done
+          echo "API did not become healthy within 5 minutes"
+          exit 1
