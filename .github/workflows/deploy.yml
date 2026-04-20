@@ -46,6 +46,4 @@ jobs:
         run: |
           sleep 10
           curl -fsS --max-time 30 --retry 5 --retry-delay 10 \
-            http://${{ secrets.VPS_HOST }}:8081/actuator/health || \
-            curl -fsS --max-time 30 http://${{ secrets.VPS_HOST }}:8081/ || \
-            echo "Health check endpoint not configured, skipping"
+            https://${{ secrets.VPS_HOST }}/api/marche-primaire/possessions

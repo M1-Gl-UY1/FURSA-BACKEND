@@ -313,11 +313,12 @@ Demarre 2 containers :
 
 ### Deploiement VPS (production)
 
-API en production : **http://api.fursas.duckdns.org:8081**
+API en production : **https://api.fursas.duckdns.org**
 
 - VPS Contabo (Ubuntu 24.04, IP 84.247.183.206)
 - Repo deploye dans `~/Fursa/FURSA-BACKEND/`
 - Orchestration Docker (meme `docker-compose.yml` qu'en local)
+- Nginx reverse proxy + SSL Let's Encrypt (renouvellement automatique via `certbot.timer`)
 
 ### CI/CD (GitHub Actions)
 
