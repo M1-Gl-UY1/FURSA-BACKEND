@@ -1,13 +1,27 @@
 services:
+  fursa-db:
+    image: postgres:16
+    container_name: fursa-db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-fursa}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - fursa-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
   fursa-backend:
     build: .
     container_name: fursa-backend
     ports:
       - "8081:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/fursa
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://fursa-db:5432/${POSTGRES_DB:-fursa}
+      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    depends_on:
+      - fursa-db
     restart: unless-stopped
+
+volumes:
+  fursa-db-data:
