@@ -30,8 +30,10 @@ jobs:
           ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash -s" <<EOF
             set -e
             cd ~/Fursa/FURSA-BACKEND
-            echo "=== Pulling latest changes from main ==="
-            git pull "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" main
+            echo "=== Syncing to origin/main (discarding any local changes) ==="
+            git fetch "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" main
+            git reset --hard FETCH_HEAD
+            git clean -fd
             echo "=== Building backend image ==="
             docker compose build fursa-backend
             echo "=== Restarting containers ==="
