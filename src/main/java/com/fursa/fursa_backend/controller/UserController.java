@@ -9,6 +9,7 @@ import com.fursa.fursa_backend.model.User;
 import com.fursa.fursa_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.properties.bind.validation.BindValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -16,13 +17,12 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/user")
 @RequiredArgsConstructor
 @Slf4j
 public class UserController {
@@ -31,7 +31,7 @@ public class UserController {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
 
-    @PostMapping("/register")
+    @PostMapping("/auth/register")
     public ResponseEntity<?> register(@RequestBody Investisseur user){
         if (userRepository.findByEmail(user.getEmail()).isPresent()){
             return ResponseEntity.badRequest().body("User with this email:"+user.getEmail()+" already exist");
@@ -44,7 +44,7 @@ public class UserController {
         return ResponseEntity.ok(registerResponse);
     }
 
-    @PostMapping("/login")
+    @PostMapping("/auth/login")
     public ResponseEntity<?> login (@RequestBody User user){
         AuthResponse authData = new AuthResponse();
 
@@ -64,4 +64,53 @@ public class UserController {
         }
     }
 
+    @PutMapping("/update/{id}")
+    public ResponseEntity<?> update(
+            @PathVariable Long id,
+            @RequestBody Investisseur data
+    ){
+        Optional<User> optionalInvestisseur = userRepository.findById(id);
+
+        if (optionalInvestisseur.isEmpty()){
+            return ResponseEntity.notFound().build();
+        }
+
+        Investisseur userToUpdate = (Investisseur) optionalInvestisseur.get();
+
+        userToUpdate.setNom(data.getNom());
+        userToUpdate.setPrenom(data.getPrenom());
+        userToUpdate.setTelephone(data.getTelephone());
+//        userToUpdate.setWallet_address(data.getWallet_address());
+
+        userRepository.save(userToUpdate);
+
+        RegisterResponse registerResponse = new RegisterResponse(userToUpdate);
+
+        return ResponseEntity.ok(registerResponse);
+    }
+
+    @DeleteMapping("/delete/{id}")
+    public ResponseEntity<?> delete(
+            @PathVariable Long id
+    ){
+        Optional<User> optionalInvestisseur = userRepository.findById(id);
+        if (optionalInvestisseur.isPresent()){
+            userRepository.delete(optionalInvestisseur.get());
+            return ResponseEntity.status(HttpStatus.OK).build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> read(
+            @PathVariable Long id
+    ){
+        Optional<User> userToRetrieve = userRepository.findById(id);
+        RegisterResponse registerResponse = null;
+        if (userToRetrieve.isPresent()){
+            registerResponse = new RegisterResponse((Investisseur) userToRetrieve.get());
+            return ResponseEntity.ok(registerResponse);
+        }
+        return ResponseEntity.notFound().build();
+    }
 }
