@@ -1,0 +1,21 @@
+// PossessionRepository.java
+package com.fursa.fursa_backend.repository;
+
+import com.fursa.fursa_backend.model.Possession;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface PossessionRepository extends JpaRepository<Possession, Long> {
+
+    @Query("SELECT p FROM Possession p WHERE p.investisseur.id = :investisseurId AND p.propriete.id = :proprieteId")
+    Optional<Possession> findByInvestisseurIdAndProprieteId(Long investisseurId, Long proprieteId);
+
+    List<Possession> findByInvestisseurId(Long investisseurId);
+
+    List<Possession> findByProprieteId(Long proprieteId);
+}
