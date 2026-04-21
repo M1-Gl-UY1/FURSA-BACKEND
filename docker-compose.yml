@@ -1,55 +1,31 @@
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: fursa-postgres
     environment:
       POSTGRES_DB: fursa_db
-      POSTGRES_USER: fursa_user
-      POSTGRES_PASSWORD: fursa_password
-      POSTGRES_ROOT_PASSWORD: root_password
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - "5433:5432"
+      - "5439:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - fursa-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fursa_user -d fursa_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fursa_db"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
 
-  # PGAdmin for database management (optional)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: fursa-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@fursa.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-    ports:
-      - "5050:80"
-    networks:
-      - fursa-network
-    depends_on:
-      - postgres
-    restart: unless-stopped
-
-  # Spring Boot Application
   spring-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: fursa-spring-app
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/fursa_db
       SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD:  postgres
-      BLOCKCHAIN_API_URL: http://blockchain-api:3000
-      RPC_URL: http://ganache:8545
-      JWT_SECRET: fursaSecretKey2024ForJWTTokenGenerationAndValidation
+      SPRING_DATASOURCE_PASSWORD: postgres
     ports:
       - "8080:8080"
     networks:
@@ -57,73 +33,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
-
-  # Ganache (Local Blockchain)
-  ganache:
-    image: trufflesuite/ganache:latest
-    container_name: fursa-ganache
-    command:
-      - --chain.chainId
-      - "1337"
-      - --chain.networkId
-      - "1337"
-      - --wallet.totalAccounts
-      - "10"
-      - --wallet.defaultBalance
-      - "10000"
-      - --server.port
-      - "8545"
-      - --server.host
-      - "0.0.0.0"
-    ports:
-      - "8545:8545"
-    networks:
-      - fursa-network
-    restart: unless-stopped
-
-  # Node.js Blockchain API Service
-  blockchain-api:
-    build:
-      context: ./blockchain-api
-      dockerfile: Dockerfile
-    container_name: fursa-blockchain-api
-    environment:
-      PORT: 3000
-      RPC_URL: http://ganache:8545
-      CONTRACT_ADDRESS: ${SECONDARY_MARKET_CONTRACT}
-      PRIVATE_KEY: ${GANACHE_PRIVATE_KEY}
-    ports:
-      - "3000:3000"
-    networks:
-      - fursa-network
-    depends_on:
-      - ganache
-    restart: unless-stopped
-
-  # Redis for caching and notifications
-  redis:
-    image: redis:7-alpine
-    container_name: fursa-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - fursa-network
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-
-  # Optional: Elasticsearch for logs
-  elasticsearch:
-    image: elasticsearch:8.10.2
-    container_name: fursa-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    networks:
-      - fursa-network
     restart: unless-stopped
 
 networks:

@@ -1,105 +1,37 @@
-# src/main/resources/application.yml
+# application.yml
 spring:
-  application:
-    name: fursa-secondary-market
-
-  # Configuration PostgreSQL
   datasource:
-    url: jdbc:postgresql://localhost:5433/fursa_db
+    url: jdbc:postgresql://localhost:5439/fursa_db
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
-
-  # JPA Configuration
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
     show-sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     properties:
       hibernate:
         format_sql: true
-        use_sql_comments: true
-        jdbc:
-          batch_size: 20
-        order_inserts: true
-        order_updates: true
+  application:
+    name: fursa-backend
 
-  # Security Configuration
-  security:
-    jwt:
-      secret: ${JWT_SECRET:fursaSecretKey2024ForJWTTokenGenerationAndValidation}
-      expiration: 86400000 # 24 hours
-      refresh-expiration: 604800000 # 7 days
-
-# Blockchain Configuration
-blockchain:
-  api:
-    url: ${BLOCKCHAIN_API_URL:http://localhost:3000}
-  contract:
-    secondary-market: ${SECONDARY_MARKET_CONTRACT:0x0000000000000000000000000000000000000000}
-  rpc:
-    url: ${RPC_URL:http://localhost:8545}
-  network:
-    chain-id: 1337
-    name: ganache
-
-# Application Configuration
-app:
-  config:
-    platform-fee-percentage: 0.5
-    max-shares-per-listing: 1000000
-    min-shares-per-listing: 1
-    listing-expiration-days: 30
-
-# Server Configuration
 server:
   port: 8080
   error:
     include-message: always
-    include-binding-errors: always
-    include-stacktrace: never
-    include-exception: false
 
-# Logging Configuration
 logging:
   level:
     com.fursa: DEBUG
-    org.springframework.security: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-  file:
-    name: logs/fursa-application.log
-    max-size: 10MB
-    max-history: 30
+    org.springframework.web: INFO
 
-# Swagger/OpenAPI Configuration
-springdoc:
-  api-docs:
-    path: /api-docs
-    enabled: true
-  swagger-ui:
-    path: /swagger-ui.html
-    enabled: true
-    operations-sorter: method
-    tags-sorter: alpha
-  show-actuator: true
+blockchain:
+  api:
+    url: http://localhost:3000
+  rpc:
+    url: http://localhost:8545
 
-# Actuator Configuration
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
+jwt:
+  secret: fursaSecretKey2024ForJWTTokenGenerationAndValidation
+  expiration: 86400000

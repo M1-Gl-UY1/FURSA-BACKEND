@@ -6,8 +6,8 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.5.0-SNAPSHOT</version>
-		<relativePath />
+		<version>3.4.0</version>
+		<relativePath/>
 	</parent>
 
 	<groupId>com.fursa</groupId>
@@ -15,19 +15,8 @@
 	<version>0.0.1-SNAPSHOT</version>
 
 	<properties>
-		<java.version>23</java.version>
+		<java.version>21</java.version>
 	</properties>
-
-	<repositories>
-		<repository>
-			<id>spring-snapshots</id>
-			<name>Spring Snapshots</name>
-			<url>https://repo.spring.io/snapshot</url>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-		</repository>
-	</repositories>
 
 	<dependencies>
 		<dependency>
