@@ -103,6 +103,40 @@ public class AnnonceService {
     }
 
     @Transactional
+    public AnnonceResponse modifier(Long annonceId, Long vendeurId,
+                                    com.fursa.fursa_backend.dto.AnnonceUpdateRequest request) {
+        Annonce annonce = findOuThrow(annonceId);
+        if (!annonce.getInvestisseur().getId().equals(vendeurId)) {
+            throw new IllegalStateException("Seul le vendeur peut modifier son annonce");
+        }
+        if (annonce.getStatut() != StatutAnnonce.OUVERTE) {
+            throw new IllegalStateException("Annonce non modifiable (statut=" + annonce.getStatut() + ")");
+        }
+
+        Possession possession = possessionRepository
+                .findByInvestisseurIdAndProprieteId(vendeurId, annonce.getPropriete().getId())
+                .orElseThrow(() -> new IllegalStateException(
+                        "Le vendeur ne possede plus de parts de la propriete"));
+
+        int partsEnVenteAilleurs = annonceRepository
+                .findByProprieteIdAndStatut(annonce.getPropriete().getId(), StatutAnnonce.OUVERTE).stream()
+                .filter(a -> a.getInvestisseur().getId().equals(vendeurId))
+                .filter(a -> !a.getId().equals(annonceId))
+                .mapToInt(Annonce::getNombreDePartsAVendre)
+                .sum();
+
+        int disponibles = possession.getNombreDeParts() - partsEnVenteAilleurs;
+        if (request.nombreDePartsAVendre() > disponibles) {
+            throw new IllegalStateException("Parts insuffisantes : dispo=" + disponibles
+                    + ", demande=" + request.nombreDePartsAVendre());
+        }
+
+        annonce.setNombreDePartsAVendre(request.nombreDePartsAVendre());
+        annonce.setPrixUnitaireDemande(request.prixUnitaireDemande());
+        return toResponse(annonceRepository.save(annonce));
+    }
+
+    @Transactional
     public AchatAnnonceResponse acheter(Long annonceId, Long acheteurId, AchatAnnonceRequest request) {
         Annonce annonce = findOuThrow(annonceId);
 

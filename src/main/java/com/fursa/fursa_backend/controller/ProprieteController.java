@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -37,6 +38,7 @@ public class ProprieteController {
             @ApiResponse(responseCode = "201", description = "Propriete creee"),
             @ApiResponse(responseCode = "400", description = "Donnees invalides")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/admin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> ajouter(
             @RequestPart("propriete") @Valid ProprieteRequest request,
@@ -48,6 +50,7 @@ public class ProprieteController {
     }
 
     @Operation(summary = "Modifier une propriete (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(value = "/admin/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> modifier(
             @PathVariable Long id,
@@ -83,9 +86,27 @@ public class ProprieteController {
             @ApiResponse(responseCode = "204", description = "Supprimee"),
             @ApiResponse(responseCode = "404", description = "Propriete inconnue")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/admin/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         proprieteService.supprimer(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Publier une propriete (admin)",
+            description = "Passe le statut a PUBLIEE. Idempotent.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/{id}/publier")
+    public ResponseEntity<com.fursa.fursa_backend.dto.ProprieteResponse> publier(@PathVariable Long id) {
+        return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.publier(id)));
+    }
+
+    @Operation(
+            summary = "Progression du financement",
+            description = "Retourne parts totales, vendues, disponibles et le pourcentage vendu (0-100).")
+    @GetMapping("/public/{id}/progression")
+    public ResponseEntity<com.fursa.fursa_backend.dto.ProgressionResponse> progression(@PathVariable Long id) {
+        return ResponseEntity.ok(proprieteService.progression(id));
     }
 }

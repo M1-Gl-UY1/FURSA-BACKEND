@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +37,7 @@ public class DistributionController {
             @ApiResponse(responseCode = "400", description = "Aucune propriete, aucune possession, ou nombre total de parts invalide"),
             @ApiResponse(responseCode = "404", description = "Revenu inconnu")
     })
+    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{revenuId}")
     public ResponseEntity<List<Dividende>> distribuer(@PathVariable Long revenuId) {
         return ResponseEntity.ok(distributionService.distribuer(revenuId));

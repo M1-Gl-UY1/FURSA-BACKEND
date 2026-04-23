@@ -1,10 +1,12 @@
 package com.fursa.fursa_backend.service;
 
 
+import com.fursa.fursa_backend.dto.ProgressionResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Document;
 import com.fursa.fursa_backend.model.Propriete;
+import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.TypeDocument;
 import com.fursa.fursa_backend.repository.DocumentRepository;
 import com.fursa.fursa_backend.repository.ProprieteRepository;
@@ -70,6 +72,27 @@ public class ProprieteService {
     public Propriete detail(Long id) {
         return proprieteRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Propriété introuvable : " + id));
+    }
+
+    @Transactional
+    public Propriete publier(Long id) {
+        Propriete propriete = proprieteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Propriete introuvable : " + id));
+        if (propriete.getStatut() == StatutPropriete.PUBLIEE) {
+            return propriete;
+        }
+        propriete.setStatut(StatutPropriete.PUBLIEE);
+        return proprieteRepository.save(propriete);
+    }
+
+    public ProgressionResponse progression(Long id) {
+        Propriete p = proprieteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Propriete introuvable : " + id));
+        int total = p.getNombreTotalPart() == null ? 0 : p.getNombreTotalPart();
+        int dispo = p.getPartsDisponibles() == null ? 0 : p.getPartsDisponibles();
+        int vendues = total - dispo;
+        double pct = total == 0 ? 0.0 : Math.round(((double) vendues / total) * 10000.0) / 100.0;
+        return new ProgressionResponse(p.getId(), total, vendues, dispo, pct);
     }
 
     @Transactional

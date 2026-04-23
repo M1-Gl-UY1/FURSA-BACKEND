@@ -1,11 +1,13 @@
 package com.fursa.fursa_backend.seed;
 
+import com.fursa.fursa_backend.model.Admin;
 import com.fursa.fursa_backend.model.Annonce;
 import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Possession;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.Revenus;
 import com.fursa.fursa_backend.model.enumeration.Role;
+import com.fursa.fursa_backend.repository.UserRepository;
 import com.fursa.fursa_backend.model.enumeration.StatutAnnonce;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.repository.AnnonceRepository;
@@ -25,6 +27,7 @@ public class DataSeeder implements CommandLineRunner {
 
     private final ProprieteRepository proprieteRepository;
     private final InvestisseurRepository investisseurRepository;
+    private final UserRepository userRepository;
     private final PossessionRepository possessionRepository;
     private final RevenusRepository revenusRepository;
     private final AnnonceRepository annonceRepository;
@@ -32,12 +35,14 @@ public class DataSeeder implements CommandLineRunner {
 
     public DataSeeder(ProprieteRepository proprieteRepository,
                       InvestisseurRepository investisseurRepository,
+                      UserRepository userRepository,
                       PossessionRepository possessionRepository,
                       RevenusRepository revenusRepository,
                       AnnonceRepository annonceRepository,
                       PasswordEncoder passwordEncoder) {
         this.proprieteRepository = proprieteRepository;
         this.investisseurRepository = investisseurRepository;
+        this.userRepository = userRepository;
         this.possessionRepository = possessionRepository;
         this.revenusRepository = revenusRepository;
         this.annonceRepository = annonceRepository;
@@ -49,6 +54,12 @@ public class DataSeeder implements CommandLineRunner {
         if (proprieteRepository.count() > 0) {
             return;
         }
+
+        Admin admin = new Admin();
+        admin.setEmail("admin@fursa.test");
+        admin.setPassword(passwordEncoder.encode("admin123"));
+        admin.setRole(Role.ADMIN);
+        userRepository.save(admin);
 
         Investisseur investor1 = new Investisseur();
         investor1.setEmail("investor1@fursa.test");
@@ -145,6 +156,6 @@ public class DataSeeder implements CommandLineRunner {
         annonceDemo.setStatut(StatutAnnonce.OUVERTE);
         annonceRepository.save(annonceDemo);
 
-        System.out.println("=== SEED : 3 investisseurs, 3 proprietes, 2 possessions, 1 revenu, 1 annonce ===");
+        System.out.println("=== SEED : 1 admin, 3 investisseurs, 3 proprietes, 2 possessions, 1 revenu, 1 annonce ===");
     }
 }

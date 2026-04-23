@@ -2,6 +2,7 @@ package com.fursa.fursa_backend.controller;
 
 import com.fursa.fursa_backend.dto.AnnonceRequest;
 import com.fursa.fursa_backend.dto.AnnonceResponse;
+import com.fursa.fursa_backend.dto.AnnonceUpdateRequest;
 import com.fursa.fursa_backend.service.AnnonceService;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -67,6 +69,19 @@ public class AnnonceController {
     @GetMapping("/{id}")
     public ResponseEntity<AnnonceResponse> getOne(@PathVariable Long id) {
         return ResponseEntity.ok(annonceService.getById(id));
+    }
+
+    @Operation(
+            summary = "Modifier une annonce",
+            description = "Change le nombre de parts a vendre et/ou le prix unitaire. Seul le vendeur peut modifier et uniquement tant que l'annonce est OUVERTE. Verifie la disponibilite des parts en tenant compte des autres annonces ouvertes.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Annonce modifiee"),
+            @ApiResponse(responseCode = "400", description = "Non vendeur, annonce non OUVERTE, ou parts insuffisantes"),
+            @ApiResponse(responseCode = "404", description = "Annonce inconnue")
+    })
+    @PutMapping("/{id}")
+    public ResponseEntity<AnnonceResponse> modifier(@PathVariable Long id, @Valid @RequestBody AnnonceUpdateRequest request) {
+        return ResponseEntity.ok(annonceService.modifier(id, authInvestisseur.currentId(), request));
     }
 
     @Operation(

@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -65,36 +66,42 @@ public class MarchePrimaireController {
     }
 
     @Operation(summary = "Toutes les possessions (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/possessions")
     public ResponseEntity<List<PossessionResponse>> getAllPossessions() {
         return ResponseEntity.ok(marchePrimaireService.getAllPossessions());
     }
 
     @Operation(summary = "Toutes les transactions (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/transactions")
     public ResponseEntity<List<TransactionResponse>> getAllTransactions() {
         return ResponseEntity.ok(marchePrimaireService.getAllTransactions());
     }
 
     @Operation(summary = "Tous les paiements (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/paiements")
     public ResponseEntity<List<PaiementResponse>> getAllPaiements() {
         return ResponseEntity.ok(marchePrimaireService.getAllPaiements());
     }
 
     @Operation(summary = "Portefeuille d'un investisseur (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/possessions/{investisseurId}")
     public ResponseEntity<List<PossessionResponse>> getPortefeuille(@PathVariable Long investisseurId) {
         return ResponseEntity.ok(marchePrimaireService.getPortefeuille(investisseurId));
     }
 
     @Operation(summary = "Historique des transactions d'un investisseur (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/transactions/{investisseurId}")
     public ResponseEntity<List<TransactionResponse>> getTransactions(@PathVariable Long investisseurId) {
         return ResponseEntity.ok(marchePrimaireService.getTransactions(investisseurId));
     }
 
     @Operation(summary = "Historique des paiements d'un investisseur (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/paiements/{investisseurId}")
     public ResponseEntity<List<PaiementResponse>> getPaiements(@PathVariable Long investisseurId) {
         return ResponseEntity.ok(marchePrimaireService.getPaiements(investisseurId));

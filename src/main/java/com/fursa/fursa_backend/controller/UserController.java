@@ -21,6 +21,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,6 +37,42 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
+    private final com.fursa.fursa_backend.service.AuthenticatedInvestisseurService authInvestisseur;
+
+    @Operation(summary = "Profil de l'utilisateur courant", description = "Retourne le profil de l'investisseur authentifie.")
+    @GetMapping("/me")
+    public ResponseEntity<RegisterResponse> me() {
+        return ResponseEntity.ok(new RegisterResponse(authInvestisseur.current()));
+    }
+
+    @Operation(summary = "Lister les utilisateurs (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public ResponseEntity<java.util.List<RegisterResponse>> listerTous() {
+        return ResponseEntity.ok(userRepository.findAll().stream()
+                .filter(u -> u instanceof Investisseur)
+                .map(u -> new RegisterResponse((Investisseur) u))
+                .toList());
+    }
+
+    @Operation(
+            summary = "Valider un compte investisseur (admin)",
+            description = "Passe `isVerified = true` sur l'investisseur cible.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Compte valide"),
+            @ApiResponse(responseCode = "404", description = "Utilisateur inconnu")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/valider")
+    public ResponseEntity<RegisterResponse> valider(@PathVariable Long id) {
+        User u = userRepository.findById(id).orElse(null);
+        if (u == null || !(u instanceof Investisseur inv)) {
+            return ResponseEntity.notFound().build();
+        }
+        inv.setIsVerified(true);
+        userRepository.save(inv);
+        return ResponseEntity.ok(new RegisterResponse(inv));
+    }
 
     @Operation(
             summary = "Creer un compte investisseur",

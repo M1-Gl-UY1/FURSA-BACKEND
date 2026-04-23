@@ -57,4 +57,11 @@ public class NotificationController {
     public ResponseEntity<NotificationResponse> marquerLue(@PathVariable Long id) {
         return ResponseEntity.ok(notificationService.marquerLue(id));
     }
+
+    @Operation(summary = "Marquer toutes mes notifications comme lues", description = "Retourne le nombre de notifications modifiees.")
+    @PutMapping("/me/lu-tout")
+    public ResponseEntity<java.util.Map<String, Integer>> marquerToutLu() {
+        int n = notificationService.marquerToutLu(authInvestisseur.currentId());
+        return ResponseEntity.ok(java.util.Map.of("marquees", n));
+    }
 }

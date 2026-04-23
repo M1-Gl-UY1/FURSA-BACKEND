@@ -49,6 +49,14 @@ public class NotificationService {
         return toResponse(notificationRepository.save(n));
     }
 
+    @Transactional
+    public int marquerToutLu(Long investisseurId) {
+        var nonLues = notificationRepository.findByDestinataireIdAndLuFalseOrderByDateDesc(investisseurId);
+        nonLues.forEach(n -> n.setLu(true));
+        notificationRepository.saveAll(nonLues);
+        return nonLues.size();
+    }
+
     private NotificationResponse toResponse(Notification n) {
         return new NotificationResponse(n.getId(), n.getTitre(), n.getMessage(), n.getType(), n.getDate(), n.getLu());
     }
