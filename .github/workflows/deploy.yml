@@ -49,7 +49,7 @@ jobs:
           echo "Waiting for Spring Boot to finish starting..."
           for i in $(seq 1 30); do
             code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
-              https://${{ secrets.VPS_HOST }}/api/marche-primaire/possessions || echo "000")
+              https://${{ secrets.VPS_HOST }}/api/health || echo "000")
             if [ "$code" = "200" ]; then
               echo "API is up (HTTP 200 after ${i} attempt(s))"
               exit 0
