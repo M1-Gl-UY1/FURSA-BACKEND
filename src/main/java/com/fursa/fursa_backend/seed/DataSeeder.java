@@ -2,10 +2,12 @@ package com.fursa.fursa_backend.seed;
 
 import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Propriete;
+import com.fursa.fursa_backend.model.enumeration.Role;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.repository.InvestisseurRepository;
 import com.fursa.fursa_backend.repository.ProprieteRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -16,11 +18,14 @@ public class DataSeeder implements CommandLineRunner {
 
     private final ProprieteRepository proprieteRepository;
     private final InvestisseurRepository investisseurRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public DataSeeder(ProprieteRepository proprieteRepository,
-                      InvestisseurRepository investisseurRepository) {
+                      InvestisseurRepository investisseurRepository,
+                      PasswordEncoder passwordEncoder) {
         this.proprieteRepository = proprieteRepository;
         this.investisseurRepository = investisseurRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -33,7 +38,8 @@ public class DataSeeder implements CommandLineRunner {
         // --- Créer des investisseurs de test ---
         Investisseur inv1 = new Investisseur();
         inv1.setEmail("jorel@fursa.com");
-        inv1.setMotDePasse("password123");
+        inv1.setPassword(passwordEncoder.encode("password123"));
+        inv1.setRole(Role.INVESTISSEUR);
         inv1.setNom("TIOMELA");
         inv1.setPrenom("Jorel");
         inv1.setTelephone("+237656146518");
@@ -43,7 +49,8 @@ public class DataSeeder implements CommandLineRunner {
 
         Investisseur inv2 = new Investisseur();
         inv2.setEmail("alice@fursa.com");
-        inv2.setMotDePasse("password123");
+        inv2.setPassword(passwordEncoder.encode("password123"));
+        inv2.setRole(Role.INVESTISSEUR);
         inv2.setNom("Martin");
         inv2.setPrenom("Alice");
         inv2.setTelephone("+33698765432");
