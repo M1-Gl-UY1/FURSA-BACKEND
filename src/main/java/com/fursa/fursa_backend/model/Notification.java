@@ -25,5 +25,9 @@ public class Notification {
     private TypeMessage type;
     private LocalDateTime date;
 
-    private Boolean statut;
+    private Boolean lu;
+
+    @ManyToOne
+    @JoinColumn(name = "id_inv")
+    private Investisseur destinataire;
 }
