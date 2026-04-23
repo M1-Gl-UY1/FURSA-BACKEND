@@ -3,6 +3,8 @@ package com.fursa.fursa_backend.model;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 
 @Entity
@@ -16,6 +18,7 @@ public class Investisseur extends User{
     private String prenom;
     private String telephone;
     private Boolean isVerified;
+    private LocalDate dateNaissance;
 
     @Column(unique = true)
     private String wallet_address;
