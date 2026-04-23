@@ -48,11 +48,11 @@ public class MarchePrimaireService {
      * 3. Si SUCCESS → mettre à jour la Possession et diminuer les parts disponibles
      */
     @Transactional
-    public AchatResponse acheterParts(AchatRequest request) {
+    public AchatResponse acheterParts(Long investisseurId, AchatRequest request) {
 
         // --- Récupérer l'investisseur ---
-        Investisseur investisseur = investisseurRepository.findById(request.getInvestisseurId())
-                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + request.getInvestisseurId()));
+        Investisseur investisseur = investisseurRepository.findById(investisseurId)
+                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
 
         // --- Récupérer la propriété ---
         Propriete propriete = proprieteRepository.findById(request.getProprieteId())

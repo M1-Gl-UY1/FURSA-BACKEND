@@ -26,3 +26,9 @@ spring:
 app:
   secret-key: ${JWT_SECRET:dev-only-secret-change-me-in-prod-min-32-chars-long-for-hs256}
   expiration-time: 86400000
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui
+  api-docs:
+    path: /v3/api-docs

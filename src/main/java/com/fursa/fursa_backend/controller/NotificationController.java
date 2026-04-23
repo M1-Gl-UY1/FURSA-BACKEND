@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.controller;
 
 import com.fursa.fursa_backend.dto.NotificationResponse;
+import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import com.fursa.fursa_backend.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,17 @@ import java.util.List;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final AuthenticatedInvestisseurService authInvestisseur;
+
+    @GetMapping("/me")
+    public ResponseEntity<List<NotificationResponse>> mesNotifications(
+            @RequestParam(defaultValue = "false") boolean nonLuesSeulement) {
+        Long id = authInvestisseur.currentId();
+        return ResponseEntity.ok(
+                nonLuesSeulement
+                        ? notificationService.listerNonLues(id)
+                        : notificationService.listerPour(id));
+    }
 
     @GetMapping("/investisseur/{investisseurId}")
     public ResponseEntity<List<NotificationResponse>> lister(

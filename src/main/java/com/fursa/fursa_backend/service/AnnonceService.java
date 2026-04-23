@@ -44,9 +44,9 @@ public class AnnonceService {
     private final NotificationService notificationService;
 
     @Transactional
-    public AnnonceResponse creer(AnnonceRequest request) {
-        Investisseur vendeur = investisseurRepository.findById(request.vendeurId())
-                .orElseThrow(() -> new EntityNotFoundException("Investisseur non trouve: id=" + request.vendeurId()));
+    public AnnonceResponse creer(Long vendeurId, AnnonceRequest request) {
+        Investisseur vendeur = investisseurRepository.findById(vendeurId)
+                .orElseThrow(() -> new EntityNotFoundException("Investisseur non trouve: id=" + vendeurId));
         Propriete propriete = proprieteRepository.findById(request.proprieteId())
                 .orElseThrow(() -> new EntityNotFoundException("Propriete non trouvee: id=" + request.proprieteId()));
 
@@ -103,7 +103,7 @@ public class AnnonceService {
     }
 
     @Transactional
-    public AchatAnnonceResponse acheter(Long annonceId, AchatAnnonceRequest request) {
+    public AchatAnnonceResponse acheter(Long annonceId, Long acheteurId, AchatAnnonceRequest request) {
         Annonce annonce = findOuThrow(annonceId);
 
         if (annonce.getStatut() != StatutAnnonce.OUVERTE) {
@@ -111,8 +111,8 @@ public class AnnonceService {
         }
 
         Investisseur vendeur = annonce.getInvestisseur();
-        Investisseur acheteur = investisseurRepository.findById(request.acheteurId())
-                .orElseThrow(() -> new EntityNotFoundException("Acheteur non trouve: id=" + request.acheteurId()));
+        Investisseur acheteur = investisseurRepository.findById(acheteurId)
+                .orElseThrow(() -> new EntityNotFoundException("Acheteur non trouve: id=" + acheteurId));
 
         if (vendeur.getId().equals(acheteur.getId())) {
             throw new IllegalStateException("Un investisseur ne peut pas acheter sa propre annonce");

@@ -3,6 +3,7 @@ package com.fursa.fursa_backend.controller;
 import com.fursa.fursa_backend.dto.AchatAnnonceRequest;
 import com.fursa.fursa_backend.dto.AchatAnnonceResponse;
 import com.fursa.fursa_backend.service.AnnonceService;
+import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,11 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class MarcheSecondaireController {
 
     private final AnnonceService annonceService;
+    private final AuthenticatedInvestisseurService authInvestisseur;
 
     @PostMapping("/annonces/{annonceId}/acheter")
     public ResponseEntity<AchatAnnonceResponse> acheter(
             @PathVariable Long annonceId,
             @Valid @RequestBody AchatAnnonceRequest request) {
-        return ResponseEntity.ok(annonceService.acheter(annonceId, request));
+        return ResponseEntity.ok(
+                annonceService.acheter(annonceId, authInvestisseur.currentId(), request));
     }
 }

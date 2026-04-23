@@ -3,6 +3,7 @@ package com.fursa.fursa_backend.controller;
 import com.fursa.fursa_backend.dto.AnnonceRequest;
 import com.fursa.fursa_backend.dto.AnnonceResponse;
 import com.fursa.fursa_backend.service.AnnonceService;
+import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,15 +24,22 @@ import java.util.List;
 public class AnnonceController {
 
     private final AnnonceService annonceService;
+    private final AuthenticatedInvestisseurService authInvestisseur;
 
     @PostMapping
     public ResponseEntity<AnnonceResponse> creer(@Valid @RequestBody AnnonceRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(annonceService.creer(request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(annonceService.creer(authInvestisseur.currentId(), request));
     }
 
     @GetMapping
     public ResponseEntity<List<AnnonceResponse>> listerOuvertes() {
         return ResponseEntity.ok(annonceService.listerOuvertes());
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<List<AnnonceResponse>> mesAnnonces() {
+        return ResponseEntity.ok(annonceService.listerParVendeur(authInvestisseur.currentId()));
     }
 
     @GetMapping("/vendeur/{vendeurId}")
@@ -46,7 +53,7 @@ public class AnnonceController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<AnnonceResponse> annuler(@PathVariable Long id, @RequestParam Long vendeurId) {
-        return ResponseEntity.ok(annonceService.annuler(id, vendeurId));
+    public ResponseEntity<AnnonceResponse> annuler(@PathVariable Long id) {
+        return ResponseEntity.ok(annonceService.annuler(id, authInvestisseur.currentId()));
     }
 }

@@ -6,7 +6,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class AchatRequest {
-    private Long investisseurId;
     private Long proprieteId;
     private Integer nombreParts;
 }

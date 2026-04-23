@@ -90,8 +90,8 @@ class AnnonceServiceTest {
             return a;
         });
 
-        AnnonceRequest req = new AnnonceRequest(1L, 100L, 30, new BigDecimal("150.00"));
-        AnnonceResponse res = annonceService.creer(req);
+        AnnonceRequest req = new AnnonceRequest(100L, 30, new BigDecimal("150.00"));
+        AnnonceResponse res = annonceService.creer(1L, req);
 
         assertEquals(500L, res.id());
         assertEquals(StatutAnnonce.OUVERTE, res.statut());
@@ -105,8 +105,8 @@ class AnnonceServiceTest {
         when(possessionRepository.findByInvestisseurIdAndProprieteId(1L, 100L))
                 .thenReturn(Optional.empty());
 
-        AnnonceRequest req = new AnnonceRequest(1L, 100L, 10, new BigDecimal("100.00"));
-        assertThrows(IllegalStateException.class, () -> annonceService.creer(req));
+        AnnonceRequest req = new AnnonceRequest(100L, 10, new BigDecimal("100.00"));
+        assertThrows(IllegalStateException.class, () -> annonceService.creer(1L, req));
     }
 
     @Test
@@ -127,8 +127,8 @@ class AnnonceServiceTest {
         when(annonceRepository.findByProprieteIdAndStatut(100L, StatutAnnonce.OUVERTE))
                 .thenReturn(List.of(existante));
 
-        AnnonceRequest req = new AnnonceRequest(1L, 100L, 25, new BigDecimal("100.00"));
-        assertThrows(IllegalStateException.class, () -> annonceService.creer(req));
+        AnnonceRequest req = new AnnonceRequest(100L, 25, new BigDecimal("100.00"));
+        assertThrows(IllegalStateException.class, () -> annonceService.creer(1L, req));
     }
 
     @Test
@@ -164,8 +164,8 @@ class AnnonceServiceTest {
             return t;
         });
 
-        AchatAnnonceRequest req = new AchatAnnonceRequest(2L, 20);
-        AchatAnnonceResponse res = annonceService.acheter(500L, req);
+        AchatAnnonceRequest req = new AchatAnnonceRequest(20);
+        AchatAnnonceResponse res = annonceService.acheter(500L, 2L, req);
 
         assertEquals(20, res.nombreDePartsAchetees());
         assertEquals(0, new BigDecimal("2400.00").compareTo(res.montantTotal()));
@@ -202,7 +202,7 @@ class AnnonceServiceTest {
         when(paiementRepository.save(any(Paiement.class))).thenAnswer(inv -> inv.getArgument(0));
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        annonceService.acheter(500L, new AchatAnnonceRequest(2L, 10));
+        annonceService.acheter(500L, 2L, new AchatAnnonceRequest(10));
 
         assertEquals(0, annonce.getNombreDePartsAVendre());
         assertEquals(StatutAnnonce.COMPLETEE, annonce.getStatut());
@@ -219,7 +219,7 @@ class AnnonceServiceTest {
         when(annonceRepository.findById(500L)).thenReturn(Optional.of(annonce));
 
         assertThrows(IllegalStateException.class,
-                () -> annonceService.acheter(500L, new AchatAnnonceRequest(2L, 5)));
+                () -> annonceService.acheter(500L, 2L, new AchatAnnonceRequest(5)));
     }
 
     @Test
@@ -235,7 +235,7 @@ class AnnonceServiceTest {
         when(investisseurRepository.findById(1L)).thenReturn(Optional.of(alice));
 
         assertThrows(IllegalStateException.class,
-                () -> annonceService.acheter(500L, new AchatAnnonceRequest(1L, 5)));
+                () -> annonceService.acheter(500L, 1L, new AchatAnnonceRequest(5)));
     }
 
     @Test
@@ -251,7 +251,7 @@ class AnnonceServiceTest {
         when(investisseurRepository.findById(2L)).thenReturn(Optional.of(bob));
 
         assertThrows(IllegalStateException.class,
-                () -> annonceService.acheter(500L, new AchatAnnonceRequest(2L, 50)));
+                () -> annonceService.acheter(500L, 2L, new AchatAnnonceRequest(50)));
     }
 
     @Test
