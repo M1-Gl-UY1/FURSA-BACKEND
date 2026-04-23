@@ -4,6 +4,10 @@ import com.fursa.fursa_backend.dto.AnnonceRequest;
 import com.fursa.fursa_backend.dto.AnnonceResponse;
 import com.fursa.fursa_backend.service.AnnonceService;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,37 +25,58 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/annonces")
 @RequiredArgsConstructor
+@Tag(name = "Annonces (marche secondaire)", description = "Publication d'annonces de revente entre investisseurs (Mimche)")
 public class AnnonceController {
 
     private final AnnonceService annonceService;
     private final AuthenticatedInvestisseurService authInvestisseur;
 
+    @Operation(
+            summary = "Publier une annonce de revente",
+            description = "Le vendeur (extrait du JWT) met en vente un nombre de parts a un prix unitaire. Verifie que le vendeur possede assez de parts (en tenant compte des annonces OUVERTE deja actives).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Annonce creee"),
+            @ApiResponse(responseCode = "400", description = "Parts insuffisantes"),
+            @ApiResponse(responseCode = "404", description = "Investisseur ou propriete inconnue")
+    })
     @PostMapping
     public ResponseEntity<AnnonceResponse> creer(@Valid @RequestBody AnnonceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(annonceService.creer(authInvestisseur.currentId(), request));
     }
 
+    @Operation(summary = "Lister les annonces OUVERTE", description = "Marche secondaire : toutes les annonces en cours.")
     @GetMapping
     public ResponseEntity<List<AnnonceResponse>> listerOuvertes() {
         return ResponseEntity.ok(annonceService.listerOuvertes());
     }
 
+    @Operation(summary = "Mes annonces", description = "Toutes les annonces publiees par l'investisseur connecte (tous statuts).")
     @GetMapping("/me")
     public ResponseEntity<List<AnnonceResponse>> mesAnnonces() {
         return ResponseEntity.ok(annonceService.listerParVendeur(authInvestisseur.currentId()));
     }
 
+    @Operation(summary = "Annonces d'un vendeur (admin)")
     @GetMapping("/vendeur/{vendeurId}")
     public ResponseEntity<List<AnnonceResponse>> listerParVendeur(@PathVariable Long vendeurId) {
         return ResponseEntity.ok(annonceService.listerParVendeur(vendeurId));
     }
 
+    @Operation(summary = "Detail d'une annonce")
     @GetMapping("/{id}")
     public ResponseEntity<AnnonceResponse> getOne(@PathVariable Long id) {
         return ResponseEntity.ok(annonceService.getById(id));
     }
 
+    @Operation(
+            summary = "Annuler une annonce",
+            description = "Seul le vendeur (JWT) peut annuler, et uniquement si elle est OUVERTE.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Annonce annulee"),
+            @ApiResponse(responseCode = "400", description = "Tentative par un autre investisseur ou annonce non OUVERTE"),
+            @ApiResponse(responseCode = "404", description = "Annonce inconnue")
+    })
     @DeleteMapping("/{id}")
     public ResponseEntity<AnnonceResponse> annuler(@PathVariable Long id) {
         return ResponseEntity.ok(annonceService.annuler(id, authInvestisseur.currentId()));

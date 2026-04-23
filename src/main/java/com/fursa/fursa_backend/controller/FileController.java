@@ -1,6 +1,8 @@
 package com.fursa.fursa_backend.controller;
 
 import com.fursa.fursa_backend.service.FileStorageService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
@@ -11,10 +13,12 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/fichiers")
 @RequiredArgsConstructor
+@Tag(name = "Fichiers", description = "Servir les documents uploades (images, PDF) lies aux proprietes")
 public class FileController {
 
     private final FileStorageService fileStorageService;
 
+    @Operation(summary = "Telecharger un fichier par nom", description = "Retourne le binaire avec le bon content-type (pdf/png/jpg/webp).")
     @GetMapping("/{fileName:.+}")
     public ResponseEntity<Resource> servir(@PathVariable String fileName) {
 

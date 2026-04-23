@@ -7,6 +7,11 @@ import com.fursa.fursa_backend.dto.RegisterResponse;
 import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.User;
 import com.fursa.fursa_backend.repository.UserRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.bind.validation.BindValidationException;
@@ -25,12 +30,21 @@ import java.util.Optional;
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Authentification & Utilisateurs", description = "Inscription, connexion JWT et gestion des utilisateurs (Emile)")
 public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
 
+    @Operation(
+            summary = "Creer un compte investisseur",
+            description = "Inscription publique. Le mot de passe est encode en BCrypt avant persistance.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Compte cree"),
+            @ApiResponse(responseCode = "400", description = "Email deja utilise")
+    })
+    @SecurityRequirements
     @PostMapping("/auth/register")
     public ResponseEntity<?> register(@RequestBody Investisseur user){
         if (userRepository.findByEmail(user.getEmail()).isPresent()){
@@ -44,6 +58,14 @@ public class UserController {
         return ResponseEntity.ok(registerResponse);
     }
 
+    @Operation(
+            summary = "Se connecter et obtenir un JWT",
+            description = "Retourne un token Bearer a utiliser dans l'entete Authorization pour tous les autres endpoints.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token emis"),
+            @ApiResponse(responseCode = "401", description = "Identifiants invalides")
+    })
+    @SecurityRequirements
     @PostMapping("/auth/login")
     public ResponseEntity<?> login (@RequestBody User user){
         AuthResponse authData = new AuthResponse();
@@ -64,6 +86,7 @@ public class UserController {
         }
     }
 
+    @Operation(summary = "Modifier un utilisateur", description = "Met a jour nom, prenom, telephone.")
     @PutMapping("/update/{id}")
     public ResponseEntity<?> update(
             @PathVariable Long id,
@@ -89,6 +112,7 @@ public class UserController {
         return ResponseEntity.ok(registerResponse);
     }
 
+    @Operation(summary = "Supprimer un utilisateur")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> delete(
             @PathVariable Long id
@@ -101,6 +125,7 @@ public class UserController {
         return ResponseEntity.notFound().build();
     }
 
+    @Operation(summary = "Recuperer un utilisateur par id")
     @GetMapping("/{id}")
     public ResponseEntity<?> read(
             @PathVariable Long id
