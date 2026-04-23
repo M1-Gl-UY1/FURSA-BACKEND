@@ -2,12 +2,14 @@ package com.fursa.fursa_backend.controller;
 
 import tools.jackson.databind.ObjectMapper;
 
+import com.fursa.fursa_backend.config.JwtUtils;
 import com.fursa.fursa_backend.config.SecurityConfig;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.ProprieteResponse;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
+import com.fursa.fursa_backend.service.CustomUserService;
 import com.fursa.fursa_backend.service.ProprieteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,8 @@ class ProprieteControllerTest {
 
     @MockitoBean private ProprieteService proprieteService;
     @MockitoBean private ProprieteMapper proprieteMapper;
+    @MockitoBean private CustomUserService customUserService;
+    @MockitoBean private JwtUtils jwtUtils;
 
     private Propriete propriete;
     private ProprieteResponse response;

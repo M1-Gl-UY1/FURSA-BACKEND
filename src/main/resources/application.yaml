@@ -22,3 +22,7 @@ spring:
       mode: always
   security:
     enabled: false
+
+app:
+  secret-key: ${JWT_SECRET:dev-only-secret-change-me-in-prod-min-32-chars-long-for-hs256}
+  expiration-time: 86400000
