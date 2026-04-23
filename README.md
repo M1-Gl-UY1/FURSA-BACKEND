@@ -1,307 +1,34 @@
 # FURSA Backend - API REST
 
 Plateforme d'investissement immobilier fractionne en Afrique (Zanzibar, Tanzanie).
-Backend Spring Boot pour la gestion des transactions, paiements et possessions.
+Backend Spring Boot couvrant authentification JWT, catalogue immobilier, marche primaire (achat de parts), marche secondaire (revente entre investisseurs), distribution de dividendes et notifications.
 
 ---
 
 ## Stack technique
 
-| Composant       | Technologie                |
-|-----------------|----------------------------|
-| Backend         | Java 21 / Spring Boot 4.0.5 |
-| Base de donnees | PostgreSQL                 |
-| ORM             | Hibernate / JPA            |
-| Securite        | Spring Security (JWT prevu)|
-| Build           | Maven                      |
+| Composant       | Technologie                          |
+|-----------------|--------------------------------------|
+| Backend         | Java 21 / Spring Boot 4.0.5          |
+| Base de donnees | PostgreSQL 16                        |
+| ORM             | Hibernate / JPA                      |
+| Securite        | Spring Security + JWT (JJWT 0.11.5)  |
+| API docs        | SpringDoc OpenAPI 2.8.14 (Swagger UI)|
+| Build           | Maven                                |
+| Tests           | JUnit 5 + Mockito                    |
 
 ---
 
-## Prerequisites
+## Prerequis
 
 - Java 21 (JDK)
-- PostgreSQL installe et demarre
-- Base de donnees `fursa` creee
-
-```sql
-CREATE DATABASE fursa;
-```
+- PostgreSQL 16 (ou utiliser `docker compose`)
 
 ---
 
-## Installation et lancement
+## Lancement local
 
-```bash
-# Cloner le projet
-git clone <url-du-repo>
-cd FURSA-BACKEND
-
-# Configurer la base de donnees dans src/main/resources/application.yaml
-# Modifier username et password selon votre configuration PostgreSQL
-
-# Lancer l'application
-./mvnw clean spring-boot:run
-```
-
-L'API demarre sur **http://localhost:8081**
-
----
-
-## Structure du projet
-
-```
-src/main/java/com/fursa/fursa_backend/
-├── config/                  # Configuration (Security, CORS)
-├── controller/              # Controllers REST
-│   └── MarchePrimaireController.java
-├── dto/                     # Objets de transfert de donnees
-│   ├── AchatRequest.java
-│   ├── AchatResponse.java
-│   ├── PossessionResponse.java
-│   ├── TransactionResponse.java
-│   └── PaiementResponse.java
-├── model/                   # Entites JPA
-│   ├── User.java
-│   ├── Admin.java
-│   ├── Investisseur.java
-│   ├── Propriete.java
-│   ├── Paiement.java
-│   ├── Transaction.java
-│   ├── Possession.java
-│   ├── Annonce.java
-│   ├── Document.java
-│   ├── Notification.java
-│   ├── Revenus.java
-│   ├── Dividende.java
-│   └── enumeration/
-│       ├── StatutPaiement.java
-│       ├── StatutTransaction.java
-│       ├── StatutPropriete.java
-│       ├── StatutAnnonce.java
-│       ├── TypePaiement.java
-│       ├── TypeDocument.java
-│       ├── TypeMessage.java
-│       └── Devise.java
-├── repository/              # Repositories JPA
-│   ├── PaiementRepository.java
-│   ├── TransactionRepository.java
-│   ├── PossessionRepository.java
-│   ├── ProprieteRepository.java
-│   └── InvestisseurRepository.java
-├── service/                 # Logique metier
-│   └── MarchePrimaireService.java
-├── seed/                    # Donnees de test
-│   └── DataSeeder.java
-└── FursaBackendApplication.java
-```
-
----
-
-## Module : Marche Primaire & Transactions (Jorel)
-
-### Description
-
-Ce module gere le flux complet d'achat de parts d'une propriete sur le marche primaire :
-
-1. **Creation de l'intention d'achat** : un `Paiement` est cree avec le statut `EN_ATTENTE`
-2. **Creation de la Transaction** : une `Transaction` est generee avec un hash blockchain simule (V1)
-3. **Logique metier critique** : si la transaction est `SUCCES`, les parts sont attribuees a l'investisseur dans la table `Possession` et les parts disponibles de la propriete sont diminuees
-
-### Endpoints
-
-#### `POST /api/marche-primaire/acheter`
-
-Acheter des parts d'une propriete.
-
-**Request body :**
-
-```json
-{
-  "investisseurId": 1,
-  "proprieteId": 1,
-  "nombreParts": 5
-}
-```
-
-**Response (200 OK) :**
-
-```json
-{
-  "paiementId": 1,
-  "transactionId": 1,
-  "hashTransaction": "0x4a3b2c1d5e6f7890abcdef1234567890",
-  "statut": "SUCCES",
-  "nombreParts": 5,
-  "montantTotal": 500.00,
-  "proprieteNom": "Fumba Town Villa",
-  "dateTransaction": "2026-04-18T16:30:00"
-}
-```
-
----
-
-#### `GET /api/marche-primaire/possessions`
-
-Recuperer toutes les possessions (tous les investisseurs).
-
-**Response (200 OK) :**
-
-```json
-[
-  {
-    "possessionId": 1,
-    "proprieteNom": "Fumba Town Villa",
-    "proprieteLocalisation": "Zanzibar, Tanzanie",
-    "nombreParts": 5,
-    "prixUnitairePart": 100.00,
-    "valeurTotale": 500.00,
-    "rentabilitePrevue": 8.5
-  }
-]
-```
-
----
-
-#### `GET /api/marche-primaire/transactions`
-
-Recuperer toutes les transactions.
-
-**Response (200 OK) :**
-
-```json
-[
-  {
-    "transactionId": 1,
-    "hashTransaction": "0x4a3b2c1d5e6f7890abcdef1234567890",
-    "typeOperation": "ACHAT",
-    "statut": "SUCCES",
-    "nombreParts": 5,
-    "montant": 500.00,
-    "proprieteNom": "Fumba Town Villa",
-    "dateTransaction": "2026-04-18T16:30:00"
-  }
-]
-```
-
----
-
-#### `GET /api/marche-primaire/paiements`
-
-Recuperer tous les paiements.
-
-**Response (200 OK) :**
-
-```json
-[
-  {
-    "paiementId": 1,
-    "montant": 500.00,
-    "typePaiement": "CRYPTO",
-    "statut": "VALIDE",
-    "nombreParts": 5,
-    "proprieteNom": "Fumba Town Villa",
-    "date": "2026-04-18T16:30:00"
-  }
-]
-```
-
----
-
-#### `GET /api/marche-primaire/possessions/{investisseurId}`
-
-Consulter le portefeuille d'un investisseur specifique.
-
-**Response (200 OK) :** meme format que `/possessions` mais filtre par investisseur.
-
----
-
-#### `GET /api/marche-primaire/transactions/{investisseurId}`
-
-Historique des transactions d'un investisseur specifique.
-
-**Response (200 OK) :** meme format que `/transactions` mais filtre par investisseur.
-
----
-
-#### `GET /api/marche-primaire/paiements/{investisseurId}`
-
-Historique des paiements d'un investisseur specifique.
-
-**Response (200 OK) :** meme format que `/paiements` mais filtre par investisseur.
-
----
-
-**Erreurs possibles :**
-
-| Cas                              | Message                                           |
-|----------------------------------|----------------------------------------------------|
-| Investisseur introuvable         | Investisseur non trouve avec l'id : X              |
-| Propriete introuvable            | Propriete non trouvee avec l'id : X                |
-| Propriete non publiee            | Cette propriete n'est pas disponible a l'achat     |
-| Parts insuffisantes              | Parts insuffisantes. Disponibles : X               |
-| Nombre de parts invalide         | Le nombre de parts doit etre superieur a 0         |
-
-### Flux detaille
-
-```
-Investisseur                    Backend                         Base de donnees
-     |                              |                                |
-     |-- POST /acheter ------------>|                                |
-     |   {invId, propId, nbParts}   |                                |
-     |                              |-- Verifier investisseur ------>|
-     |                              |-- Verifier propriete --------->|
-     |                              |-- Verifier disponibilite       |
-     |                              |-- Calculer montant             |
-     |                              |                                |
-     |                              |-- Creer Paiement (EN_ATTENTE)->|
-     |                              |-- Generer faux hash blockchain |
-     |                              |-- Creer Transaction (SUCCES)-->|
-     |                              |                                |
-     |                              |-- Valider Paiement (VALIDE)--->|
-     |                              |-- Creer/MAJ Possession ------->|
-     |                              |-- Diminuer parts disponibles ->|
-     |                              |                                |
-     |<-- 200 OK + AchatResponse ---|                                |
-```
-
----
-
-## Donnees de test (Seed)
-
-Au premier demarrage, le `DataSeeder` insere automatiquement :
-
-### Investisseurs
-
-| ID | Nom      | Prenom | Email            |
-|----|----------|--------|------------------|
-| 1  | TIOMELA  | Jorel  | jorel@fursa.com  |
-| 2  | Martin   | Alice  | alice@fursa.com  |
-
-### Proprietes
-
-| ID | Nom                      | Localisation      | Parts | Prix/Part | Rentabilite |
-|----|--------------------------|-------------------|-------|-----------|-------------|
-| 1  | Fumba Town Villa         | Zanzibar          | 1000  | 100.00    | 8.5%        |
-| 2  | Paje Squares Apartment   | Paje, Zanzibar    | 500   | 200.00    | 10.0%       |
-| 3  | Stone Town Heritage House| Stone Town        | 300   | 150.00    | 12.0%       |
-
----
-
-## Repartition des modules par membre
-
-| Membre  | Module                            |
-|---------|-----------------------------------|
-| Emile   | Securite & Utilisateurs (JWT)     |
-| Imelda  | Catalogue & Fichiers (CRUD Propriete) |
-| Jorel   | Marche Primaire & Transactions    |
-| Mimche  | Marche Secondaire & Notifications |
-| Idriss  | Rendement & Structure globale     |
-
----
-
-## Deploiement
-
-### Docker local
+### Option 1 : Docker (recommande)
 
 ```bash
 docker compose up -d --build
@@ -311,39 +38,220 @@ Demarre 2 containers :
 - `fursa-db` : PostgreSQL 16 (volume persistant `fursa-db-data`)
 - `fursa-backend` : API Spring Boot (port 8081)
 
-### Deploiement VPS (production)
+Pour repartir d'une DB vierge (re-execution du seed) : `docker compose down -v`.
 
-API en production : **https://api.fursas.duckdns.org**
+### Option 2 : Maven
 
-- VPS Contabo (Ubuntu 24.04, IP 84.247.183.206)
-- Repo deploye dans `~/Fursa/FURSA-BACKEND/`
-- Orchestration Docker (meme `docker-compose.yml` qu'en local)
-- Nginx reverse proxy + SSL Let's Encrypt (renouvellement automatique via `certbot.timer`)
+```bash
+createdb fursa   # ou via psql
+./mvnw spring-boot:run
+```
 
-### CI/CD (GitHub Actions)
-
-Workflow : `.github/workflows/deploy.yml`
-
-Tout push sur `main` declenche automatiquement :
-1. Connexion SSH au VPS (cle `koursa_deploy`)
-2. `git pull origin main` (auth via `GITHUB_TOKEN` ephemere)
-3. `docker compose build fursa-backend`
-4. `docker compose up -d` (redemarrage sans downtime sur la DB)
-5. `docker image prune -f`
-6. Verification de sante de l'API
-
-**Secrets GitHub requis** (deja configures) :
-- `VPS_HOST` : `api.fursas.duckdns.org`
-- `VPS_USER` : `softengine`
-- `VPS_SSH_KEY` : cle privee SSH du VPS
-
-Deploiement manuel possible via onglet *Actions* → *Deploy FURSA Backend to VPS* → *Run workflow*.
+L'API demarre sur **http://localhost:8081**.
+Swagger UI : **http://localhost:8081/swagger-ui**.
 
 ---
 
-## Configuration
+## Production
 
-Le fichier `src/main/resources/application.yaml` contient :
+- API : **https://api.fursas.duckdns.org**
+- VPS Contabo Ubuntu 24.04, Docker + Nginx reverse proxy + Let's Encrypt (auto-renew via `certbot.timer`)
+- CI/CD : GitHub Actions, push sur `main` -> deploiement automatique (`.github/workflows/deploy.yml`)
+
+---
+
+## Structure du projet
+
+```
+src/main/java/com/fursa/fursa_backend/
+├── config/                    # SecurityConfig, JwtUtils
+├── controller/
+│   ├── HealthController             # GET /api/health (public)
+│   ├── UserController               # auth (register, login) + CRUD user
+│   ├── ProprieteController          # CRUD proprietes (Imelda)
+│   ├── FileController               # upload documents (Imelda)
+│   ├── MarchePrimaireController     # achat primaire + consultations (Jorel)
+│   ├── AnnonceController            # CRUD annonces (Mimche)
+│   ├── MarcheSecondaireController   # achat d'une annonce (Mimche)
+│   ├── NotificationController       # consult + mark-read (Mimche)
+│   └── DistributionController       # distribution dividendes (Idriss)
+├── dto/                       # records / POJOs de Request/Response
+├── exception/GlobalExceptionHandler
+├── filter/JwtFilter
+├── mapper/ProprieteMapper
+├── model/                     # entites JPA (User, Investisseur, Admin, Propriete,
+│                              #  Paiement, Transaction, Possession, Annonce,
+│                              #  Notification, Revenus, Dividende, Document)
+│   └── enumeration/           # StatutXxx, TypeXxx, Role, Devise
+├── repository/                # JpaRepository pour chaque entite metier
+├── service/
+│   ├── CustomUserService              # UserDetailsService pour Spring Security
+│   ├── AuthenticatedInvestisseurService  # helper pour recuperer l'investisseur courant
+│   ├── FileStorageService
+│   ├── ProprieteService
+│   ├── MarchePrimaireService
+│   ├── AnnonceService
+│   ├── NotificationService
+│   └── DistributionServiceImpl
+├── seed/DataSeeder            # donnees de demarrage
+└── FursaBackendApplication.java
+```
+
+---
+
+## Authentification
+
+Tous les endpoints sont proteges par JWT, sauf :
+- `POST /api/user/auth/register`, `POST /api/user/auth/login`
+- `GET /api/health`
+- `/swagger-ui/**`, `/v3/api-docs/**`
+
+### 1. S'inscrire ou se connecter
+
+```bash
+curl -X POST https://api.fursas.duckdns.org/api/user/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "bob@fursa.com", "password": "password123"}'
+# => { "token": "eyJhbGciOi..." }
+```
+
+### 2. Utiliser le token
+
+```bash
+curl -H "Authorization: Bearer <token>" https://api.fursas.duckdns.org/api/annonces
+```
+
+Le `id` de l'investisseur courant est extrait du JWT par `AuthenticatedInvestisseurService`. Les endpoints `POST /acheter`, `POST /annonces`, `DELETE /annonces/{id}` n'acceptent **plus** d'id de vendeur/acheteur dans le body : ils l'obtiennent du token.
+
+---
+
+## Endpoints
+
+### Auth (Emile)
+
+| Methode | Chemin                          | Public | Description                      |
+|---------|---------------------------------|--------|----------------------------------|
+| POST    | `/api/user/auth/register`       | oui    | Creer un compte investisseur     |
+| POST    | `/api/user/auth/login`          | oui    | Obtenir un JWT                   |
+| GET     | `/api/user/...`                 | non    | Gestion des utilisateurs (admin) |
+
+### Proprietes (Imelda)
+
+| Methode | Chemin                          | Description                       |
+|---------|---------------------------------|-----------------------------------|
+| POST    | `/api/proprietes`               | Creer une propriete (admin)       |
+| GET     | `/api/proprietes`               | Lister les proprietes             |
+| GET     | `/api/proprietes/{id}`          | Detail d'une propriete            |
+| PUT     | `/api/proprietes/{id}`          | Modifier (admin)                  |
+| DELETE  | `/api/proprietes/{id}`          | Supprimer (admin)                 |
+| POST    | `/api/files`                    | Upload document (admin)           |
+
+### Marche primaire (Jorel)
+
+| Methode | Chemin                                       | Description                                       |
+|---------|----------------------------------------------|---------------------------------------------------|
+| POST    | `/api/marche-primaire/acheter`               | Acheter des parts (acheteur = JWT)                |
+| GET     | `/api/marche-primaire/me/possessions`        | Mon portefeuille                                  |
+| GET     | `/api/marche-primaire/me/transactions`       | Mes transactions                                  |
+| GET     | `/api/marche-primaire/me/paiements`          | Mes paiements                                     |
+| GET     | `/api/marche-primaire/possessions`           | Toutes les possessions (admin)                    |
+| GET     | `/api/marche-primaire/possessions/{invId}`   | Portefeuille d'un investisseur (admin)            |
+| GET     | `/api/marche-primaire/transactions`          | Toutes les transactions (admin)                   |
+| GET     | `/api/marche-primaire/transactions/{invId}`  | Historique d'un investisseur (admin)              |
+| GET     | `/api/marche-primaire/paiements`             | Tous les paiements (admin)                        |
+| GET     | `/api/marche-primaire/paiements/{invId}`     | Paiements d'un investisseur (admin)               |
+
+**Body `POST /acheter` :**
+```json
+{ "proprieteId": 1, "nombreParts": 5 }
+```
+
+### Marche secondaire (Mimche)
+
+| Methode | Chemin                                              | Description                                            |
+|---------|-----------------------------------------------------|--------------------------------------------------------|
+| POST    | `/api/annonces`                                     | Publier une annonce (vendeur = JWT)                    |
+| GET     | `/api/annonces`                                     | Lister les annonces OUVERTE                            |
+| GET     | `/api/annonces/me`                                  | Mes annonces                                           |
+| GET     | `/api/annonces/vendeur/{id}`                        | Annonces d'un investisseur                             |
+| GET     | `/api/annonces/{id}`                                | Detail                                                 |
+| DELETE  | `/api/annonces/{id}`                                | Annuler (vendeur = JWT)                                |
+| POST    | `/api/marche-secondaire/annonces/{id}/acheter`      | Acheter une annonce (acheteur = JWT)                   |
+
+**Body `POST /annonces` :**
+```json
+{ "proprieteId": 1, "nombreDePartsAVendre": 30, "prixUnitaireDemande": 120.00 }
+```
+
+**Body `POST /marche-secondaire/.../acheter` :**
+```json
+{ "nombreDeParts": 10 }
+```
+
+Cote metier : transfert de possession (suppression si 0, creation si nouvelle), creation `Paiement` + `Transaction` avec hash UUID, decrement de l'annonce (`COMPLETEE` quand epuisee), notifications envoyees au vendeur et a l'acheteur.
+
+### Notifications (Mimche)
+
+| Methode | Chemin                                              | Description                              |
+|---------|-----------------------------------------------------|------------------------------------------|
+| GET     | `/api/notifications/me`                             | Mes notifications (`?nonLuesSeulement=true`) |
+| GET     | `/api/notifications/investisseur/{id}`              | Notifications d'un investisseur (admin)   |
+| PUT     | `/api/notifications/{id}/lu`                        | Marquer comme lue                        |
+
+### Dividendes (Idriss)
+
+| Methode | Chemin                              | Description                                             |
+|---------|-------------------------------------|---------------------------------------------------------|
+| POST    | `/api/distribution/{revenuId}`      | Distribuer au prorata des possessions (admin)           |
+
+Chaque dividende est persiste avec `montantCalcule`, `dateDistribution`, `statut = VALIDE`, `hashTransaction = UUID`.
+
+### Documentation interactive
+
+- **Swagger UI** : `https://api.fursas.duckdns.org/swagger-ui`
+- **OpenAPI JSON** : `https://api.fursas.duckdns.org/v3/api-docs`
+
+---
+
+## Donnees de test (Seed)
+
+Au premier demarrage sur une DB vierge, `DataSeeder` insere :
+
+### Investisseurs (mot de passe `password123`, BCrypt)
+
+| ID | Email           | Nom             |
+|----|-----------------|-----------------|
+| 1  | jorel@fursa.com | Jorel TIOMELA   |
+| 2  | alice@fursa.com | Alice Martin    |
+| 3  | bob@fursa.com   | Bob Durand      |
+
+### Proprietes
+
+| ID | Nom                       | Parts | Prix/Part | Rentabilite |
+|----|---------------------------|-------|-----------|-------------|
+| 1  | Fumba Town Villa          | 1000 (840 dispo) | 100.00 | 8.5%  |
+| 2  | Paje Squares Apartment    | 500   | 200.00    | 10.0%       |
+| 3  | Stone Town Heritage House | 300   | 150.00    | 12.0%       |
+
+### Autres
+
+- 2 possessions sur Fumba Villa : Alice = 100 parts, Jorel = 60 parts
+- 1 revenu de 5000 EUR sur Fumba Villa (pret pour `POST /api/distribution/1`)
+- 1 annonce ouverte : Alice vend 30 parts a 120 EUR (pret pour l'achat par Bob)
+
+---
+
+## Tests
+
+```bash
+./mvnw test
+```
+
+Suite complete : **49 tests** (Imelda 9+11+7, Jorel 1, Idriss 5, Mimche 11+5).
+
+---
+
+## Configuration (`src/main/resources/application.yaml`)
 
 ```yaml
 server:
@@ -353,9 +261,46 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/fursa
     username: postgres
-    password: <votre-mot-de-passe>
+    password: scorp             # override via env POSTGRES_PASSWORD en Docker
   jpa:
-    hibernate:
-      ddl-auto: update
+    hibernate.ddl-auto: update
     show-sql: true
+
+app:
+  secret-key: ${JWT_SECRET:dev-only-secret-change-me-in-prod-min-32-chars-long-for-hs256}
+  expiration-time: 86400000     # 24h
+
+springdoc:
+  swagger-ui.path: /swagger-ui
+  api-docs.path: /v3/api-docs
 ```
+
+En prod, `JWT_SECRET` doit etre surcharge via variable d'environnement (container Docker).
+
+---
+
+## Repartition des modules par membre
+
+| Membre  | Module                                      | Branche d'origine                    |
+|---------|---------------------------------------------|--------------------------------------|
+| Emile   | Securite & Utilisateurs (JWT + Spring Security) | `feature/authentication`          |
+| Imelda  | Catalogue & Fichiers (CRUD Propriete + upload)  | `feature/crud-propriete`          |
+| Jorel   | Marche Primaire & Transactions                  | `feat/module_transactions`        |
+| Mimche  | Marche Secondaire & Notifications               | PR #1 (`feature/secondary-market`) |
+| Idriss  | Rendement & Structure globale (dividendes)      | `feature/dividend-calculation`    |
+
+---
+
+## CI/CD
+
+Workflow : `.github/workflows/deploy.yml` - declencheur : push sur `main`.
+
+Etapes :
+1. `actions/checkout@v5`
+2. SSH vers le VPS avec la cle `koursa_deploy`
+3. `git fetch + reset --hard FETCH_HEAD` (auth via `GITHUB_TOKEN`)
+4. `docker compose build fursa-backend && docker compose up -d`
+5. `docker image prune -f`
+6. Verification : `curl https://.../api/health` doit retourner 200
+
+Secrets GitHub requis : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
