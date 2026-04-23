@@ -68,14 +68,7 @@ src/main/java/com/fursa/fursa_backend/
 ├── controller/
 │   ├── HealthController             # GET /api/health (public)
 │   ├── UserController               # auth (register, login) + CRUD user
-│   ├── ProprieteController          # CRUD proprietes (Imelda)
-│   ├── FileController               # upload documents (Imelda)
-│   ├── MarchePrimaireController     # achat primaire + consultations (Jorel)
-│   ├── AnnonceController            # CRUD annonces (Mimche)
-│   ├── MarcheSecondaireController   # achat d'une annonce (Mimche)
-│   ├── NotificationController       # consult + mark-read (Mimche)
-│   └── DistributionController       # distribution dividendes (Idriss)
-├── dto/                       # records / POJOs de Request/Response
+│   ├── ProprieteController          # CRUD proprietes│   ├── FileController               # upload documents│   ├── MarchePrimaireController     # achat primaire + consultations│   ├── AnnonceController            # CRUD annonces│   ├── MarcheSecondaireController   # achat d'une annonce│   ├── NotificationController       # consult + mark-read│   └── DistributionController       # distribution dividendes├── dto/                       # records / POJOs de Request/Response
 ├── exception/GlobalExceptionHandler
 ├── filter/JwtFilter
 ├── mapper/ProprieteMapper
@@ -111,7 +104,7 @@ Tous les endpoints sont proteges par JWT, sauf :
 ```bash
 curl -X POST https://api.fursas.duckdns.org/api/user/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "bob@fursa.com", "password": "password123"}'
+  -d '{"email": "investor1@fursa.test", "password": "password123"}'
 # => { "token": "eyJhbGciOi..." }
 ```
 
@@ -127,16 +120,14 @@ Le `id` de l'investisseur courant est extrait du JWT par `AuthenticatedInvestiss
 
 ## Endpoints
 
-### Auth (Emile)
-
+### Auth
 | Methode | Chemin                          | Public | Description                      |
 |---------|---------------------------------|--------|----------------------------------|
 | POST    | `/api/user/auth/register`       | oui    | Creer un compte investisseur     |
 | POST    | `/api/user/auth/login`          | oui    | Obtenir un JWT                   |
 | GET     | `/api/user/...`                 | non    | Gestion des utilisateurs (admin) |
 
-### Proprietes (Imelda)
-
+### Proprietes
 | Methode | Chemin                          | Description                       |
 |---------|---------------------------------|-----------------------------------|
 | POST    | `/api/proprietes`               | Creer une propriete (admin)       |
@@ -146,8 +137,7 @@ Le `id` de l'investisseur courant est extrait du JWT par `AuthenticatedInvestiss
 | DELETE  | `/api/proprietes/{id}`          | Supprimer (admin)                 |
 | POST    | `/api/files`                    | Upload document (admin)           |
 
-### Marche primaire (Jorel)
-
+### Marche primaire
 | Methode | Chemin                                       | Description                                       |
 |---------|----------------------------------------------|---------------------------------------------------|
 | POST    | `/api/marche-primaire/acheter`               | Acheter des parts (acheteur = JWT)                |
@@ -166,8 +156,7 @@ Le `id` de l'investisseur courant est extrait du JWT par `AuthenticatedInvestiss
 { "proprieteId": 1, "nombreParts": 5 }
 ```
 
-### Marche secondaire (Mimche)
-
+### Marche secondaire
 | Methode | Chemin                                              | Description                                            |
 |---------|-----------------------------------------------------|--------------------------------------------------------|
 | POST    | `/api/annonces`                                     | Publier une annonce (vendeur = JWT)                    |
@@ -190,16 +179,14 @@ Le `id` de l'investisseur courant est extrait du JWT par `AuthenticatedInvestiss
 
 Cote metier : transfert de possession (suppression si 0, creation si nouvelle), creation `Paiement` + `Transaction` avec hash UUID, decrement de l'annonce (`COMPLETEE` quand epuisee), notifications envoyees au vendeur et a l'acheteur.
 
-### Notifications (Mimche)
-
+### Notifications
 | Methode | Chemin                                              | Description                              |
 |---------|-----------------------------------------------------|------------------------------------------|
 | GET     | `/api/notifications/me`                             | Mes notifications (`?nonLuesSeulement=true`) |
 | GET     | `/api/notifications/investisseur/{id}`              | Notifications d'un investisseur (admin)   |
 | PUT     | `/api/notifications/{id}/lu`                        | Marquer comme lue                        |
 
-### Dividendes (Idriss)
-
+### Dividendes
 | Methode | Chemin                              | Description                                             |
 |---------|-------------------------------------|---------------------------------------------------------|
 | POST    | `/api/distribution/{revenuId}`      | Distribuer au prorata des possessions (admin)           |
@@ -219,11 +206,11 @@ Au premier demarrage sur une DB vierge, `DataSeeder` insere :
 
 ### Investisseurs (mot de passe `password123`, BCrypt)
 
-| ID | Email           | Nom             |
-|----|-----------------|-----------------|
-| 1  | jorel@fursa.com | Jorel TIOMELA   |
-| 2  | alice@fursa.com | Alice Martin    |
-| 3  | bob@fursa.com   | Bob Durand      |
+| ID | Email                  | Nom affiche       |
+|----|------------------------|-------------------|
+| 1  | investor1@fursa.test   | Demo Investor One |
+| 2  | investor2@fursa.test   | Demo Investor Two |
+| 3  | investor3@fursa.test   | Demo Investor Three |
 
 ### Proprietes
 
@@ -235,9 +222,9 @@ Au premier demarrage sur une DB vierge, `DataSeeder` insere :
 
 ### Autres
 
-- 2 possessions sur Fumba Villa : Alice = 100 parts, Jorel = 60 parts
+- 2 possessions sur Fumba Villa : investor2 = 100 parts, investor1 = 60 parts
 - 1 revenu de 5000 EUR sur Fumba Villa (pret pour `POST /api/distribution/1`)
-- 1 annonce ouverte : Alice vend 30 parts a 120 EUR (pret pour l'achat par Bob)
+- 1 annonce ouverte : investor2 vend 30 parts a 120 EUR (pret pour l'achat par investor3)
 
 ---
 
@@ -247,7 +234,7 @@ Au premier demarrage sur une DB vierge, `DataSeeder` insere :
 ./mvnw test
 ```
 
-Suite complete : **49 tests** (Imelda 9+11+7, Jorel 1, Idriss 5, Mimche 11+5).
+Suite complete : **49 tests** repartis sur tous les modules.
 
 ---
 
@@ -279,15 +266,15 @@ En prod, `JWT_SECRET` doit etre surcharge via variable d'environnement (containe
 
 ---
 
-## Repartition des modules par membre
+## Modules du projet
 
-| Membre  | Module                                      | Branche d'origine                    |
-|---------|---------------------------------------------|--------------------------------------|
-| Emile   | Securite & Utilisateurs (JWT + Spring Security) | `feature/authentication`          |
-| Imelda  | Catalogue & Fichiers (CRUD Propriete + upload)  | `feature/crud-propriete`          |
-| Jorel   | Marche Primaire & Transactions                  | `feat/module_transactions`        |
-| Mimche  | Marche Secondaire & Notifications               | PR #1 (`feature/secondary-market`) |
-| Idriss  | Rendement & Structure globale (dividendes)      | `feature/dividend-calculation`    |
+| Module                                          | Branche d'origine                      |
+|-------------------------------------------------|----------------------------------------|
+| Securite & Utilisateurs (JWT + Spring Security) | `feature/authentication`               |
+| Catalogue & Fichiers (CRUD Propriete + upload)  | `feature/crud-propriete`               |
+| Marche Primaire & Transactions                  | `feat/module_transactions`             |
+| Marche Secondaire & Notifications               | PR #1 (`feature/secondary-market`)     |
+| Rendement & Structure globale (dividendes)      | `feature/dividend-calculation`         |
 
 ---
 

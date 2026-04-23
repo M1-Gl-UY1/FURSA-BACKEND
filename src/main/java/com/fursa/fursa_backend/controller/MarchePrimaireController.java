@@ -25,7 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/marche-primaire")
 @RequiredArgsConstructor
-@Tag(name = "Marche primaire", description = "Achat de parts d'une propriete depuis le catalogue (Jorel)")
+@Tag(name = "Marche primaire", description = "Achat de parts d'une propriete depuis le catalogue")
 public class MarchePrimaireController {
 
     private final MarchePrimaireService marchePrimaireService;

@@ -24,7 +24,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/proprietes")
 @RequiredArgsConstructor
-@Tag(name = "Proprietes & Fichiers", description = "CRUD des proprietes immobilieres et upload de documents (Imelda)")
+@Tag(name = "Proprietes & Fichiers", description = "CRUD des proprietes immobilieres et upload de documents")
 public class ProprieteController {
 
     private final ProprieteService proprieteService;

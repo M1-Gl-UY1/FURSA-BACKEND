@@ -30,7 +30,7 @@ import java.util.Optional;
 @RequestMapping("/api/user")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "Authentification & Utilisateurs", description = "Inscription, connexion JWT et gestion des utilisateurs (Emile)")
+@Tag(name = "Authentification & Utilisateurs", description = "Inscription, connexion JWT et gestion des utilisateurs")
 public class UserController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;

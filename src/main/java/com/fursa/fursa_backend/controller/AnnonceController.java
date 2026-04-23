@@ -25,7 +25,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/annonces")
 @RequiredArgsConstructor
-@Tag(name = "Annonces (marche secondaire)", description = "Publication d'annonces de revente entre investisseurs (Mimche)")
+@Tag(name = "Annonces (marche secondaire)", description = "Publication d'annonces de revente entre investisseurs")
 public class AnnonceController {
 
     private final AnnonceService annonceService;

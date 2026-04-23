@@ -20,7 +20,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
-@Tag(name = "Notifications", description = "Consulter et marquer comme lues les notifications d'un investisseur (Mimche)")
+@Tag(name = "Notifications", description = "Consulter et marquer comme lues les notifications d'un investisseur")
 public class NotificationController {
 
     private final NotificationService notificationService;

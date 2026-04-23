@@ -18,7 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/distribution")
 @RequiredArgsConstructor
-@Tag(name = "Distribution des revenus", description = "Calcul des dividendes au prorata des possessions (Idriss)")
+@Tag(name = "Distribution des revenus", description = "Calcul des dividendes au prorata des possessions")
 public class DistributionController {
 
     private final DistributionService distributionService;

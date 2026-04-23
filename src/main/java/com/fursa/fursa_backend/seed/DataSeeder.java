@@ -50,38 +50,38 @@ public class DataSeeder implements CommandLineRunner {
             return;
         }
 
-        Investisseur jorel = new Investisseur();
-        jorel.setEmail("jorel@fursa.com");
-        jorel.setPassword(passwordEncoder.encode("password123"));
-        jorel.setRole(Role.INVESTISSEUR);
-        jorel.setNom("TIOMELA");
-        jorel.setPrenom("Jorel");
-        jorel.setTelephone("+237656146518");
-        jorel.setIsVerified(true);
-        jorel.setWallet_address("0xABCDEF1234567890ABCDEF1234567890ABCDEF12");
-        investisseurRepository.save(jorel);
+        Investisseur investor1 = new Investisseur();
+        investor1.setEmail("investor1@fursa.test");
+        investor1.setPassword(passwordEncoder.encode("password123"));
+        investor1.setRole(Role.INVESTISSEUR);
+        investor1.setNom("Demo");
+        investor1.setPrenom("Investor One");
+        investor1.setTelephone("+237600000001");
+        investor1.setIsVerified(true);
+        investor1.setWallet_address("0xABCDEF1234567890ABCDEF1234567890ABCDEF12");
+        investisseurRepository.save(investor1);
 
-        Investisseur alice = new Investisseur();
-        alice.setEmail("alice@fursa.com");
-        alice.setPassword(passwordEncoder.encode("password123"));
-        alice.setRole(Role.INVESTISSEUR);
-        alice.setNom("Martin");
-        alice.setPrenom("Alice");
-        alice.setTelephone("+33698765432");
-        alice.setIsVerified(true);
-        alice.setWallet_address("0x1234567890ABCDEF1234567890ABCDEF12345678");
-        investisseurRepository.save(alice);
+        Investisseur investor2 = new Investisseur();
+        investor2.setEmail("investor2@fursa.test");
+        investor2.setPassword(passwordEncoder.encode("password123"));
+        investor2.setRole(Role.INVESTISSEUR);
+        investor2.setNom("Demo");
+        investor2.setPrenom("Investor Two");
+        investor2.setTelephone("+237600000002");
+        investor2.setIsVerified(true);
+        investor2.setWallet_address("0x1234567890ABCDEF1234567890ABCDEF12345678");
+        investisseurRepository.save(investor2);
 
-        Investisseur bob = new Investisseur();
-        bob.setEmail("bob@fursa.com");
-        bob.setPassword(passwordEncoder.encode("password123"));
-        bob.setRole(Role.INVESTISSEUR);
-        bob.setNom("Durand");
-        bob.setPrenom("Bob");
-        bob.setTelephone("+33612345678");
-        bob.setIsVerified(true);
-        bob.setWallet_address("0xFEDCBA0987654321FEDCBA0987654321FEDCBA09");
-        investisseurRepository.save(bob);
+        Investisseur investor3 = new Investisseur();
+        investor3.setEmail("investor3@fursa.test");
+        investor3.setPassword(passwordEncoder.encode("password123"));
+        investor3.setRole(Role.INVESTISSEUR);
+        investor3.setNom("Demo");
+        investor3.setPrenom("Investor Three");
+        investor3.setTelephone("+237600000003");
+        investor3.setIsVerified(true);
+        investor3.setWallet_address("0xFEDCBA0987654321FEDCBA0987654321FEDCBA09");
+        investisseurRepository.save(investor3);
 
         Propriete prop1 = new Propriete();
         prop1.setNom("Fumba Town Villa");
@@ -119,17 +119,17 @@ public class DataSeeder implements CommandLineRunner {
         prop3.setDateCreation(LocalDate.now());
         proprieteRepository.save(prop3);
 
-        Possession possAlice = new Possession();
-        possAlice.setInvestisseur(alice);
-        possAlice.setPropriete(prop1);
-        possAlice.setNombreDeParts(100);
-        possessionRepository.save(possAlice);
+        Possession poss2 = new Possession();
+        poss2.setInvestisseur(investor2);
+        poss2.setPropriete(prop1);
+        poss2.setNombreDeParts(100);
+        possessionRepository.save(poss2);
 
-        Possession possJorel = new Possession();
-        possJorel.setInvestisseur(jorel);
-        possJorel.setPropriete(prop1);
-        possJorel.setNombreDeParts(60);
-        possessionRepository.save(possJorel);
+        Possession poss1 = new Possession();
+        poss1.setInvestisseur(investor1);
+        poss1.setPropriete(prop1);
+        poss1.setNombreDeParts(60);
+        possessionRepository.save(poss1);
 
         Revenus revenuProp1 = new Revenus();
         revenuProp1.setPropriete(prop1);
@@ -137,13 +137,13 @@ public class DataSeeder implements CommandLineRunner {
         revenuProp1.setMontantTotal(new BigDecimal("5000.00"));
         revenusRepository.save(revenuProp1);
 
-        Annonce annonceAlice = new Annonce();
-        annonceAlice.setInvestisseur(alice);
-        annonceAlice.setPropriete(prop1);
-        annonceAlice.setNombreDePartsAVendre(30);
-        annonceAlice.setPrixUnitaireDemande(new BigDecimal("120.00"));
-        annonceAlice.setStatut(StatutAnnonce.OUVERTE);
-        annonceRepository.save(annonceAlice);
+        Annonce annonceDemo = new Annonce();
+        annonceDemo.setInvestisseur(investor2);
+        annonceDemo.setPropriete(prop1);
+        annonceDemo.setNombreDePartsAVendre(30);
+        annonceDemo.setPrixUnitaireDemande(new BigDecimal("120.00"));
+        annonceDemo.setStatut(StatutAnnonce.OUVERTE);
+        annonceRepository.save(annonceDemo);
 
         System.out.println("=== SEED : 3 investisseurs, 3 proprietes, 2 possessions, 1 revenu, 1 annonce ===");
     }

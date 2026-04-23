@@ -28,18 +28,17 @@ public class OpenApiConfig {
                                 API REST de FURSA Community - plateforme d'investissement immobilier fractionne en Afrique.
 
                                 ## Modules
-                                - **Authentification** (Emile) : register/login, JWT, Spring Security
-                                - **Catalogue & Fichiers** (Imelda) : CRUD Propriete, upload documents
-                                - **Marche primaire** (Jorel) : achat de parts (intention + transaction simulee + possession)
-                                - **Marche secondaire** (Mimche) : annonces de revente, achat entre investisseurs, notifications
-                                - **Distribution** (Idriss) : calcul des dividendes au prorata des possessions
+                                - **Authentification** : register/login, JWT, Spring Security
+                                - **Catalogue & Fichiers** : CRUD Propriete, upload documents
+                                - **Marche primaire** : achat de parts (intention + transaction simulee + possession)
+                                - **Marche secondaire** : annonces de revente, achat entre investisseurs, notifications
+                                - **Distribution** : calcul des dividendes au prorata des possessions
 
                                 ## Authentification
                                 La plupart des endpoints necessitent un JWT. Recuperer un token via `POST /api/user/auth/login`, puis cliquer sur **Authorize** (en haut a droite) et coller le token (sans le prefixe `Bearer`).
                                 """)
                         .contact(new Contact()
                                 .name("Equipe FURSA - UY1 M1")
-                                .email("softengineit@gmail.com")
                                 .url("https://github.com/M1-Gl-UY1/FURSA-BACKEND"))
                         .license(new License().name("Usage academique - UE Projet M1")))
                 .servers(List.of(

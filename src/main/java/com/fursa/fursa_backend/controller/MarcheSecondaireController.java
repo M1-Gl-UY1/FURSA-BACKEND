@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/marche-secondaire")
 @RequiredArgsConstructor
-@Tag(name = "Marche secondaire", description = "Achat entre investisseurs d'une annonce existante (Mimche)")
+@Tag(name = "Marche secondaire", description = "Achat entre investisseurs d'une annonce existante")
 public class MarcheSecondaireController {
 
     private final AnnonceService annonceService;
