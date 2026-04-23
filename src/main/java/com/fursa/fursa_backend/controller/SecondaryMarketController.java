@@ -25,7 +25,7 @@ public class SecondaryMarketController {
 
     // ================= CREATE ANNONCE =================
     @PostMapping("/annonces")
-    @PreAuthorize("hasRole('INVESTISSEUR')")
+    //@PreAuthorize("hasRole('INVESTISSEUR')")
     public ResponseEntity<Annonce> createAnnonce(
             @Valid @RequestBody CreateAnnonceRequest request,
             @AuthenticationPrincipal Investisseur investisseur) {

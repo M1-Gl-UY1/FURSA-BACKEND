@@ -1,35 +1,37 @@
 package com.fursa.fursa_backend.model;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
 public class Revenus {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_rev")
     private Long id;
 
-    private LocalDate date;
+    private BigDecimal montant;
+    private LocalDateTime dateDistribution;
 
-    private BigDecimal montantTotal;
-
+    // Correction: @ManyToOne au lieu de cibler List
     @ManyToOne
-    @JoinColumn(name = "id_prop")
-    private List<Propriete> proprietes;
+    @JoinColumn(name = "propriete_id")
+    private Propriete propriete;
 
-    @OneToMany(mappedBy = "revenus", cascade = CascadeType.ALL)
-    private List<Dividende> dividendes;
+    // Ou si vous voulez une liste de propriétés, utilisez @ManyToMany
+    @ManyToMany
+    @JoinTable(
+            name = "revenus_proprietes",
+            joinColumns = @JoinColumn(name = "revenus_id"),
+            inverseJoinColumns = @JoinColumn(name = "propriete_id")
+    )
+    private List<Propriete> proprietes = new ArrayList<>();
 }
