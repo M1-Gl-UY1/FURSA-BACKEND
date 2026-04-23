@@ -37,9 +37,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource) throws Exception{
         return http
+                .cors(c -> c.configurationSource(corsConfigurationSource))
                 .csrf(AbstractHttpConfigurer::disable)
+                .sessionManagement(s -> s.sessionCreationPolicy(
+                        org.springframework.security.config.http.SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth->
                         auth.requestMatchers(
                                 "/api/user/auth/*",

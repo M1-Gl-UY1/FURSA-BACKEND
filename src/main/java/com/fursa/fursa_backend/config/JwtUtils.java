@@ -22,6 +22,25 @@ public class JwtUtils {
     @Value("${app.expiration-time}")
     private Integer expirationTime;
 
+    @jakarta.annotation.PostConstruct
+    void validateSecret() {
+        if (secretKey == null || secretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "app.secret-key is required. Set environment variable JWT_SECRET with at least 32 characters.");
+        }
+        if (secretKey.getBytes().length < 32) {
+            throw new IllegalStateException(
+                    "app.secret-key must be at least 32 bytes (256 bits) for HS256.");
+        }
+        if (secretKey.contains("dev-only") || secretKey.contains("change-me")) {
+            String profile = System.getProperty("spring.profiles.active", "");
+            if (profile.contains("prod")) {
+                throw new IllegalStateException(
+                        "app.secret-key looks like a development default. Set a real JWT_SECRET in production.");
+            }
+        }
+    }
+
     public String generateToken(String username){
         Map<String, Object> claims = new HashMap<>();
         return createToken(claims, username);

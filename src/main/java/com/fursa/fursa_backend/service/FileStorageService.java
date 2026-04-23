@@ -13,6 +13,12 @@ import java.util.UUID;
 @Service
 public class FileStorageService {
 
+    private static final java.util.Set<String> ALLOWED_EXTENSIONS =
+            java.util.Set.of(".pdf", ".jpg", ".jpeg", ".png", ".webp");
+    private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
+            "application/pdf", "image/jpeg", "image/png", "image/webp");
+    private static final long MAX_FILE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
+
     private final Path root = Paths.get("uploads");
 
     public FileStorageService() {
@@ -23,18 +29,28 @@ public class FileStorageService {
         }
     }
 
-    // ── Sauvegarde 
     public String save(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Fichier vide");
+        }
+        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+            throw new IllegalArgumentException("Fichier trop volumineux (max 10 MB)");
+        }
+        String extension = getExtension(file.getOriginalFilename());
+        if (!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException(
+                    "Extension non autorisee (autorises : " + ALLOWED_EXTENSIONS + ")");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new IllegalArgumentException(
+                    "Type MIME non autorise (autorises : " + ALLOWED_CONTENT_TYPES + ")");
+        }
         try {
-            // UUID + extension propre → jamais de doublon, jamais de caractère bizarre
-            String extension = getExtension(file.getOriginalFilename());
             String fileName = UUID.randomUUID() + extension;
-
             Files.copy(file.getInputStream(), root.resolve(fileName),
                     StandardCopyOption.REPLACE_EXISTING);
-
             return fileName;
-
         } catch (IOException e) {
             throw new RuntimeException("Erreur lors du stockage : " + e.getMessage());
         }
