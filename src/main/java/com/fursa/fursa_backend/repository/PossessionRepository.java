@@ -11,4 +11,5 @@ import java.util.Optional;
 public interface PossessionRepository extends JpaRepository<Possession, Long> {
     Optional<Possession> findByInvestisseurIdAndProprieteId(Long investisseurId, Long proprieteId);
     List<Possession> findByInvestisseurId(Long investisseurId);
+    List<Possession> findByProprieteId(Long proprieteId);
 }

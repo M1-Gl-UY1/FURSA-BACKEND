@@ -24,6 +24,6 @@ public class Possession {
     private Propriete propriete;
 
     @ManyToOne
-    @JoinColumn(name = "id inv")
+    @JoinColumn(name = "id_inv")
     private Investisseur investisseur;
 }

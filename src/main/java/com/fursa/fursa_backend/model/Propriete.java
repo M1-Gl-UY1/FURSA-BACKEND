@@ -41,4 +41,9 @@ public class Propriete {
     @OneToMany(mappedBy = "propriete", cascade = CascadeType.ALL)
     private List<Document> documents;
 
+    @OneToMany(mappedBy = "propriete")
+    private List<Revenus> revenus;
+
+    @OneToMany(mappedBy = "propriete")
+    private List<Possession> possessions;
 }
