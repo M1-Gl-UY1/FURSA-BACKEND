@@ -231,21 +231,42 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 
 ---
 
-## Donnees de seed (profil dev/non-prod uniquement)
+## Comptes de la plateforme
+
+### Compte admin actif en production
+
+| Champ     | Valeur                      |
+|-----------|-----------------------------|
+| URL       | https://api.fursas.duckdns.org |
+| Email     | `tiomelajorel@gmail.com`    |
+| Password  | `jorel2026`                 |
+| Role      | ADMIN                       |
+| Verifie   | oui                         |
+
+C'est actuellement le **seul compte en production**. Tous les comptes de seed
+ont ete purges apres la bascule en profil `prod`. Pour creer un autre admin :
+`POST /api/user/auth/register` puis `UPDATE users SET role='ADMIN' WHERE email='...'`
+directement en DB (pas d'endpoint self-service de promotion).
+
+> Securite : `jorel2026` passe la password policy mais reste predictible.
+> A changer apres stabilisation des workflows (voir DEPLOYMENT.md pour la procedure).
+
+### Comptes de seed (profil dev/non-prod uniquement)
 
 Au premier demarrage sur une DB vierge avec `SPRING_PROFILES_ACTIVE != prod`,
-`DataSeeder` insere :
+`DataSeeder` insere automatiquement :
 
-### Comptes (password = `password123`, BCrypt)
+| Email                  | Password       | Role         |
+|------------------------|----------------|--------------|
+| `admin@fursa.test`     | `admin123`     | ADMIN        |
+| `investor1@fursa.test` | `password123`  | INVESTISSEUR |
+| `investor2@fursa.test` | `password123`  | INVESTISSEUR |
+| `investor3@fursa.test` | `password123`  | INVESTISSEUR |
 
-| Email                  | Role         |
-|------------------------|--------------|
-| admin@fursa.test       | ADMIN        |
-| investor1@fursa.test   | INVESTISSEUR |
-| investor2@fursa.test   | INVESTISSEUR |
-| investor3@fursa.test   | INVESTISSEUR |
+Les mots de passe sont encodes en BCrypt avant persistance par le seeder.
+**Aucun seed n'est execute en profil `prod`** (`@Profile("!prod")`).
 
-### Proprietes
+### Proprietes seedees
 
 | ID | Nom                       | Parts | Prix/Part | Rentabilite |
 |----|---------------------------|-------|-----------|-------------|
@@ -253,10 +274,9 @@ Au premier demarrage sur une DB vierge avec `SPRING_PROFILES_ACTIVE != prod`,
 | 2  | Paje Squares Apartment    | 500   | 200.00    | 10.0%       |
 | 3  | Stone Town Heritage House | 300   | 150.00    | 12.0%       |
 
-Plus : 2 possessions pre-existantes sur Fumba (investor2: 100 parts, investor1: 60),
-1 revenu de 5000 EUR, 1 annonce ouverte.
-
-**Aucun seed n'est execute en profil `prod`** (`@Profile("!prod")`).
+Plus : 2 possessions pre-existantes sur Fumba (`investor2`: 100 parts,
+`investor1`: 60), 1 revenu de 5000 EUR sur Fumba, 1 annonce ouverte
+(`investor2` vend 30 parts a 120 EUR).
 
 ---
 

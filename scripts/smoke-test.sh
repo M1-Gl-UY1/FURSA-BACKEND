@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# Smoke test de l'API FURSA en production.
+# Smoke test de l'API FURSA.
 # Usage : bash scripts/smoke-test.sh [URL_BASE] [ADMIN_EMAIL] [ADMIN_PASSWORD]
-# Defaut : https://api.fursas.duckdns.org avec admin@fursa.test / admin123
+#
+# Defaut (prod) : https://api.fursas.duckdns.org avec tiomelajorel@gmail.com / jorel2026
+#
+# Exemples :
+#   bash scripts/smoke-test.sh
+#   bash scripts/smoke-test.sh http://localhost:8081 admin@fursa.test admin123
+#   bash scripts/smoke-test.sh https://staging.fursas.com other@admin.com pwd
 
 set -u
 
 BASE="${1:-https://api.fursas.duckdns.org}"
-ADMIN_EMAIL="${2:-admin@fursa.test}"
-ADMIN_PASSWORD="${3:-admin123}"
+ADMIN_EMAIL="${2:-tiomelajorel@gmail.com}"
+ADMIN_PASSWORD="${3:-jorel2026}"
 
 PASS=0
 FAIL=0

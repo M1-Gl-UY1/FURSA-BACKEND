@@ -17,13 +17,30 @@ Le script teste 40+ endpoints dans un ordre qui respecte les dependances metier
 
 ## Comptes de test
 
-### Admin seed (a remplacer par un vrai compte apres validation)
-- Email : `admin@fursa.test`
-- Password : `admin123`
+### Production (`https://api.fursas.duckdns.org`)
 
-### Investisseurs
-Crees dynamiquement par le script `smoke-test.sh` (pour eviter la pollution de la
-prod avec des comptes residuels, le script les supprime a la fin).
+Apres la bascule en profil `prod`, tous les comptes de seed ont ete purges.
+Le seul compte actif est :
+
+| Usage | Email                      | Password     | Role  |
+|-------|----------------------------|--------------|-------|
+| admin | `tiomelajorel@gmail.com`   | `jorel2026`  | ADMIN |
+
+### Dev / local (profil `dev`, seed automatique)
+
+Comptes crees par `DataSeeder` au premier demarrage sur DB vierge :
+
+| Email                  | Password      | Role         |
+|------------------------|---------------|--------------|
+| `admin@fursa.test`     | `admin123`    | ADMIN        |
+| `investor1@fursa.test` | `password123` | INVESTISSEUR |
+| `investor2@fursa.test` | `password123` | INVESTISSEUR |
+| `investor3@fursa.test` | `password123` | INVESTISSEUR |
+
+### Investisseurs ephemeres pour smoke tests
+
+Crees dynamiquement par le script `smoke-test.sh` (format `smoke+<timestamp>@fursa.test`,
+password `Password1`) et supprimes a la fin du run pour ne pas polluer la prod.
 
 ---
 

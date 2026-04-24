@@ -56,14 +56,28 @@ docker exec -it fursa-db psql -U postgres -d fursa \
 
 ### 5. Purger les comptes demo residuels (si la DB a deja ete seedee)
 
+Les 4 comptes seedes par `DataSeeder` en profil dev n'ont **rien a faire en prod**
+(credentials publiquement documentes, vecteur d'attaque trivial) :
+
+| Email                  | Password seed | Role         |
+|------------------------|---------------|--------------|
+| `admin@fursa.test`     | `admin123`    | ADMIN        |
+| `investor1@fursa.test` | `password123` | INVESTISSEUR |
+| `investor2@fursa.test` | `password123` | INVESTISSEUR |
+| `investor3@fursa.test` | `password123` | INVESTISSEUR |
+
 ```bash
 docker exec -it fursa-db psql -U postgres -d fursa <<'SQL'
-DELETE FROM users WHERE email IN (
-  'admin@fursa.test',
-  'investor1@fursa.test',
-  'investor2@fursa.test',
-  'investor3@fursa.test'
-);
+-- Cascade dans l'ordre pour eviter les FK violations
+DELETE FROM transaction WHERE id_paie IN (SELECT id_paie FROM paiement WHERE id_inv IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test'));
+DELETE FROM paiement    WHERE id_inv IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM notification WHERE id_inv IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM dividende    WHERE id_inv IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM possession   WHERE id_inv IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM annonce      WHERE id_inv IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM investisseur WHERE id_user IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM admin        WHERE id_user IN (SELECT id_user FROM users WHERE email LIKE '%@fursa.test');
+DELETE FROM users        WHERE email LIKE '%@fursa.test';
 SQL
 ```
 
@@ -80,29 +94,46 @@ ne leve pas d'exception, et que `/api/health` retourne 200.
 
 ### 7. Smoke tests
 
+Script automatise :
+
+```bash
+bash scripts/smoke-test.sh https://api.fursas.duckdns.org tiomelajorel@gmail.com jorel2026
+# => 66/66 tests passants
+```
+
+Verification manuelle rapide :
+
 ```bash
 # Health public
 curl -s https://api.fursas.duckdns.org/api/health
 # => {"status":"UP"}
 
-# Register d'un vrai investisseur
-curl -sX POST https://api.fursas.duckdns.org/api/user/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"founder@fursas.com","password":"Changeme2026","nom":"Founder","prenom":"Admin","telephone":"+237600000000"}'
-
-# Login
+# Login du compte admin actuel de la prod
 TOKEN=$(curl -sX POST https://api.fursas.duckdns.org/api/user/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"founder@fursas.com","password":"Changeme2026"}' | jq -r .token)
+  -d '{"email":"tiomelajorel@gmail.com","password":"jorel2026"}' | jq -r .token)
 
-# Ne PEUT PAS distribuer (role=INVESTISSEUR par defaut) -> 403 attendu
-curl -si -X POST https://api.fursas.duckdns.org/api/distribution/1 \
-  -H "Authorization: Bearer ${TOKEN}" | head -n 1
-# => HTTP/2 403
+# Dashboard admin (confirme le role ADMIN)
+curl -s -H "Authorization: Bearer ${TOKEN}" https://api.fursas.duckdns.org/api/dashboard/admin
+```
 
-# Promouvoir manuellement cet utilisateur en ADMIN via DB (une seule fois) :
+### Creer un autre admin (facultatif)
+
+Spring ne permet pas l'auto-promotion en ADMIN par API (securite). Procedure :
+
+```bash
+# 1. L'utilisateur s'inscrit normalement (role=INVESTISSEUR par defaut)
+curl -sX POST https://api.fursas.duckdns.org/api/user/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"newadmin@fursas.com","password":"ChooseStrong2026","nom":"Admin","prenom":"Two","telephone":"+237600000001"}'
+
+# 2. Promotion manuelle par un admin existant via DB (one-shot)
 docker exec -it fursa-db psql -U postgres -d fursa \
-  -c "UPDATE users SET role='ADMIN' WHERE email='founder@fursas.com';"
+  -c "UPDATE users SET role='ADMIN' WHERE email='newadmin@fursas.com';"
+docker exec -it fursa-db psql -U postgres -d fursa \
+  -c "UPDATE investisseur SET is_verified=true WHERE id_user=(SELECT id_user FROM users WHERE email='newadmin@fursas.com');"
+
+# 3. L'utilisateur doit se relogger pour avoir un nouveau token avec le role ADMIN.
 ```
 
 ---
