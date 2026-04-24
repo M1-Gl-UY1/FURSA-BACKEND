@@ -1,7 +1,8 @@
 package com.fursa.fursa_backend.controller;
 
-import com.fursa.fursa_backend.model.Dividende;
+import com.fursa.fursa_backend.dto.DividendeResponse;
 import com.fursa.fursa_backend.service.DistributionService;
+import com.fursa.fursa_backend.service.DividendeQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -23,6 +24,7 @@ import java.util.List;
 public class DistributionController {
 
     private final DistributionService distributionService;
+    private final DividendeQueryService dividendeQuery;
 
     @Operation(
             summary = "Distribuer un revenu",
@@ -39,7 +41,8 @@ public class DistributionController {
     })
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{revenuId}")
-    public ResponseEntity<List<Dividende>> distribuer(@PathVariable Long revenuId) {
-        return ResponseEntity.ok(distributionService.distribuer(revenuId));
+    public ResponseEntity<List<DividendeResponse>> distribuer(@PathVariable Long revenuId) {
+        distributionService.distribuer(revenuId);
+        return ResponseEntity.ok(dividendeQuery.listerPourRevenu(revenuId));
     }
 }

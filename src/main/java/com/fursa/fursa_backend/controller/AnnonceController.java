@@ -47,10 +47,15 @@ public class AnnonceController {
                 .body(annonceService.creer(authInvestisseur.currentId(), request));
     }
 
-    @Operation(summary = "Lister les annonces OUVERTE", description = "Marche secondaire : toutes les annonces en cours.")
+    @Operation(
+            summary = "Lister les annonces OUVERTE (paginee)",
+            description = "Marche secondaire : annonces en cours. Supporte ?page=0&size=20&sort=prixUnitaireDemande,asc.")
     @GetMapping
-    public ResponseEntity<List<AnnonceResponse>> listerOuvertes() {
-        return ResponseEntity.ok(annonceService.listerOuvertes());
+    public ResponseEntity<org.springframework.data.domain.Page<AnnonceResponse>> listerOuvertes(
+            @org.springframework.data.web.PageableDefault(size = 20, sort = "id",
+                    direction = org.springframework.data.domain.Sort.Direction.DESC)
+            org.springframework.data.domain.Pageable pageable) {
+        return ResponseEntity.ok(annonceService.listerOuvertesPaginees(pageable));
     }
 
     @Operation(summary = "Mes annonces", description = "Toutes les annonces publiees par l'investisseur connecte (tous statuts).")

@@ -81,6 +81,11 @@ public class AnnonceService {
         return annonceRepository.findByStatut(StatutAnnonce.OUVERTE).stream().map(this::toResponse).toList();
     }
 
+    public org.springframework.data.domain.Page<AnnonceResponse> listerOuvertesPaginees(
+            org.springframework.data.domain.Pageable pageable) {
+        return annonceRepository.findByStatut(StatutAnnonce.OUVERTE, pageable).map(this::toResponse);
+    }
+
     public List<AnnonceResponse> listerParVendeur(Long vendeurId) {
         return annonceRepository.findByInvestisseurId(vendeurId).stream().map(this::toResponse).toList();
     }
