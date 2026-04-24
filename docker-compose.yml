@@ -5,7 +5,7 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-fursa}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?required}
     volumes:
       - fursa-db-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -27,10 +27,10 @@ services:
       # Datasource
       - DB_URL=jdbc:postgresql://fursa-db:5432/${POSTGRES_DB:-fursa}
       - DB_USERNAME=${POSTGRES_USER:-postgres}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?required}
       # JWT : OBLIGATOIRE, pas de defaut, au moins 32 caracteres.
       # Generer avec : openssl rand -base64 48
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required (min 32 chars, use: openssl rand -base64 48)}
+      - JWT_SECRET=${JWT_SECRET:?required_min_32_chars}
       - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-86400000}
       # CORS : liste separee par virgules, pas d'etoile en prod.
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
