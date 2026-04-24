@@ -1,7 +1,13 @@
 # FURSA Backend - API REST
 
 Plateforme d'investissement immobilier fractionne en Afrique (Zanzibar, Tanzanie).
-Backend Spring Boot couvrant authentification JWT, catalogue immobilier, marche primaire (achat de parts), marche secondaire (revente entre investisseurs), distribution de dividendes et notifications.
+Backend Spring Boot couvrant authentification JWT, catalogue immobilier, marche
+primaire (achat de parts), marche secondaire (revente entre investisseurs),
+distribution de dividendes, notifications, dashboard et administration.
+
+**Production** : `https://api.fursas.duckdns.org`
+**Swagger UI** : `https://api.fursas.duckdns.org/swagger-ui`
+**Status** : 48 endpoints, 49 tests unitaires verts, 66/66 smoke tests.
 
 ---
 
@@ -12,51 +18,47 @@ Backend Spring Boot couvrant authentification JWT, catalogue immobilier, marche 
 | Backend         | Java 21 / Spring Boot 4.0.5          |
 | Base de donnees | PostgreSQL 16                        |
 | ORM             | Hibernate / JPA                      |
-| Securite        | Spring Security + JWT (JJWT 0.11.5)  |
+| Securite        | Spring Security + JWT (JJWT 0.11.5) + Method Security |
+| Rate limiting   | Bucket4j 8.14 (in-memory)            |
 | API docs        | SpringDoc OpenAPI 2.8.14 (Swagger UI)|
+| Monitoring      | Spring Actuator + Micrometer Prometheus |
 | Build           | Maven                                |
 | Tests           | JUnit 5 + Mockito                    |
-
----
-
-## Prerequis
-
-- Java 21 (JDK)
-- PostgreSQL 16 (ou utiliser `docker compose`)
+| CI/CD           | GitHub Actions -> SSH -> Docker Compose |
 
 ---
 
 ## Lancement local
 
-### Option 1 : Docker (recommande)
-
 ```bash
+cp .env.example .env            # puis remplir POSTGRES_PASSWORD et JWT_SECRET
 docker compose up -d --build
 ```
 
-Demarre 2 containers :
-- `fursa-db` : PostgreSQL 16 (volume persistant `fursa-db-data`)
-- `fursa-backend` : API Spring Boot (port 8081)
+- `fursa-db` : PostgreSQL 16
+- `fursa-backend` : API sur port 8081
+- Profil Spring : `dev` par defaut (ddl-auto=update, DataSeeder actif, logs DEBUG)
 
-Pour repartir d'une DB vierge (re-execution du seed) : `docker compose down -v`.
+Pour repartir d'une DB vierge : `docker compose down -v`.
 
-### Option 2 : Maven
+### Sans Docker
 
 ```bash
-createdb fursa   # ou via psql
+createdb fursa
+export JWT_SECRET="$(openssl rand -base64 48)"
+export POSTGRES_PASSWORD=scorp
 ./mvnw spring-boot:run
 ```
 
-L'API demarre sur **http://localhost:8081**.
-Swagger UI : **http://localhost:8081/swagger-ui**.
+L'API : **http://localhost:8081** - Swagger : **http://localhost:8081/swagger-ui**
 
 ---
 
 ## Production
 
-- API : **https://api.fursas.duckdns.org**
-- VPS Contabo Ubuntu 24.04, Docker + Nginx reverse proxy + Let's Encrypt (auto-renew via `certbot.timer`)
-- CI/CD : GitHub Actions, push sur `main` -> deploiement automatique (`.github/workflows/deploy.yml`)
+**Deploiement** : push sur `main` -> GitHub Actions -> SSH VPS -> `docker compose up -d --build`.
+Voir `DEPLOYMENT.md` pour la procedure complete de bascule en profil `prod`, la
+generation des secrets, la rotation JWT et le backup DB.
 
 ---
 
@@ -64,29 +66,30 @@ Swagger UI : **http://localhost:8081/swagger-ui**.
 
 ```
 src/main/java/com/fursa/fursa_backend/
-├── config/                    # SecurityConfig, JwtUtils
-├── controller/
-│   ├── HealthController             # GET /api/health (public)
-│   ├── UserController               # auth (register, login) + CRUD user
-│   ├── ProprieteController          # CRUD proprietes│   ├── FileController               # upload documents│   ├── MarchePrimaireController     # achat primaire + consultations│   ├── AnnonceController            # CRUD annonces│   ├── MarcheSecondaireController   # achat d'une annonce│   ├── NotificationController       # consult + mark-read│   └── DistributionController       # distribution dividendes├── dto/                       # records / POJOs de Request/Response
-├── exception/GlobalExceptionHandler
-├── filter/JwtFilter
+├── config/
+│   ├── SecurityConfig              # chaine de filtres, CORS, method security
+│   ├── CorsConfig                  # origines autorisees (env CORS_ALLOWED_ORIGINS)
+│   ├── OpenApiConfig               # titre, description, Bearer auth Swagger
+│   ├── JwtUtils                    # generation et validation des tokens
+│   └── LoginRateLimiter            # 5 tentatives / minute / (email+IP)
+├── filter/
+│   ├── JwtFilter                   # extrait le Bearer, peuple SecurityContext
+│   └── RequestIdFilter             # MDC requestId pour correlation des logs
+├── controller/                     # 10 controllers, 48 endpoints
+├── dto/                            # records Request/Response
+├── exception/GlobalExceptionHandler # codes HTTP coherents (404, 400, 403, 409, 413, 415, 429)
 ├── mapper/ProprieteMapper
-├── model/                     # entites JPA (User, Investisseur, Admin, Propriete,
-│                              #  Paiement, Transaction, Possession, Annonce,
-│                              #  Notification, Revenus, Dividende, Document)
-│   └── enumeration/           # StatutXxx, TypeXxx, Role, Devise
-├── repository/                # JpaRepository pour chaque entite metier
+├── model/                          # entites JPA
+│   └── enumeration/                # StatutXxx, TypeXxx, Role, TypeOperation
+├── repository/                     # JpaRepository par entite
 ├── service/
-│   ├── CustomUserService              # UserDetailsService pour Spring Security
-│   ├── AuthenticatedInvestisseurService  # helper pour recuperer l'investisseur courant
-│   ├── FileStorageService
-│   ├── ProprieteService
-│   ├── MarchePrimaireService
-│   ├── AnnonceService
-│   ├── NotificationService
-│   └── DistributionServiceImpl
-├── seed/DataSeeder            # donnees de demarrage
+│   ├── CustomUserService           # UserDetailsService
+│   ├── AuthenticatedInvestisseurService # helper pour l'utilisateur courant
+│   ├── ProprieteService, FileStorageService
+│   ├── MarchePrimaireService, AnnonceService, NotificationService
+│   ├── RevenuService, DistributionServiceImpl, DividendeQueryService
+│   └── DashboardService
+├── seed/DataSeeder                 # @Profile("!prod")
 └── FursaBackendApplication.java
 ```
 
@@ -94,187 +97,269 @@ src/main/java/com/fursa/fursa_backend/
 
 ## Authentification
 
-Tous les endpoints sont proteges par JWT, sauf :
+Tous les endpoints sont proteges par JWT sauf :
 - `POST /api/user/auth/register`, `POST /api/user/auth/login`
-- `GET /api/health`
+- `GET /api/health`, `GET /actuator/health`, `/actuator/info`, `/actuator/prometheus`
 - `/swagger-ui/**`, `/v3/api-docs/**`
 
-### 1. S'inscrire ou se connecter
+### Obtenir un token
 
 ```bash
 curl -X POST https://api.fursas.duckdns.org/api/user/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "investor1@fursa.test", "password": "password123"}'
-# => { "token": "eyJhbGciOi..." }
+  -d '{"email":"tiomelajorel@gmail.com","password":"jorel2026"}'
+# => { "token": "eyJhbGciOi...", "type": "Bearer" }
 ```
 
-### 2. Utiliser le token
+### Utiliser le token
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://api.fursas.duckdns.org/api/annonces
+curl -H "Authorization: Bearer <token>" https://api.fursas.duckdns.org/api/user/me
 ```
 
-Le `id` de l'investisseur courant est extrait du JWT par `AuthenticatedInvestisseurService`. Les endpoints `POST /acheter`, `POST /annonces`, `DELETE /annonces/{id}` n'acceptent **plus** d'id de vendeur/acheteur dans le body : ils l'obtiennent du token.
+Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
+(sans le prefixe `Bearer`).
+
+### Regles de securite
+
+- **Injection impossible** : `RegisterRequest` (record) filtre les champs ; `role` et
+  `isVerified` sont forces cote serveur (`INVESTISSEUR` / `false`).
+- **Password policy** : min 8 caracteres, au moins une lettre + un chiffre.
+- **Rate limit login** : 5 tentatives/minute par `(email, IP)`, 429 au-dela.
+- **Self-or-admin** sur `GET/PUT/DELETE /api/user/{id}` via SpEL.
+- **`@PreAuthorize("hasRole('ADMIN')")`** sur tous les endpoints admin.
+- **JWT secret obligatoire** : fail-fast au demarrage si `JWT_SECRET` manque ou < 32 octets.
+- **Upload** : max 10 MB, whitelist MIME (`pdf`, `jpg`, `jpeg`, `png`, `webp`).
+- **Optimistic locking** (`@Version`) sur `Propriete`, `Annonce`, `Possession`
+  pour prevenir les race conditions d'achat concurrent.
+- **CORS** : origines explicites via `CORS_ALLOWED_ORIGINS` (jamais `*`).
 
 ---
 
-## Endpoints
+## Endpoints (48)
 
-### Auth
-| Methode | Chemin                          | Public | Description                      |
-|---------|---------------------------------|--------|----------------------------------|
-| POST    | `/api/user/auth/register`       | oui    | Creer un compte investisseur     |
-| POST    | `/api/user/auth/login`          | oui    | Obtenir un JWT                   |
-| GET     | `/api/user/...`                 | non    | Gestion des utilisateurs (admin) |
+### Auth (public)
+| Methode | Chemin                      |
+|---------|-----------------------------|
+| POST    | `/api/user/auth/register`   |
+| POST    | `/api/user/auth/login`      |
 
-### Proprietes
-| Methode | Chemin                          | Description                       |
-|---------|---------------------------------|-----------------------------------|
-| POST    | `/api/proprietes`               | Creer une propriete (admin)       |
-| GET     | `/api/proprietes`               | Lister les proprietes             |
-| GET     | `/api/proprietes/{id}`          | Detail d'une propriete            |
-| PUT     | `/api/proprietes/{id}`          | Modifier (admin)                  |
-| DELETE  | `/api/proprietes/{id}`          | Supprimer (admin)                 |
-| POST    | `/api/files`                    | Upload document (admin)           |
+### Utilisateurs
+| Methode | Chemin                          | Acces           |
+|---------|---------------------------------|-----------------|
+| GET     | `/api/user/me`                  | authentifie     |
+| GET     | `/api/user/{id}`                | self ou admin   |
+| PUT     | `/api/user/update/{id}`         | self ou admin   |
+| DELETE  | `/api/user/delete/{id}`         | self ou admin   |
+| GET     | `/api/user`                     | **admin**       |
+| POST    | `/api/user/{id}/valider`        | **admin**       |
+
+### Proprietes & Fichiers
+| Methode | Chemin                                        | Acces      |
+|---------|-----------------------------------------------|------------|
+| GET     | `/api/proprietes/public`                      | authentifie|
+| GET     | `/api/proprietes/public/{id}`                 | authentifie|
+| GET     | `/api/proprietes/public/{id}/progression`     | authentifie|
+| POST    | `/api/proprietes/admin` (multipart)           | **admin**  |
+| PUT     | `/api/proprietes/admin/{id}` (multipart)      | **admin**  |
+| POST    | `/api/proprietes/admin/{id}/publier`          | **admin**  |
+| DELETE  | `/api/proprietes/admin/{id}`                  | **admin**  |
+| GET     | `/api/fichiers/{fileName}`                    | authentifie|
 
 ### Marche primaire
-| Methode | Chemin                                       | Description                                       |
-|---------|----------------------------------------------|---------------------------------------------------|
-| POST    | `/api/marche-primaire/acheter`               | Acheter des parts (acheteur = JWT)                |
-| GET     | `/api/marche-primaire/me/possessions`        | Mon portefeuille                                  |
-| GET     | `/api/marche-primaire/me/transactions`       | Mes transactions                                  |
-| GET     | `/api/marche-primaire/me/paiements`          | Mes paiements                                     |
-| GET     | `/api/marche-primaire/possessions`           | Toutes les possessions (admin)                    |
-| GET     | `/api/marche-primaire/possessions/{invId}`   | Portefeuille d'un investisseur (admin)            |
-| GET     | `/api/marche-primaire/transactions`          | Toutes les transactions (admin)                   |
-| GET     | `/api/marche-primaire/transactions/{invId}`  | Historique d'un investisseur (admin)              |
-| GET     | `/api/marche-primaire/paiements`             | Tous les paiements (admin)                        |
-| GET     | `/api/marche-primaire/paiements/{invId}`     | Paiements d'un investisseur (admin)               |
-
-**Body `POST /acheter` :**
-```json
-{ "proprieteId": 1, "nombreParts": 5 }
-```
+| Methode | Chemin                                        | Acces           |
+|---------|-----------------------------------------------|-----------------|
+| POST    | `/api/marche-primaire/acheter`                | authentifie     |
+| GET     | `/api/marche-primaire/me/{possessions,transactions,paiements}` | authentifie |
+| GET     | `/api/marche-primaire/{possessions,transactions,paiements}`    | **admin**   |
+| GET     | `/api/marche-primaire/{possessions,transactions,paiements}/{investisseurId}` | **admin** |
 
 ### Marche secondaire
-| Methode | Chemin                                              | Description                                            |
-|---------|-----------------------------------------------------|--------------------------------------------------------|
-| POST    | `/api/annonces`                                     | Publier une annonce (vendeur = JWT)                    |
-| GET     | `/api/annonces`                                     | Lister les annonces OUVERTE                            |
-| GET     | `/api/annonces/me`                                  | Mes annonces                                           |
-| GET     | `/api/annonces/vendeur/{id}`                        | Annonces d'un investisseur                             |
-| GET     | `/api/annonces/{id}`                                | Detail                                                 |
-| DELETE  | `/api/annonces/{id}`                                | Annuler (vendeur = JWT)                                |
-| POST    | `/api/marche-secondaire/annonces/{id}/acheter`      | Acheter une annonce (acheteur = JWT)                   |
-
-**Body `POST /annonces` :**
-```json
-{ "proprieteId": 1, "nombreDePartsAVendre": 30, "prixUnitaireDemande": 120.00 }
-```
-
-**Body `POST /marche-secondaire/.../acheter` :**
-```json
-{ "nombreDeParts": 10 }
-```
-
-Cote metier : transfert de possession (suppression si 0, creation si nouvelle), creation `Paiement` + `Transaction` avec hash UUID, decrement de l'annonce (`COMPLETEE` quand epuisee), notifications envoyees au vendeur et a l'acheteur.
+| Methode | Chemin                                                 | Acces      |
+|---------|--------------------------------------------------------|------------|
+| POST    | `/api/annonces`                                        | authentifie|
+| GET     | `/api/annonces` (paginee)                              | authentifie|
+| GET     | `/api/annonces/me`                                     | authentifie|
+| GET     | `/api/annonces/vendeur/{id}`                           | authentifie|
+| GET     | `/api/annonces/{id}`                                   | authentifie|
+| PUT     | `/api/annonces/{id}`                                   | vendeur    |
+| DELETE  | `/api/annonces/{id}`                                   | vendeur    |
+| POST    | `/api/marche-secondaire/annonces/{id}/acheter`         | authentifie|
 
 ### Notifications
-| Methode | Chemin                                              | Description                              |
-|---------|-----------------------------------------------------|------------------------------------------|
-| GET     | `/api/notifications/me`                             | Mes notifications (`?nonLuesSeulement=true`) |
-| GET     | `/api/notifications/investisseur/{id}`              | Notifications d'un investisseur (admin)   |
-| PUT     | `/api/notifications/{id}/lu`                        | Marquer comme lue                        |
+| Methode | Chemin                                 | Acces      |
+|---------|----------------------------------------|------------|
+| GET     | `/api/notifications/me`                | authentifie|
+| PUT     | `/api/notifications/me/lu-tout`        | authentifie|
+| PUT     | `/api/notifications/{id}/lu`           | authentifie|
+| GET     | `/api/notifications/investisseur/{id}` | **admin**  |
 
-### Dividendes
-| Methode | Chemin                              | Description                                             |
-|---------|-------------------------------------|---------------------------------------------------------|
-| POST    | `/api/distribution/{revenuId}`      | Distribuer au prorata des possessions (admin)           |
+### Revenus
+| Methode | Chemin                            | Acces      |
+|---------|-----------------------------------|------------|
+| POST    | `/api/revenus`                    | **admin**  |
+| GET     | `/api/revenus`                    | authentifie|
+| GET     | `/api/revenus/{id}`               | authentifie|
+| GET     | `/api/revenus/propriete/{id}`     | authentifie|
 
-Chaque dividende est persiste avec `montantCalcule`, `dateDistribution`, `statut = VALIDE`, `hashTransaction = UUID`.
+### Distribution & Dividendes
+| Methode | Chemin                                     | Acces      |
+|---------|--------------------------------------------|------------|
+| POST    | `/api/distribution/{revenuId}`             | **admin**  |
+| GET     | `/api/dividendes/me`                       | authentifie|
+| GET     | `/api/dividendes/revenu/{id}`              | authentifie|
+| GET     | `/api/dividendes/investisseur/{id}`        | **admin**  |
+| GET     | `/api/dividendes`                          | **admin**  |
 
-### Documentation interactive
+### Dashboard
+| Methode | Chemin                                     | Acces      |
+|---------|--------------------------------------------|------------|
+| GET     | `/api/dashboard/me`                        | authentifie|
+| GET     | `/api/dashboard/investisseur/{id}`         | **admin**  |
+| GET     | `/api/dashboard/admin`                     | **admin**  |
 
-- **Swagger UI** : `https://api.fursas.duckdns.org/swagger-ui`
-- **OpenAPI JSON** : `https://api.fursas.duckdns.org/v3/api-docs`
+### Infra & Monitoring
+| Methode | Chemin                     | Acces  |
+|---------|----------------------------|--------|
+| GET     | `/api/health`              | public |
+| GET     | `/actuator/health`         | public |
+| GET     | `/actuator/info`           | public |
+| GET     | `/actuator/metrics`        | authentifie |
+| GET     | `/actuator/prometheus`     | public |
+| GET     | `/swagger-ui`              | public |
+| GET     | `/v3/api-docs`             | public |
 
 ---
 
-## Donnees de test (Seed)
+## Donnees de seed (profil dev/non-prod uniquement)
 
-Au premier demarrage sur une DB vierge, `DataSeeder` insere :
+Au premier demarrage sur une DB vierge avec `SPRING_PROFILES_ACTIVE != prod`,
+`DataSeeder` insere :
 
-### Investisseurs (mot de passe `password123`, BCrypt)
+### Comptes (password = `password123`, BCrypt)
 
-| ID | Email                  | Nom affiche       |
-|----|------------------------|-------------------|
-| 1  | investor1@fursa.test   | Demo Investor One |
-| 2  | investor2@fursa.test   | Demo Investor Two |
-| 3  | investor3@fursa.test   | Demo Investor Three |
+| Email                  | Role         |
+|------------------------|--------------|
+| admin@fursa.test       | ADMIN        |
+| investor1@fursa.test   | INVESTISSEUR |
+| investor2@fursa.test   | INVESTISSEUR |
+| investor3@fursa.test   | INVESTISSEUR |
 
 ### Proprietes
 
 | ID | Nom                       | Parts | Prix/Part | Rentabilite |
 |----|---------------------------|-------|-----------|-------------|
-| 1  | Fumba Town Villa          | 1000 (840 dispo) | 100.00 | 8.5%  |
+| 1  | Fumba Town Villa          | 1000  | 100.00    | 8.5%        |
 | 2  | Paje Squares Apartment    | 500   | 200.00    | 10.0%       |
 | 3  | Stone Town Heritage House | 300   | 150.00    | 12.0%       |
 
-### Autres
+Plus : 2 possessions pre-existantes sur Fumba (investor2: 100 parts, investor1: 60),
+1 revenu de 5000 EUR, 1 annonce ouverte.
 
-- 2 possessions sur Fumba Villa : investor2 = 100 parts, investor1 = 60 parts
-- 1 revenu de 5000 EUR sur Fumba Villa (pret pour `POST /api/distribution/1`)
-- 1 annonce ouverte : investor2 vend 30 parts a 120 EUR (pret pour l'achat par investor3)
+**Aucun seed n'est execute en profil `prod`** (`@Profile("!prod")`).
 
 ---
 
 ## Tests
 
+### Tests unitaires + integration Spring Boot
+
 ```bash
 ./mvnw test
+# => 49 tests : AnnonceService (11), ProprieteController (9), ProprieteService (11),
+#    FileStorageService (7), DistributionService (5), NotificationService (5),
+#    FursaBackendApplicationTests (1)
 ```
 
-Suite complete : **49 tests** repartis sur tous les modules.
+### Smoke tests bout-en-bout contre la prod
+
+```bash
+bash scripts/smoke-test.sh
+# ou autre environnement/admin :
+bash scripts/smoke-test.sh https://staging.example.com admin@x.com password
+```
+
+66 tests couvrant 13 modules. Voir `TEST_PLAN.md` pour la matrice complete.
 
 ---
 
-## Configuration (`src/main/resources/application.yaml`)
+## Configuration
 
-```yaml
-server:
-  port: 8081
+### Variables d'environnement (docker-compose `.env`)
 
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/fursa
-    username: postgres
-    password: scorp             # override via env POSTGRES_PASSWORD en Docker
-  jpa:
-    hibernate.ddl-auto: update
-    show-sql: true
-
-app:
-  secret-key: ${JWT_SECRET:dev-only-secret-change-me-in-prod-min-32-chars-long-for-hs256}
-  expiration-time: 86400000     # 24h
-
-springdoc:
-  swagger-ui.path: /swagger-ui
-  api-docs.path: /v3/api-docs
+```env
+SPRING_PROFILES_ACTIVE=prod          # dev | prod
+POSTGRES_DB=fursa
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<obligatoire>
+JWT_SECRET=<obligatoire, min 32 octets>
+JWT_EXPIRATION_MS=86400000
+CORS_ALLOWED_ORIGINS=https://app.fursas.duckdns.org,http://localhost:3000
 ```
 
-En prod, `JWT_SECRET` doit etre surcharge via variable d'environnement (container Docker).
+### Profils Spring
+
+| Propriete            | dev          | prod                |
+|----------------------|--------------|---------------------|
+| `ddl-auto`           | update       | **validate**        |
+| `show-sql`           | true         | false               |
+| `sql.init.mode`      | always       | never               |
+| `DataSeeder`         | actif        | **desactive**       |
+| Logs `com.fursa`     | DEBUG        | INFO                |
+| Logs Security        | DEBUG        | WARN                |
+
+---
+
+## Observabilite
+
+- **Logs correles** : chaque ligne porte `[requestId=<uuid>]` via `RequestIdFilter` + MDC.
+  Le `X-Request-Id` fourni par un reverse proxy est reutilise sinon un UUID est genere.
+- **Metriques Prometheus** : `/actuator/prometheus` expose `http_server_requests_*`,
+  `jvm_memory_*`, `hikaricp_*`, `jdbc_connections_*`.
+- **Health probes** : `/actuator/health/liveness`, `/actuator/health/readiness`.
+
+---
+
+## Gestion d'erreurs
+
+`GlobalExceptionHandler` mappe les exceptions en codes HTTP coherents et
+un body JSON uniforme :
+
+```json
+{
+  "timestamp": "2026-04-24T02:47:12.123Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation echouee",
+  "fieldErrors": { "email": "doit etre une adresse email valide" }
+}
+```
+
+| Exception                               | Code |
+|-----------------------------------------|------|
+| `EntityNotFoundException`               | 404  |
+| `IllegalArgumentException`              | 400  |
+| `IllegalStateException`                 | 400  |
+| `MethodArgumentNotValidException`       | 400 (+ fieldErrors) |
+| `AccessDeniedException`                 | 403  |
+| `OptimisticLockingFailureException`     | 409  |
+| `DataIntegrityViolationException`       | 409  |
+| `MaxUploadSizeExceededException`        | 413  |
+| `MultipartException`                    | 400  |
+| `HttpMediaTypeNotSupportedException`    | 415  |
+| `Exception` / `RuntimeException`        | 500 (stacktrace loggee, pas exposee) |
 
 ---
 
 ## Modules du projet
 
-| Module                                          | Branche d'origine                      |
-|-------------------------------------------------|----------------------------------------|
-| Securite & Utilisateurs (JWT + Spring Security) | `feature/authentication`               |
-| Catalogue & Fichiers (CRUD Propriete + upload)  | `feature/crud-propriete`               |
-| Marche Primaire & Transactions                  | `feat/module_transactions`             |
-| Marche Secondaire & Notifications               | PR #1 (`feature/secondary-market`)     |
-| Rendement & Structure globale (dividendes)      | `feature/dividend-calculation`         |
+| Module                                              | Branche d'origine                  |
+|-----------------------------------------------------|------------------------------------|
+| Securite & Utilisateurs (JWT + Spring Security)     | `feature/authentication`           |
+| Catalogue & Fichiers (CRUD Propriete + upload)      | `feature/crud-propriete`           |
+| Marche Primaire & Transactions                      | `feat/module_transactions`         |
+| Marche Secondaire & Notifications                   | PR #1 (`feature/secondary-market`) |
+| Rendement & Structure globale (dividendes + OpenAPI)| `feature/dividend-calculation`     |
 
 ---
 
@@ -282,12 +367,20 @@ En prod, `JWT_SECRET` doit etre surcharge via variable d'environnement (containe
 
 Workflow : `.github/workflows/deploy.yml` - declencheur : push sur `main`.
 
-Etapes :
 1. `actions/checkout@v5`
-2. SSH vers le VPS avec la cle `koursa_deploy`
-3. `git fetch + reset --hard FETCH_HEAD` (auth via `GITHUB_TOKEN`)
+2. SSH vers le VPS avec `VPS_SSH_KEY` (secret GitHub)
+3. `git fetch + reset --hard` (auth via `GITHUB_TOKEN`)
 4. `docker compose build fursa-backend && docker compose up -d`
 5. `docker image prune -f`
-6. Verification : `curl https://.../api/health` doit retourner 200
+6. Health check : `curl https://.../api/health` attendu 200
 
 Secrets GitHub requis : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
+
+---
+
+## Fichiers de reference
+
+- `DEPLOYMENT.md` - procedure de bascule prod, generation secrets, rotation JWT, backup DB
+- `TEST_PLAN.md` - matrice des 66 tests automatises + tests hors scope (charge, UX)
+- `scripts/smoke-test.sh` - script bash exécutable, utilisable en CI ou manuel
+- `diagrammes/` - MCD, MLD, diagrammes de sequence, UC
