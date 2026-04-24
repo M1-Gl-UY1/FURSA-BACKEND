@@ -5,10 +5,15 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-fursa}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - fursa-db-data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fursa}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   fursa-backend:
     build: .
@@ -16,11 +21,22 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://fursa-db:5432/${POSTGRES_DB:-fursa}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER:-postgres}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      # Profil Spring : mettre 'prod' pour activer application-prod.yaml
+      # (ddl-auto=validate, show-sql=false, pas de DataSeeder, logs INFO).
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-dev}
+      # Datasource
+      - DB_URL=jdbc:postgresql://fursa-db:5432/${POSTGRES_DB:-fursa}
+      - DB_USERNAME=${POSTGRES_USER:-postgres}
+      - DB_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      # JWT : OBLIGATOIRE, pas de defaut, au moins 32 caracteres.
+      # Generer avec : openssl rand -base64 48
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required (min 32 chars, use: openssl rand -base64 48)}
+      - JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS:-86400000}
+      # CORS : liste separee par virgules, pas d'etoile en prod.
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     depends_on:
-      - fursa-db
+      fursa-db:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
