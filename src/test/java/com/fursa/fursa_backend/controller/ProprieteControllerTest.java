@@ -159,7 +159,7 @@ class ProprieteControllerTest {
     @Test
     void getOne_idInexistant_doitRetourner404() throws Exception {
         when(proprieteService.detail(99L))
-                .thenThrow(new RuntimeException("Propriété introuvable : 99"));
+                .thenThrow(new jakarta.persistence.EntityNotFoundException("Propriete introuvable : 99"));
 
         mockMvc.perform(get("/api/proprietes/public/99"))
                 .andExpect(status().isNotFound());
@@ -202,7 +202,7 @@ class ProprieteControllerTest {
 
     @Test
     void supprimer_idInexistant_doitRetourner404() throws Exception {
-        doThrow(new RuntimeException("Propriété introuvable : 99"))
+        doThrow(new jakarta.persistence.EntityNotFoundException("Propriete introuvable : 99"))
                 .when(proprieteService).supprimer(99L);
 
         mockMvc.perform(delete("/api/proprietes/admin/99"))

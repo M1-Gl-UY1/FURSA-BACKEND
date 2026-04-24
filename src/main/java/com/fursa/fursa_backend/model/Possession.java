@@ -26,4 +26,7 @@ public class Possession {
     @ManyToOne
     @JoinColumn(name = "id_inv")
     private Investisseur investisseur;
+
+    @Version
+    private Long version;
 }

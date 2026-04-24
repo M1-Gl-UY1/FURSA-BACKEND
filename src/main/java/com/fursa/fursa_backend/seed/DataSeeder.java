@@ -16,6 +16,7 @@ import com.fursa.fursa_backend.repository.PossessionRepository;
 import com.fursa.fursa_backend.repository.ProprieteRepository;
 import com.fursa.fursa_backend.repository.RevenusRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -23,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Component
+@Profile("!prod")
 public class DataSeeder implements CommandLineRunner {
 
     private final ProprieteRepository proprieteRepository;

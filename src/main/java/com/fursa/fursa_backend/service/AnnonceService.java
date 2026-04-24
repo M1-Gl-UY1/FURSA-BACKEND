@@ -203,7 +203,7 @@ public class AnnonceService {
 
         Transaction transaction = new Transaction();
         transaction.setPaiement(paiement);
-        transaction.setTypeOperation("VENTE_SECONDAIRE");
+        transaction.setTypeOperation(com.fursa.fursa_backend.model.enumeration.TypeOperation.VENTE_SECONDAIRE);
         transaction.setNombreParts(nbDemande);
         transaction.setMontant(montantTotal);
         transaction.setDateTransaction(LocalDateTime.now());

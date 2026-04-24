@@ -48,7 +48,7 @@ public class ProprieteService {
     public Propriete modifierPropriete(Long id, ProprieteRequest request, List<MultipartFile> fichiers) {
 
         Propriete propriete = proprieteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Propriété introuvable : " + id));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
 
         // Mise à jour des champs
         propriete.setNom(request.getNom());
@@ -71,13 +71,13 @@ public class ProprieteService {
 
     public Propriete detail(Long id) {
         return proprieteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Propriété introuvable : " + id));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
     }
 
     @Transactional
     public Propriete publier(Long id) {
         Propriete propriete = proprieteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Propriete introuvable : " + id));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
         if (propriete.getStatut() == StatutPropriete.PUBLIEE) {
             return propriete;
         }
@@ -87,7 +87,7 @@ public class ProprieteService {
 
     public ProgressionResponse progression(Long id) {
         Propriete p = proprieteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Propriete introuvable : " + id));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
         int total = p.getNombreTotalPart() == null ? 0 : p.getNombreTotalPart();
         int dispo = p.getPartsDisponibles() == null ? 0 : p.getPartsDisponibles();
         int vendues = total - dispo;
@@ -98,7 +98,7 @@ public class ProprieteService {
     @Transactional
 public void supprimer(Long id) {
     Propriete propriete = proprieteRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Propriété introuvable : " + id));
+            .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
 
     // Supprime les fichiers physiques avant de supprimer en base
     if (propriete.getDocuments() != null) {

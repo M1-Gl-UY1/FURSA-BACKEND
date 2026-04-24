@@ -34,4 +34,7 @@ public class Annonce {
     @ManyToOne
     @JoinColumn(name = "id_prop")
     private Propriete propriete;
+
+    @Version
+    private Long version;
 }

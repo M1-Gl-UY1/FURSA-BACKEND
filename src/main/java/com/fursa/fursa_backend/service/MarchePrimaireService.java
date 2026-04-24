@@ -52,23 +52,25 @@ public class MarchePrimaireService {
 
         // --- Récupérer l'investisseur ---
         Investisseur investisseur = investisseurRepository.findById(investisseurId)
-                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Investisseur non trouve avec l'id : " + investisseurId));
 
         // --- Récupérer la propriété ---
         Propriete propriete = proprieteRepository.findById(request.getProprieteId())
-                .orElseThrow(() -> new RuntimeException("Propriété non trouvée avec l'id : " + request.getProprieteId()));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Propriete non trouvee avec l'id : " + request.getProprieteId()));
 
         // --- Vérifications métier ---
         if (propriete.getStatut() != StatutPropriete.PUBLIEE) {
-            throw new RuntimeException("Cette propriété n'est pas disponible à l'achat.");
+            throw new IllegalStateException("Cette propriete n'est pas disponible a l'achat.");
         }
 
         if (propriete.getPartsDisponibles() < request.getNombreParts()) {
-            throw new RuntimeException("Parts insuffisantes. Disponibles : " + propriete.getPartsDisponibles());
+            throw new IllegalStateException("Parts insuffisantes. Disponibles : " + propriete.getPartsDisponibles());
         }
 
         if (request.getNombreParts() <= 0) {
-            throw new RuntimeException("Le nombre de parts doit être supérieur à 0.");
+            throw new IllegalArgumentException("Le nombre de parts doit etre superieur a 0.");
         }
 
         // --- Calculer le montant total ---
@@ -96,7 +98,7 @@ public class MarchePrimaireService {
         Transaction transaction = new Transaction();
         transaction.setPaiement(paiement);
         transaction.setHashTransaction(fauxHash);
-        transaction.setTypeOperation("ACHAT");
+        transaction.setTypeOperation(com.fursa.fursa_backend.model.enumeration.TypeOperation.ACHAT);
         transaction.setNombreParts(request.getNombreParts());
         transaction.setMontant(montantTotal);
         transaction.setDateTransaction(LocalDateTime.now());
@@ -173,7 +175,7 @@ public class MarchePrimaireService {
         return transactionRepository.findAll().stream().map(t -> new TransactionResponse(
                 t.getId(),
                 t.getHashTransaction(),
-                t.getTypeOperation(),
+                t.getTypeOperation() == null ? null : t.getTypeOperation().name(),
                 t.getStatut().name(),
                 t.getNombreParts(),
                 t.getMontant(),
@@ -202,7 +204,7 @@ public class MarchePrimaireService {
      */
     public List<PossessionResponse> getPortefeuille(Long investisseurId) {
         investisseurRepository.findById(investisseurId)
-                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Investisseur non trouve avec l'id : " + investisseurId));
 
         List<Possession> possessions = possessionRepository.findByInvestisseurId(investisseurId);
 
@@ -222,7 +224,7 @@ public class MarchePrimaireService {
      */
     public List<TransactionResponse> getTransactions(Long investisseurId) {
         investisseurRepository.findById(investisseurId)
-                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Investisseur non trouve avec l'id : " + investisseurId));
 
         List<Paiement> paiements = paiementRepository.findByInvestisseurId(investisseurId);
 
@@ -230,7 +232,7 @@ public class MarchePrimaireService {
                 .flatMap(p -> p.getTransactions().stream().map(t -> new TransactionResponse(
                         t.getId(),
                         t.getHashTransaction(),
-                        t.getTypeOperation(),
+                        t.getTypeOperation() == null ? null : t.getTypeOperation().name(),
                         t.getStatut().name(),
                         t.getNombreParts(),
                         t.getMontant(),
@@ -244,7 +246,7 @@ public class MarchePrimaireService {
      */
     public List<PaiementResponse> getPaiements(Long investisseurId) {
         investisseurRepository.findById(investisseurId)
-                .orElseThrow(() -> new RuntimeException("Investisseur non trouvé avec l'id : " + investisseurId));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Investisseur non trouve avec l'id : " + investisseurId));
 
         List<Paiement> paiements = paiementRepository.findByInvestisseurId(investisseurId);
 

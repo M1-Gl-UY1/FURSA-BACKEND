@@ -38,6 +38,9 @@ public class Propriete {
     private String images;
     private LocalDate dateCreation;
 
+    @Version
+    private Long version;
+
     @OneToMany(mappedBy = "propriete", cascade = CascadeType.ALL)
     private List<Document> documents;
 

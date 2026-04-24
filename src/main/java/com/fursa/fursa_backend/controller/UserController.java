@@ -42,6 +42,7 @@ public class UserController {
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
     private final com.fursa.fursa_backend.service.AuthenticatedInvestisseurService authInvestisseur;
+    private final com.fursa.fursa_backend.config.LoginRateLimiter loginRateLimiter;
 
     @Operation(summary = "Profil de l'utilisateur courant", description = "Retourne le profil de l'investisseur authentifie.")
     @GetMapping("/me")
@@ -120,7 +121,14 @@ public class UserController {
     })
     @SecurityRequirements
     @PostMapping("/auth/login")
-    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest req,
+                                   jakarta.servlet.http.HttpServletRequest servletRequest) {
+        String rateLimitKey = "login:" + req.email().toLowerCase() + ":" + servletRequest.getRemoteAddr();
+        if (!loginRateLimiter.tryConsume(rateLimitKey)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .header("Retry-After", "60")
+                    .body(java.util.Map.of("message", "Trop de tentatives. Reessayez dans une minute."));
+        }
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(req.email(), req.password()));

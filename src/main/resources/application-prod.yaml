@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  sql:
+    init:
+      mode: never
+logging:
+  level:
+    root: INFO
+    com.fursa: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+
+# Les secrets ne doivent JAMAIS avoir de defaut en prod.
+# Ils sont fournis via variables d'environnement (Docker compose / systemd).
+# L'absence de JWT_SECRET fait crasher l'app au demarrage (par design, JwtUtils#validateSecret).

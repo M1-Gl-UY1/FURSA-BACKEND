@@ -65,7 +65,7 @@ public class FileStorageService {
             if (resource.exists() && resource.isReadable()) {
                 return resource;
             }
-            throw new RuntimeException("Fichier introuvable : " + fileName);
+            throw new jakarta.persistence.EntityNotFoundException("Fichier introuvable : " + fileName);
 
         } catch (MalformedURLException e) {
             throw new RuntimeException("Erreur de chemin : " + e.getMessage());

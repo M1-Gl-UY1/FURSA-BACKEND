@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.model;
 
 import com.fursa.fursa_backend.model.enumeration.StatutTransaction;
+import com.fursa.fursa_backend.model.enumeration.TypeOperation;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -23,7 +24,9 @@ public class Transaction {
 
     @Column(unique = true)
     private String hashTransaction;
-    private String typeOperation;
+
+    @Enumerated(EnumType.STRING)
+    private TypeOperation typeOperation;
 
     private Integer nombreParts;
     private BigDecimal montant;
