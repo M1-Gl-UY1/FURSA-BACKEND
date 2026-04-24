@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +42,7 @@ public class NotificationController {
     }
 
     @Operation(summary = "Notifications d'un investisseur (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/investisseur/{investisseurId}")
     public ResponseEntity<List<NotificationResponse>> lister(
             @PathVariable Long investisseurId,
