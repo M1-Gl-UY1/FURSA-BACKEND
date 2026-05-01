@@ -18,6 +18,8 @@ public class ProprieteMapper {
         p.setLocalisation(req.getLocalisation());
         p.setDescription(req.getDescription());
         p.setNombreTotalPart(req.getNombreTotalPart());
+        // À la création, toutes les parts sont disponibles
+        p.setPartsDisponibles(req.getNombreTotalPart());
         p.setPrixUnitairePart(req.getPrixUnitairePart());
         p.setStatut(req.getStatut());
         p.setRentabilitePrevue(req.getRentabilitePrevue());
@@ -42,11 +44,16 @@ public class ProprieteMapper {
                 .localisation(p.getLocalisation())
                 .description(p.getDescription())
                 .nombreTotalPart(p.getNombreTotalPart())
+                .partsDisponibles(p.getPartsDisponibles())
                 .prixUnitairePart(p.getPrixUnitairePart())
                 .statut(p.getStatut())
                 .rentabilitePrevue(p.getRentabilitePrevue())
                 .dateCreation(p.getDateCreation())
                 .documents(docs)
+                // Phase 7
+                .proposeurId(p.getProposeurId())
+                .motifRefus(p.getMotifRefus())
+                .soumiseLe(p.getSoumiseLe())
                 .build();
     }
 }

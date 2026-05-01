@@ -1,10 +1,13 @@
 package com.fursa.fursa_backend.service;
 
 import com.fursa.fursa_backend.model.Dividende;
+import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Possession;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.Revenus;
 import com.fursa.fursa_backend.model.enumeration.StatutPaiement;
+import com.fursa.fursa_backend.model.enumeration.StatutRevenu;
+import com.fursa.fursa_backend.model.enumeration.TypeMessage;
 import com.fursa.fursa_backend.repository.DividendeRepository;
 import com.fursa.fursa_backend.repository.PossessionRepository;
 import com.fursa.fursa_backend.repository.RevenusRepository;
@@ -15,9 +18,11 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -28,11 +33,20 @@ public class DistributionServiceImpl implements DistributionService {
     private final RevenusRepository revenusRepository;
     private final PossessionRepository possessionRepository;
     private final DividendeRepository dividendeRepository;
+    private final NotificationService notificationService;
 
     @Override
     public List<Dividende> distribuer(Long revenuId) {
         Revenus revenus = revenusRepository.findById(revenuId)
                 .orElseThrow(() -> new EntityNotFoundException("Revenu non trouve: id=" + revenuId));
+
+        // Phase 8 : on n'autorise la distribution que si le revenu est VALIDE
+        // (sauf si statut null = ancien revenu créé avant Phase 8, on tolère)
+        if (revenus.getStatut() != null && revenus.getStatut() != StatutRevenu.VALIDE) {
+            throw new IllegalStateException(
+                "Seuls les revenus VALIDE peuvent être distribués (statut actuel : " + revenus.getStatut() + ")"
+            );
+        }
 
         Propriete propriete = revenus.getPropriete();
         if (propriete == null) {
@@ -51,6 +65,7 @@ public class DistributionServiceImpl implements DistributionService {
 
         BigDecimal montantTotal = revenus.getMontantTotal();
         LocalDate aujourdhui = LocalDate.now();
+        NumberFormat eurFormat = NumberFormat.getCurrencyInstance(Locale.FRANCE);
 
         List<Dividende> dividendes = new ArrayList<>();
         for (Possession possession : possessions) {
@@ -69,6 +84,23 @@ public class DistributionServiceImpl implements DistributionService {
             dividende.setRevenus(revenus);
             dividende.setInvestisseur(possession.getInvestisseur());
             dividendes.add(dividendeRepository.save(dividende));
+
+            // Notif à l'investisseur
+            Investisseur inv = possession.getInvestisseur();
+            if (inv != null) {
+                notificationService.envoyer(
+                        inv,
+                        "Dividende reçu",
+                        "Vous avez reçu " + eurFormat.format(montant) + " de dividende pour \"" + propriete.getNom() + "\".",
+                        TypeMessage.TRANSACTION
+                );
+            }
+        }
+
+        // Marquer le revenu comme DISTRIBUE
+        if (revenus.getStatut() != null) {
+            revenus.setStatut(StatutRevenu.DISTRIBUE);
+            revenusRepository.save(revenus);
         }
 
         return dividendes;

@@ -10,4 +10,7 @@ import java.util.List;
 @Repository
 public interface ProprieteRepository extends JpaRepository<Propriete, Long> {
     List<Propriete> findByStatut(StatutPropriete statut);
+
+    /** Phase 7 : propriétés proposées par un investisseur, plus récentes en premier. */
+    List<Propriete> findByProposeurIdOrderByIdDesc(Long proposeurId);
 }

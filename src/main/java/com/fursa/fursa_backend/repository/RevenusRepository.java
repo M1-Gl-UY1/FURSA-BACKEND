@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface RevenusRepository extends JpaRepository<Revenus, Long> {
     List<Revenus> findByProprieteId(Long proprieteId);
+
+    /** Phase 8 : revenus déclarés par un investisseur sur ses biens. */
+    List<Revenus> findByProposeurIdOrderByIdDesc(Long proposeurId);
 }

@@ -3,14 +3,20 @@ package com.fursa.fursa_backend.service;
 
 import com.fursa.fursa_backend.dto.ProgressionResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
+import com.fursa.fursa_backend.dto.SubmissionRequest;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Document;
+import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Propriete;
+import com.fursa.fursa_backend.model.enumeration.Role;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.TypeDocument;
+import com.fursa.fursa_backend.model.enumeration.TypeMessage;
 import com.fursa.fursa_backend.repository.DocumentRepository;
 import com.fursa.fursa_backend.repository.ProprieteRepository;
+import com.fursa.fursa_backend.repository.UserRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.stereotype.Service;
@@ -30,6 +36,8 @@ public class ProprieteService {
     private final DocumentRepository documentRepository;
     private final FileStorageService fileStorageService;
     private final ProprieteMapper proprieteMapper;
+    private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -48,9 +56,8 @@ public class ProprieteService {
     public Propriete modifierPropriete(Long id, ProprieteRequest request, List<MultipartFile> fichiers) {
 
         Propriete propriete = proprieteRepository.findById(id)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
 
-        // Mise à jour des champs
         propriete.setNom(request.getNom());
         propriete.setLocalisation(request.getLocalisation());
         propriete.setDescription(request.getDescription());
@@ -59,7 +66,6 @@ public class ProprieteService {
         propriete.setStatut(request.getStatut());
         propriete.setRentabilitePrevue(request.getRentabilitePrevue());
 
-        // Ajout de nouveaux fichiers si fournis (sans supprimer les anciens)
         sauvegarderFichiers(fichiers, propriete);
 
         return proprieteRepository.save(propriete);
@@ -71,23 +77,37 @@ public class ProprieteService {
 
     public Propriete detail(Long id) {
         return proprieteRepository.findById(id)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
     }
 
     @Transactional
     public Propriete publier(Long id) {
         Propriete propriete = proprieteRepository.findById(id)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
         if (propriete.getStatut() == StatutPropriete.PUBLIEE) {
             return propriete;
         }
         propriete.setStatut(StatutPropriete.PUBLIEE);
-        return proprieteRepository.save(propriete);
+        Propriete saved = proprieteRepository.save(propriete);
+
+        if (saved.getProposeurId() != null) {
+            userRepository.findById(saved.getProposeurId()).ifPresent(u -> {
+                if (u instanceof Investisseur inv) {
+                    notificationService.envoyer(
+                            inv,
+                            "Propriété publiée",
+                            "Votre bien \"" + saved.getNom() + "\" est maintenant en vente sur la plateforme.",
+                            TypeMessage.ANNONCE
+                    );
+                }
+            });
+        }
+        return saved;
     }
 
     public ProgressionResponse progression(Long id) {
         Propriete p = proprieteRepository.findById(id)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
         int total = p.getNombreTotalPart() == null ? 0 : p.getNombreTotalPart();
         int dispo = p.getPartsDisponibles() == null ? 0 : p.getPartsDisponibles();
         int vendues = total - dispo;
@@ -96,21 +116,116 @@ public class ProprieteService {
     }
 
     @Transactional
-public void supprimer(Long id) {
-    Propriete propriete = proprieteRepository.findById(id)
-            .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Propriete introuvable : " + id));
+    public void supprimer(Long id) {
+        Propriete propriete = proprieteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
 
-    // Supprime les fichiers physiques avant de supprimer en base
-    if (propriete.getDocuments() != null) {
-        propriete.getDocuments().forEach(doc ->
-            fileStorageService.delete(doc.getUrl())
-        );
+        if (propriete.getDocuments() != null) {
+            propriete.getDocuments().forEach(doc ->
+                fileStorageService.delete(doc.getUrl())
+            );
+        }
+
+        proprieteRepository.deleteById(id);
     }
 
-    proprieteRepository.deleteById(id);
-}
+    // =========================================================================
+    // PHASE 7 : workflow soumission propriétaire
+    // =========================================================================
 
-    //méthode privee
+    @Transactional
+    public Propriete soumettre(Long proposeurId, SubmissionRequest req, List<MultipartFile> fichiers) {
+        Propriete p = new Propriete();
+        p.setNom(req.getNom());
+        p.setLocalisation(req.getLocalisation());
+        p.setDescription(req.getDescription());
+        p.setNombreTotalPart(req.getNombreTotalPart());
+        p.setPartsDisponibles(req.getNombreTotalPart());
+        p.setPrixUnitairePart(req.getPrixUnitairePart());
+        p.setRentabilitePrevue(req.getRentabilitePrevue());
+        p.setStatut(StatutPropriete.EN_REVIEW);
+        p.setProposeurId(proposeurId);
+        p.setDateCreation(LocalDate.now());
+        p.setSoumiseLe(LocalDateTime.now());
+
+        Propriete saved = proprieteRepository.save(p);
+        sauvegarderFichiers(fichiers, saved);
+
+        notifierAdmins(
+                "Nouvelle soumission de bien",
+                "Le bien \"" + saved.getNom() + "\" a été soumis pour validation.",
+                TypeMessage.INFO
+        );
+
+        return proprieteRepository.findById(saved.getId()).orElseThrow();
+    }
+
+    public List<Propriete> listerProposeesPar(Long proposeurId) {
+        return proprieteRepository.findByProposeurIdOrderByIdDesc(proposeurId);
+    }
+
+    @Transactional
+    public Propriete approuver(Long id) {
+        Propriete p = proprieteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
+        if (p.getStatut() != StatutPropriete.EN_REVIEW) {
+            throw new IllegalStateException("Seules les propriétés en EN_REVIEW peuvent être approuvées (statut actuel : " + p.getStatut() + ")");
+        }
+        p.setStatut(StatutPropriete.ACCEPTEE);
+        p.setMotifRefus(null);
+        Propriete saved = proprieteRepository.save(p);
+
+        if (saved.getProposeurId() != null) {
+            userRepository.findById(saved.getProposeurId()).ifPresent(u -> {
+                if (u instanceof Investisseur inv) {
+                    notificationService.envoyer(
+                            inv,
+                            "Propriété acceptée",
+                            "Votre bien \"" + saved.getNom() + "\" a été validé. Il sera publié prochainement.",
+                            TypeMessage.ANNONCE
+                    );
+                }
+            });
+        }
+        return saved;
+    }
+
+    @Transactional
+    public Propriete refuser(Long id, String motif) {
+        Propriete p = proprieteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
+        if (p.getStatut() != StatutPropriete.EN_REVIEW) {
+            throw new IllegalStateException("Seules les propriétés en EN_REVIEW peuvent être refusées (statut actuel : " + p.getStatut() + ")");
+        }
+        p.setStatut(StatutPropriete.REFUSEE);
+        p.setMotifRefus(motif);
+        Propriete saved = proprieteRepository.save(p);
+
+        if (saved.getProposeurId() != null) {
+            userRepository.findById(saved.getProposeurId()).ifPresent(u -> {
+                if (u instanceof Investisseur inv) {
+                    notificationService.envoyer(
+                            inv,
+                            "Propriété refusée",
+                            "Votre bien \"" + saved.getNom() + "\" a été refusé. Motif : " + motif,
+                            TypeMessage.AVERTISSEMENT
+                    );
+                }
+            });
+        }
+        return saved;
+    }
+
+    // =========================================================================
+    // Helpers
+    // =========================================================================
+
+    private void notifierAdmins(String titre, String message, TypeMessage type) {
+        userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.ADMIN && u instanceof Investisseur)
+                .forEach(u -> notificationService.envoyer((Investisseur) u, titre, message, type));
+    }
+
     private void sauvegarderFichiers(List<MultipartFile> fichiers, Propriete propriete) {
         if (fichiers == null || fichiers.isEmpty()) return;
 
