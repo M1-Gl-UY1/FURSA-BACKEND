@@ -47,15 +47,20 @@ jobs:
       - name: Verify API is up
         run: |
           echo "Waiting for Spring Boot to finish starting..."
-          for i in $(seq 1 30); do
+          # Spring Boot 4 + JPA + springdoc-openapi met parfois 6-8 min à démarrer
+          # (init Hibernate + scan endpoints + warmup). On donne 12 min de marge.
+          # On utilise le domaine officiel : VPS_HOST = IP brute renverrait 404
+          # (pas de cert nginx pour l'IP, juste pour les FQDN).
+          HEALTHCHECK_URL="https://api.fursa.seed-innov.com/api/health"
+          for i in $(seq 1 60); do
             code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
-              https://${{ secrets.VPS_HOST }}/api/health || echo "000")
+              "$HEALTHCHECK_URL" || echo "000")
             if [ "$code" = "200" ]; then
               echo "API is up (HTTP 200 after ${i} attempt(s))"
               exit 0
             fi
-            echo "Attempt $i/30: HTTP $code, retrying in 10s..."
-            sleep 10
+            echo "Attempt $i/60: HTTP $code, retrying in 12s..."
+            sleep 12
           done
-          echo "API did not become healthy within 5 minutes"
+          echo "API did not become healthy within 12 minutes"
           exit 1
