@@ -130,6 +130,8 @@ public class ProprieteController {
             @ApiResponse(responseCode = "400", description = "Données invalides"),
             @ApiResponse(responseCode = "401", description = "Non authentifié")
     })
+    // Bloque les comptes ADMIN : ils créent les biens via /admin (pas via soumission).
+    @PreAuthorize("hasRole('INVESTISSEUR')")
     @PostMapping(value = "/submissions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> soumettre(
             @RequestPart("submission") @Valid SubmissionRequest request,
