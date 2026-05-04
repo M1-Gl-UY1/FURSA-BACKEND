@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy via SSH
+    name: Deploy via SSH (zero-downtime blue-green)
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to VPS
+      - name: Deploy to VPS (rolling restart of 2 backend instances)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -30,37 +30,60 @@ jobs:
           ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash -s" <<EOF
             set -e
             cd ~/Fursa/FURSA-BACKEND
-            echo "=== Syncing to origin/main (discarding any local changes) ==="
+
+            echo "=== Syncing to origin/main ==="
             git fetch "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" main
             git reset --hard FETCH_HEAD
             git clean -fd
-            echo "=== Building backend image ==="
+
+            echo "=== Building new backend image ==="
             docker compose build fursa-backend
-            echo "=== Restarting containers ==="
-            docker compose up -d
+
+            wait_healthy() {
+              local container=\$1
+              local max=\$2
+              echo "Waiting for \$container to be healthy (max \${max}s)..."
+              for i in \$(seq 1 \$((max / 5))); do
+                status=\$(docker inspect --format '{{.State.Health.Status}}' "\$container" 2>/dev/null || echo "missing")
+                if [ "\$status" = "healthy" ]; then
+                  echo "\$container is healthy after \$((i * 5))s"
+                  return 0
+                fi
+                sleep 5
+              done
+              echo "ERROR: \$container did not become healthy within \${max}s"
+              docker compose logs --tail=50 "\$container"
+              return 1
+            }
+
+            echo "=== Step 1/2 : recreate fursa-backend-2 (8082), nginx routera sur 8081 pendant ce temps ==="
+            docker compose up -d --force-recreate --no-deps fursa-backend-2
+            wait_healthy fursa-backend-2 600
+
+            echo "=== Step 2/2 : recreate fursa-backend (8081), nginx routera sur 8082 pendant ce temps ==="
+            docker compose up -d --force-recreate --no-deps fursa-backend
+            wait_healthy fursa-backend 600
+
             echo "=== Cleaning dangling images ==="
             docker image prune -f
-            echo "=== Deployment status ==="
+
+            echo "=== Final status ==="
             docker ps --filter name=fursa --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
           EOF
 
-      - name: Verify API is up
+      - name: Verify API is up via public URL
         run: |
-          echo "Waiting for Spring Boot to finish starting..."
-          # Spring Boot 4 + JPA + springdoc-openapi met parfois 6-8 min à démarrer
-          # (init Hibernate + scan endpoints + warmup). On donne 12 min de marge.
-          # On utilise le domaine officiel : VPS_HOST = IP brute renverrait 404
-          # (pas de cert nginx pour l'IP, juste pour les FQDN).
-          HEALTHCHECK_URL="https://api.fursa.seed-innov.com/api/health"
-          for i in $(seq 1 60); do
+          # Health check final côté public : doit déjà être OK puisque le rolling
+          # garantit qu'au moins une instance répond à tout moment.
+          for i in $(seq 1 12); do
             code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
-              "$HEALTHCHECK_URL" || echo "000")
+              https://api.fursa.seed-innov.com/api/health || echo "000")
             if [ "$code" = "200" ]; then
-              echo "API is up (HTTP 200 after ${i} attempt(s))"
+              echo "API public is up (HTTP 200 after ${i} attempt(s))"
               exit 0
             fi
-            echo "Attempt $i/60: HTTP $code, retrying in 12s..."
-            sleep 12
+            echo "Attempt $i/12: HTTP $code, retrying in 5s..."
+            sleep 5
           done
-          echo "API did not become healthy within 12 minutes"
+          echo "Public API did not become healthy within 1 minute"
           exit 1
