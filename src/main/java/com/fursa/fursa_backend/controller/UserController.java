@@ -4,12 +4,15 @@ package com.fursa.fursa_backend.controller;
 import com.fursa.fursa_backend.config.JwtUtils;
 import com.fursa.fursa_backend.dto.AuthResponse;
 import com.fursa.fursa_backend.dto.LoginRequest;
+import com.fursa.fursa_backend.dto.RefreshRequest;
 import com.fursa.fursa_backend.dto.RegisterRequest;
 import com.fursa.fursa_backend.dto.RegisterResponse;
 import com.fursa.fursa_backend.model.Investisseur;
+import com.fursa.fursa_backend.model.RefreshToken;
 import com.fursa.fursa_backend.model.User;
 import com.fursa.fursa_backend.model.enumeration.Role;
 import com.fursa.fursa_backend.repository.UserRepository;
+import com.fursa.fursa_backend.service.RefreshTokenService;
 import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,6 +46,7 @@ public class UserController {
     private final AuthenticationManager authenticationManager;
     private final com.fursa.fursa_backend.service.AuthenticatedInvestisseurService authInvestisseur;
     private final com.fursa.fursa_backend.config.LoginRateLimiter loginRateLimiter;
+    private final RefreshTokenService refreshTokenService;
 
     @Operation(summary = "Profil de l'utilisateur courant", description = "Retourne le profil de l'investisseur authentifie.")
     @GetMapping("/me")
@@ -133,10 +137,9 @@ public class UserController {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(req.email(), req.password()));
             if (authentication.isAuthenticated()) {
-                AuthResponse authData = new AuthResponse();
-                authData.setToken(jwtUtils.generateToken(req.email()));
-                authData.setType("Bearer");
-                return ResponseEntity.ok(authData);
+                User user = (User) authentication.getPrincipal();
+                RefreshToken refresh = refreshTokenService.issue(user);
+                return ResponseEntity.ok(buildAuthResponse(req.email(), refresh.getToken()));
             }
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(java.util.Map.of("message", "Identifiants invalides"));
@@ -145,6 +148,49 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(java.util.Map.of("message", "Identifiants invalides"));
         }
+    }
+
+    @Operation(
+            summary = "Renouveler le token d'acces",
+            description = "Echange un refresh token contre une nouvelle paire (access + refresh). L'ancien refresh est revoque (rotation).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Nouvelle paire emise"),
+            @ApiResponse(responseCode = "401", description = "Refresh token invalide, expire ou revoque")
+    })
+    @SecurityRequirements
+    @PostMapping("/auth/refresh")
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshRequest req) {
+        try {
+            RefreshToken current = refreshTokenService.verify(req.refreshToken());
+            RefreshToken rotated = refreshTokenService.rotate(current);
+            String email = current.getUser().getEmail();
+            return ResponseEntity.ok(buildAuthResponse(email, rotated.getToken()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
+    @Operation(
+            summary = "Se deconnecter",
+            description = "Revoque le refresh token fourni. Le client doit aussi supprimer son access token local.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Refresh token revoque (idempotent)")
+    })
+    @SecurityRequirements
+    @PostMapping("/auth/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshRequest req) {
+        refreshTokenService.revoke(req.refreshToken());
+        return ResponseEntity.noContent().build();
+    }
+
+    private AuthResponse buildAuthResponse(String email, String refreshToken) {
+        AuthResponse authData = new AuthResponse();
+        authData.setToken(jwtUtils.generateToken(email));
+        authData.setRefreshToken(refreshToken);
+        authData.setType("Bearer");
+        authData.setExpiresIn(jwtUtils.getExpirationMs() / 1000L);
+        return authData;
     }
 
     @Operation(summary = "Modifier un utilisateur",

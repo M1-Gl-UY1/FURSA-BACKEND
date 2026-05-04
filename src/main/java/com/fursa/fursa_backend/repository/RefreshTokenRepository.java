@@ -1,0 +1,24 @@
+package com.fursa.fursa_backend.repository;
+
+import com.fursa.fursa_backend.model.RefreshToken;
+import com.fursa.fursa_backend.model.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.Instant;
+import java.util.Optional;
+
+public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
+
+    Optional<RefreshToken> findByToken(String token);
+
+    @Modifying
+    @Query("UPDATE RefreshToken rt SET rt.revoked = true WHERE rt.user = :user AND rt.revoked = false")
+    int revokeAllForUser(@Param("user") User user);
+
+    @Modifying
+    @Query("DELETE FROM RefreshToken rt WHERE rt.expiresAt < :cutoff OR rt.revoked = true")
+    int purgeExpiredAndRevoked(@Param("cutoff") Instant cutoff);
+}

@@ -46,6 +46,10 @@ public class JwtUtils {
         return createToken(claims, username);
     }
 
+    public long getExpirationMs() {
+        return expirationTime;
+    }
+
     private String createToken(Map<String, Object> claims, String username) {
         return Jwts.builder()
                 .setClaims(claims)
