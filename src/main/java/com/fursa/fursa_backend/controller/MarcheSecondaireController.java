@@ -41,6 +41,8 @@ public class MarcheSecondaireController {
             @ApiResponse(responseCode = "400", description = "Annonce non OUVERTE, parts insuffisantes, achat de sa propre annonce"),
             @ApiResponse(responseCode = "404", description = "Annonce ou acheteur inconnu")
     })
+    // Bloque les comptes ADMIN (conflit d'intérêt + délit d'initié).
+    @PreAuthorize("hasRole('INVESTISSEUR')")
     @PostMapping("/annonces/{annonceId}/acheter")
     public ResponseEntity<AchatAnnonceResponse> acheter(
             @PathVariable Long annonceId,

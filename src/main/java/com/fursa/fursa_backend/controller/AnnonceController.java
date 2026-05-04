@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +42,8 @@ public class AnnonceController {
             @ApiResponse(responseCode = "400", description = "Parts insuffisantes"),
             @ApiResponse(responseCode = "404", description = "Investisseur ou propriete inconnue")
     })
+    // Bloque les comptes ADMIN (cohérent : pas d'achat = pas de revente).
+    @PreAuthorize("hasRole('INVESTISSEUR')")
     @PostMapping
     public ResponseEntity<AnnonceResponse> creer(@Valid @RequestBody AnnonceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
