@@ -6,6 +6,7 @@ import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.service.BlockchainService;
 import com.fursa.fursa_backend.service.ProprieteService;
+import com.fursa.fursa_backend.service.TokenisationService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class ProprieteController {
     private final ProprieteService proprieteService;
     private final ProprieteMapper proprieteMapper;
     private final BlockchainService blockchainService;
+    private final TokenisationService tokenisationService;
 
     @PostMapping(value = "/admin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> ajouter(
@@ -75,5 +77,11 @@ public class ProprieteController {
     status.put("connecte", blockchainService.estConnecte());
     status.put("partsDisponibles", blockchainService.getPartsDisponibles());
     return ResponseEntity.ok(status);
+}
+
+@PostMapping("/admin/{id}/tokeniser")
+public ResponseEntity<ProprieteResponse> tokeniser(@PathVariable Long id) throws Exception {
+    Propriete tokenisee = tokenisationService.tokeniserPropriete(id);
+    return ResponseEntity.ok(proprieteMapper.toResponse(tokenisee));
 }
 }

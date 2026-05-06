@@ -21,4 +21,6 @@ public class ProprieteResponse {
     private Double rentabilitePrevue;
     private LocalDate dateCreation;
     private List<DocumentResponse> documents;
+    private String adresseContrat;
+    private String transactionHash;
 }

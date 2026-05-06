@@ -21,6 +21,7 @@ public class ProprieteMapper {
         p.setPrixUnitairePart(req.getPrixUnitairePart());
         p.setStatut(req.getStatut());
         p.setRentabilitePrevue(req.getRentabilitePrevue());
+        
         return p;
     }
 
@@ -47,6 +48,8 @@ public class ProprieteMapper {
                 .rentabilitePrevue(p.getRentabilitePrevue())
                 .dateCreation(p.getDateCreation())
                 .documents(docs)
+                .adresseContrat(p.getAdresseContrat())
+                .transactionHash(p.getTransactionHash())
                 .build();
     }
 }
