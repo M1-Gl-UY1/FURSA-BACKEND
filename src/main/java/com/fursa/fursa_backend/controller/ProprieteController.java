@@ -4,6 +4,7 @@ import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.ProprieteResponse;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Propriete;
+import com.fursa.fursa_backend.service.BlockchainService;
 import com.fursa.fursa_backend.service.ProprieteService;
 
 import jakarta.validation.Valid;
@@ -15,7 +16,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/proprietes")
@@ -24,6 +27,7 @@ public class ProprieteController {
 
     private final ProprieteService proprieteService;
     private final ProprieteMapper proprieteMapper;
+    private final BlockchainService blockchainService;
 
     @PostMapping(value = "/admin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> ajouter(
@@ -64,4 +68,12 @@ public class ProprieteController {
         proprieteService.supprimer(id);
         return ResponseEntity.noContent().build();
     }
+    
+    @GetMapping("/public/blockchain/status")
+    public ResponseEntity<Map<String, Object>> blockchainStatus() {
+    Map<String, Object> status = new HashMap<>();
+    status.put("connecte", blockchainService.estConnecte());
+    status.put("partsDisponibles", blockchainService.getPartsDisponibles());
+    return ResponseEntity.ok(status);
+}
 }

@@ -18,4 +18,7 @@ spring:
     init:
       mode: always
   security:
-    enabled: false
+    enabled: false    
+blockchain:
+  rpc-url: http://localhost:8545
+  contrat-adresse: "0x5FbDB2315678afecb367f032d93F642f64180aa3"  
