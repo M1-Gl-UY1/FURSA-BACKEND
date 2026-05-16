@@ -6,6 +6,7 @@ import lombok.Getter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -16,9 +17,15 @@ public class ProprieteResponse {
     private String localisation;
     private String description;
     private Integer nombreTotalPart;
+    private Integer partsDisponibles;
     private BigDecimal prixUnitairePart;
     private StatutPropriete statut;
     private Double rentabilitePrevue;
     private LocalDate dateCreation;
     private List<DocumentResponse> documents;
+
+    // --- Phase 7 : workflow soumission propriétaire ---
+    private Long proposeurId;
+    private String motifRefus;
+    private LocalDateTime soumiseLe;
 }

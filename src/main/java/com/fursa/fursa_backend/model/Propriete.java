@@ -9,6 +9,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -37,6 +38,18 @@ public class Propriete {
     private Double rentabilitePrevue;
     private String images;
     private LocalDate dateCreation;
+
+    // --- Phase 7 : workflow soumission propriétaire ---
+
+    /** ID de l'investisseur qui a proposé ce bien. Null = créé directement par admin. */
+    private Long proposeurId;
+
+    /** Motif du refus si statut = REFUSEE. */
+    @Column(columnDefinition = "TEXT")
+    private String motifRefus;
+
+    /** Date de soumission par un investisseur (null si créé directement par admin). */
+    private LocalDateTime soumiseLe;
 
     @Version
     private Long version;

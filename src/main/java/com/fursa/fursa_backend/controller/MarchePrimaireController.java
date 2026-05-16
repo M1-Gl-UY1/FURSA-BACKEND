@@ -41,6 +41,9 @@ public class MarchePrimaireController {
             @ApiResponse(responseCode = "401", description = "Non authentifie"),
             @ApiResponse(responseCode = "404", description = "Propriete ou investisseur introuvable")
     })
+    // Bloque les comptes ADMIN : conflit d'intérêt + délit d'initié + régulation financière.
+    // Seuls les comptes INVESTISSEUR peuvent acheter des parts.
+    @PreAuthorize("hasRole('INVESTISSEUR')")
     @PostMapping("/acheter")
     public ResponseEntity<AchatResponse> acheterParts(@RequestBody AchatRequest request) {
         Long investisseurId = authInvestisseur.currentId();

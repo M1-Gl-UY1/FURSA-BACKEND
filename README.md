@@ -5,9 +5,11 @@ Backend Spring Boot couvrant authentification JWT, catalogue immobilier, marche
 primaire (achat de parts), marche secondaire (revente entre investisseurs),
 distribution de dividendes, notifications, dashboard et administration.
 
-**Production** : `https://api.fursas.duckdns.org`
-**Swagger UI** : `https://api.fursas.duckdns.org/swagger-ui`
-**Status** : 48 endpoints, 49 tests unitaires verts, 66/66 smoke tests.
+**Production** : `https://api.fursa.seed-innov.com` (nouveau domaine principal)
+**Production legacy** : `https://api.fursas.duckdns.org` (toujours actif, transition)
+**Swagger UI** : `https://api.fursa.seed-innov.com/swagger-ui`
+**Frontend** : `https://fursa.seed-innov.com`
+**Status** : 48 endpoints + endpoints Phase 7+8 (soumission propriétaire + déclaration revenu), 49 tests unitaires verts, 66/66 smoke tests.
 
 ---
 

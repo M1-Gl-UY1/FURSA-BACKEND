@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,6 +42,8 @@ public class MarcheSecondaireController {
             @ApiResponse(responseCode = "400", description = "Annonce non OUVERTE, parts insuffisantes, achat de sa propre annonce"),
             @ApiResponse(responseCode = "404", description = "Annonce ou acheteur inconnu")
     })
+    // Bloque les comptes ADMIN (conflit d'intérêt + délit d'initié).
+    @PreAuthorize("hasRole('INVESTISSEUR')")
     @PostMapping("/annonces/{annonceId}/acheter")
     public ResponseEntity<AchatAnnonceResponse> acheter(
             @PathVariable Long annonceId,
