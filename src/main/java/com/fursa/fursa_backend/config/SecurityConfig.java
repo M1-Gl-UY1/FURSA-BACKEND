@@ -47,14 +47,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth->
                         auth.requestMatchers(
                                 "/api/user/auth/*",
-                                        "/api/fichiers/*",
                                 "/api/health",
                                 "/actuator/health/**",
                                 "/actuator/info",
                                 "/actuator/prometheus",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/api/fichiers/*"
                         ).permitAll()
                                 .anyRequest().authenticated()
                 )
