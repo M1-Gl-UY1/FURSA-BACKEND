@@ -1,0 +1,96 @@
+##  Tout fonctionne parfaitement !
+
+### `paiement` 
+```
+id_paie | montant    | nombre_parts | statut | type   | id_inv | id_prop
+      2 | 500000.00  | 50           | PAYE   | CRYPTO |      1 |       1  ← Alice
+      3 | 300000.00  | 30           | PAYE   | CRYPTO |      2 |       1  ← Bob
+      4 | 200000.00  | 20           | PAYE   | CRYPTO |      3 |       1  ← Charlie
+```
+
+### `transaction` 
+```
+id_trans | montant   | type_operation         | hash_transaction | id_paie
+       1 | 500000.00 | DISTRIBUTION_DIVIDENDE | 0xd72dc0...      |       2
+       2 | 300000.00 | DISTRIBUTION_DIVIDENDE | 0x7ecea7...      |       3
+       3 | 200000.00 | DISTRIBUTION_DIVIDENDE | 0xd1ce9d...      |       4
+```
+
+---
+
+## Récapitulatif du flux complet validé 
+
+```
+GET  /api/distribution/1              → Calcul dividendes → BD: 3x VALIDE
+POST /api/blockchain/investors        → Ajout Alice, Bob, Charlie au contrat
+POST /api/blockchain/distribute/blockchain/1 → 
+     ├── payInvestor(wallet, Wei)     → Blockchain: txHash généré
+     ├── dividende → PAYE + txHash   → BD: dividende mis à jour
+     ├── Paiement(CRYPTO, PAYE)      → BD: paiement créé
+     └── Transaction(txHash, id_paie)→ BD: transaction enregistrée
+```
+
+---
+
+## Dernière vérification — dividende sur la blockchain
+
+```
+GET http://localhost:8080/api/blockchain/investors/0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0/dividend
+GET http://localhost:8080/api/blockchain/investors/0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b/dividend
+GET http://localhost:8080/api/blockchain/investors/0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d/dividend
+```
+
+Résultats attendus : `0.5 ETH`, `0.3 ETH`, `0.2 ETH` respectivement. Ton système est opérationnel ! 
+
+
+
+
+
+
+```sql
+-- 1. Supprimer les données dans l'ordre (respect des clés étrangères)
+DELETE FROM transaction;
+DELETE FROM paiement;
+DELETE FROM dividende;
+
+-- 2. Réinitialiser les séquences
+ALTER SEQUENCE transaction_id_trans_seq RESTART WITH 1;
+ALTER SEQUENCE paiement_id_paie_seq RESTART WITH 1;
+ALTER SEQUENCE dividende_id_div_seq RESTART WITH 1;
+
+-- 3. Vérification
+SELECT * FROM transaction;
+SELECT * FROM paiement;
+SELECT * FROM dividende;
+```
+
+Si tu veux tout remettre à zéro y compris les données métier :
+
+```sql
+-- Suppression complète (dans l'ordre des dépendances)
+DELETE FROM transaction;
+DELETE FROM paiement;
+DELETE FROM dividende;
+DELETE FROM possession;
+DELETE FROM revenus;
+
+-- Réinitialisation des séquences
+ALTER SEQUENCE transaction_id_trans_seq RESTART WITH 1;
+ALTER SEQUENCE paiement_id_paie_seq RESTART WITH 1;
+ALTER SEQUENCE dividende_id_div_seq RESTART WITH 1;
+ALTER SEQUENCE possession_id_pos_seq RESTART WITH 1;
+ALTER SEQUENCE revenus_id_rev_seq RESTART WITH 1;
+
+-- Vérification finale
+SELECT 'transaction' as table_name, COUNT(*) FROM transaction
+UNION ALL
+SELECT 'paiement', COUNT(*) FROM paiement
+UNION ALL
+SELECT 'dividende', COUNT(*) FROM dividende
+UNION ALL
+SELECT 'possession', COUNT(*) FROM possession
+UNION ALL
+SELECT 'revenus', COUNT(*) FROM revenus;
+```
+
+Toutes les tables doivent afficher `count = 0`.

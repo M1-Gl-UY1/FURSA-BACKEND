@@ -31,3 +31,14 @@ build/
 
 ### VS Code ###
 .vscode/
+
+####### TRASH
+
+.trash-*/
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db

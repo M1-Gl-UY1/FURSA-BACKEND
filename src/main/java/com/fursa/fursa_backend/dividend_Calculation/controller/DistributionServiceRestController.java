@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
 
@@ -15,7 +16,7 @@ public class DistributionServiceRestController {
     private final com.fursa.fursa_backend.dividend_Calculation.services.DistributionService distributionService;
 
     @GetMapping("/{revenuId}")
-    public String lancerLaDistribution(@RequestParam Long revenuIdLong) {
+    public String lancerLaDistribution(@PathVariable("revenuId") Long revenuIdLong) {
         distributionService.distribuer(revenuIdLong);
         return "Distribution lancée avec succès";
     }

@@ -3,5 +3,7 @@ package com.fursa.fursa_backend.model.enumeration;
 public enum StatutPaiement {
     EN_ATTENTE,
     VALIDE,
-    ANNULE
+    ANNULE,
+    PAYE,      //transaction blockchain confirmée
+    ECHOUE
 }

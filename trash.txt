@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.7.0 <0.9.0;
+
+contract RevenueDistribution{
+
+    struct Investisseur{
+        uint shares;
+        uint dividend;
+        bool exist;
+    }
+    event InvestisseurAjouterEvent(address indexed investor); //
+    event revenueDistribuerEvent(address indexed investor, uint amount); //
+
+
+    address public owner;
+    uint public totalshares;
+
+    mapping( address => Investisseur) public Investors;
+    address[] public InvestorsList;
+
+    modifier onlyOwner(){
+        require(msg.sender == owner, "seul le proprietaire peut executer cette action");
+        _;
+    }
+
+    constructor (){
+        owner = msg.sender;
+    }
+    // ajouter un investisseur
+    function addInvestor(address _investor, uint _shares)public onlyOwner{
+        require(!Investors[_investor].exist, "l'investisseur existe deja");
+        require(_shares>0, "le nombre de part doit etre supperieur a zero");
+
+        Investors[_investor] = Investisseur({
+            shares: _shares,
+            dividend:0,
+            exist:true
+        });
+
+        InvestorsList.push(_investor);
+        totalshares += _shares;
+
+        emit InvestisseurAjouterEvent(_investor);
+
+    }
+
+    // fonction de distribution de revenus
+
+    function distributeRevenue() public payable onlyOwner{
+        require(msg.value>0, "Montant Valide");
+        require(totalshares > 0, "Pas de part disponible");
+
+        for(uint i=0; i<InvestorsList.length; i++){
+            address investorAddress = InvestorsList[i];
+
+            uint amount = (msg.value * Investors[investorAddress].shares)/totalshares;
+            Investors[investorAddress].dividend += amount;
+
+            // (bool success, ) = payable(investorAddress).call{value: amount}("");
+            // require(success, "Transfert echoue");
+            emit revenueDistribuerEvent(investorAddress, amount);
+        }
+    }
+
+    // fonction de retrait d'argent
+
+    function withdraw() public {
+    uint amount = Investors[msg.sender].dividend;
+    require(amount > 0, "Rien a retirer");
+    
+    Investors[msg.sender].dividend = 0; // On remet à zéro AVANT le transfert (sécurité)
+    
+    (bool success, ) = payable(msg.sender).call{value: amount}("");
+    require(success, "Transfert echoue");
+}
+
+    // Consulter le dividende d'un investisseur 
+
+    function getDividende(address _investor)public view returns(uint){
+        return Investors[_investor].dividend;
+    }
+
+    // AVOIR LE SOLDE DU CONTRAT INTELLIGENT
+
+    function getContractBalance() public view returns(uint) {
+    return address(this).balance;
+}
+
+}
+
+
+
+
+- bonne logique metier ( prendre les investisseur et calculer en backend )
+- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- =========================================================
+-- INVESTISSEURS
+-- =========================================================
+
+INSERT INTO investisseur (
+    email,
+    password,
+    role,
+    nom,
+    prenom,
+    telephone,
+    is_verified,
+    wallet_address
+)
+VALUES
+(
+    'alice@test.com',
+    '123456',
+    'INVESTISSEUR',
+    'Alice',
+    'Ngono',
+    '670000001',
+    true,
+    '0xFFcf8FDEE72ac11b5c542428B35EEF5769C409f0'
+),
+(
+    'bob@test.com',
+    '123456',
+    'INVESTISSEUR',
+    'Bob',
+    'Essomba',
+    '670000002',
+    true,
+    '0x22d491Bde2303f2f43325b2108D26f1eAbA1e32b'
+),
+(
+    'charlie@test.com',
+    '123456',
+    'INVESTISSEUR',
+    'Charlie',
+    'Mvondo',
+    '670000003',
+    true,
+    '0xE11BA2b4D45Eaed5996Cd0823791E0C93114882d'
+);
+
+-- =========================================================
+-- PROPRIETE
+-- =========================================================
+
+INSERT INTO propriete (
+    id_prop,
+    nom,
+    localisation,
+    description,
+    nombre_total_part,
+    prix_unitaire_part,
+    statut,
+    rentabilite_prevue,
+    images,
+    date_creation
+)
+VALUES
+(
+    1,
+    'Immeuble Bastos',
+    'Yaounde',
+    'Immeuble locatif haut standing',
+    100,
+    100000,
+    'ACTIVE',
+    12.5,
+    'image1.jpg',
+    CURRENT_DATE
+);
+
+-- =========================================================
+-- POSSESSIONS
+-- =========================================================
+
+-- Alice possède 50 parts
+INSERT INTO possession (
+    id_pos,
+    nombre_de_parts,
+    id_prop,
+    id_inv
+)
+VALUES
+(
+    1,
+    50,
+    1,
+    1
+);
+
+-- Bob possède 30 parts
+INSERT INTO possession (
+    id_pos,
+    nombre_de_parts,
+    id_prop,
+    id_inv
+)
+VALUES
+(
+    2,
+    30,
+    1,
+    2
+);
+
+-- Charlie possède 20 parts
+INSERT INTO possession (
+    id_pos,
+    nombre_de_parts,
+    id_prop,
+    id_inv
+)
+VALUES
+(
+    3,
+    20,
+    1,
+    3
+);
+
+-- =========================================================
+-- REVENUS
+-- =========================================================
+
+INSERT INTO revenus (
+    id_rev,
+    date,
+    montant_total,
+    id_prop
+)
+VALUES
+(
+    1,
+    CURRENT_DATE,
+    1000000,
+    1
+);
