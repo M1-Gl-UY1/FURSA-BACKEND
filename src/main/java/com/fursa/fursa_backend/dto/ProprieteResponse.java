@@ -28,4 +28,8 @@ public class ProprieteResponse {
     private Long proposeurId;
     private String motifRefus;
     private LocalDateTime soumiseLe;
+
+    // --- Blockchain : tokenisation propriete ---
+    private String adresseContrat;
+    private String transactionHash;
 }

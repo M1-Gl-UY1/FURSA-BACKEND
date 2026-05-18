@@ -56,6 +56,9 @@ public class Propriete {
 
     @OneToMany(mappedBy = "propriete", cascade = CascadeType.ALL)
     private List<Document> documents;
+    
+    private String adresseContrat;
+    private String transactionHash;
 
     @OneToMany(mappedBy = "propriete")
     private List<Revenus> revenus;

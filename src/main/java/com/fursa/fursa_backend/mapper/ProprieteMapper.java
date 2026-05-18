@@ -23,6 +23,7 @@ public class ProprieteMapper {
         p.setPrixUnitairePart(req.getPrixUnitairePart());
         p.setStatut(req.getStatut());
         p.setRentabilitePrevue(req.getRentabilitePrevue());
+        
         return p;
     }
 
@@ -54,6 +55,9 @@ public class ProprieteMapper {
                 .proposeurId(p.getProposeurId())
                 .motifRefus(p.getMotifRefus())
                 .soumiseLe(p.getSoumiseLe())
+                // Blockchain
+                .adresseContrat(p.getAdresseContrat())
+                .transactionHash(p.getTransactionHash())
                 .build();
     }
 }

@@ -7,7 +7,9 @@ import com.fursa.fursa_backend.dto.SubmissionRequest;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
+import com.fursa.fursa_backend.service.BlockchainRpcClient;
 import com.fursa.fursa_backend.service.ProprieteService;
+import com.fursa.fursa_backend.service.TokenisationService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,7 +25,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/proprietes")
@@ -34,6 +38,8 @@ public class ProprieteController {
     private final ProprieteService proprieteService;
     private final ProprieteMapper proprieteMapper;
     private final AuthenticatedInvestisseurService authInvestisseur;
+    private final BlockchainRpcClient blockchainRpcClient;
+    private final TokenisationService tokenisationService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -183,5 +189,26 @@ public class ProprieteController {
             @PathVariable Long id,
             @Valid @RequestBody RefusRequest request) {
         return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.refuser(id, request.getMotif())));
+    }
+
+    // =========================================================================
+    // Blockchain : statut RPC + tokenisation propriete
+    // =========================================================================
+
+    @Operation(summary = "Statut de la blockchain (connexion + parts disponibles on-chain)")
+    @GetMapping("/public/blockchain/status")
+    public ResponseEntity<Map<String, Object>> blockchainStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("connecte", blockchainRpcClient.estConnecte());
+        status.put("partsDisponibles", blockchainRpcClient.getPartsDisponibles());
+        return ResponseEntity.ok(status);
+    }
+
+    @Operation(summary = "Tokeniser une propriete (admin)", description = "Deploie le smart contract ERC-20 pour cette propriete.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/{id}/tokeniser")
+    public ResponseEntity<ProprieteResponse> tokeniser(@PathVariable Long id) throws Exception {
+        Propriete tokenisee = tokenisationService.tokeniserPropriete(id);
+        return ResponseEntity.ok(proprieteMapper.toResponse(tokenisee));
     }
 }
