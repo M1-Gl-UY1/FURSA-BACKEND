@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.repository;
 
 import com.fursa.fursa_backend.model.Dividende;
+import com.fursa.fursa_backend.model.enumeration.StatutPaiement;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -10,4 +11,5 @@ import java.util.List;
 public interface DividendeRepository extends JpaRepository<Dividende, Long> {
     List<Dividende> findByRevenusId(Long revenusId);
     List<Dividende> findByInvestisseurId(Long investisseurId);
+    List<Dividende> findByRevenusIdAndStatut(Long revenusId, StatutPaiement statut);
 }

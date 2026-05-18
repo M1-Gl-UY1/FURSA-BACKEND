@@ -35,3 +35,12 @@ build/
 ### Env files ###
 .env
 
+### Trash / temp ###
+.trash-*/
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
