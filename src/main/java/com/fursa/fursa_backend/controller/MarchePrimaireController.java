@@ -2,6 +2,7 @@ package com.fursa.fursa_backend.controller;
 
 import com.fursa.fursa_backend.dto.AchatRequest;
 import com.fursa.fursa_backend.dto.AchatResponse;
+import com.fursa.fursa_backend.dto.InvestisseurPossessionResponse;
 import com.fursa.fursa_backend.dto.PaiementResponse;
 import com.fursa.fursa_backend.dto.PossessionResponse;
 import com.fursa.fursa_backend.dto.TransactionResponse;
@@ -108,5 +109,15 @@ public class MarchePrimaireController {
     @GetMapping("/paiements/{investisseurId}")
     public ResponseEntity<List<PaiementResponse>> getPaiements(@PathVariable Long investisseurId) {
         return ResponseEntity.ok(marchePrimaireService.getPaiements(investisseurId));
+    }
+
+    @Operation(
+            summary = "Investisseurs d'une propriete + pourcentage de parts detenu",
+            description = "Liste les investisseurs ayant achete des parts de cette propriete, avec leur nombre de parts et leur pourcentage. Accessible a l'admin ou au proprietaire qui a propose le bien.")
+    @PreAuthorize("hasRole('ADMIN') or @proprieteSecurity.isProposeur(#proprieteId, principal.id)")
+    @GetMapping("/proprietes/{proprieteId}/investisseurs")
+    public ResponseEntity<List<InvestisseurPossessionResponse>> getInvestisseursParPropriete(
+            @PathVariable Long proprieteId) {
+        return ResponseEntity.ok(marchePrimaireService.getInvestisseursParPropriete(proprieteId));
     }
 }

@@ -3,12 +3,15 @@ package com.fursa.fursa_backend.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.web3j.abi.FunctionEncoder;
+import org.web3j.abi.datatypes.Function;
 
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Collections;
 
 /**
  * Client RPC JSON bas-niveau pour Ethereum (HttpClient JDK).
@@ -52,9 +55,17 @@ public class BlockchainRpcClient {
 
     public BigInteger getPartsDisponibles() {
         try {
+            // Encode dynamiquement le selector de la fonction partsDisponibles() du ProprieteToken.
+            // Plus robuste qu'un hardcode 0xa36c8d18 qui devient faux si le contrat change.
+            Function fn = new Function(
+                    "partsDisponibles",
+                    Collections.emptyList(),
+                    Collections.emptyList());
+            String data = FunctionEncoder.encode(fn);
+
             String body = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_call\",\"params\":"
                     + "[{\"to\":\"" + contratAdresse.trim() + "\","
-                    + "\"data\":\"0xa36c8d18\"},\"latest\"],\"id\":1}";
+                    + "\"data\":\"" + data + "\"},\"latest\"],\"id\":1}";
 
             HttpResponse<String> response = sendRpc(body);
             String responseBody = response.body();

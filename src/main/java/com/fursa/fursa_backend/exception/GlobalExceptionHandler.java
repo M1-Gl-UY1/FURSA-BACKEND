@@ -93,6 +93,39 @@ public class GlobalExceptionHandler {
                 "Operation impossible : conflit de donnees (contrainte violee ou reference existante)");
     }
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadable(org.springframework.http.converter.HttpMessageNotReadableException ex) {
+        log.debug("Body de requete invalide : {}", ex.getMessage());
+        return build(HttpStatus.BAD_REQUEST, "Body JSON invalide ou manquant");
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        return build(HttpStatus.BAD_REQUEST,
+                "Parametre '" + ex.getName() + "' de type invalide");
+    }
+
+    @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(jakarta.validation.ConstraintViolationException ex) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        ex.getConstraintViolations().forEach(v ->
+                fields.put(v.getPropertyPath().toString(), v.getMessage()));
+        Map<String, Object> body = baseBody(HttpStatus.BAD_REQUEST, "Validation echouee");
+        body.put("fieldErrors", fields);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(org.springframework.web.HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodNotAllowed(org.springframework.web.HttpRequestMethodNotSupportedException ex) {
+        return build(HttpStatus.METHOD_NOT_ALLOWED,
+                "Methode " + ex.getMethod() + " non supportee sur cet endpoint");
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResource(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, "Endpoint inconnu");
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(RuntimeException ex) {
         log.error("Erreur non geree", ex);

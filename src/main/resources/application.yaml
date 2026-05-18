@@ -50,8 +50,9 @@ management:
     tags:
       application: ${spring.application.name}
 
-# Blockchain (Web3j). Defauts = Hardhat/Ganache local pour dev.
+# Blockchain (Web3j). Defauts = Hardhat local pour dev.
 # En prod : tout passer via variables d'environnement, JAMAIS la cle privee en clair dans le repo.
+# Chain ID : 1337 = Ganache, 31337 = Hardhat, 11155111 = Sepolia testnet, 137 = Polygon mainnet.
 blockchain:
   rpc-url: ${BLOCKCHAIN_RPC_URL:http://127.0.0.1:8545}
   contract-address: ${BLOCKCHAIN_CONTRACT_ADDRESS:0x5b1869D9A4C187F2EAa108f3062412ecf0526b24}
@@ -60,3 +61,4 @@ blockchain:
   owner-private-key: ${BLOCKCHAIN_OWNER_PRIVATE_KEY:0x4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d}
   gas-price: ${BLOCKCHAIN_GAS_PRICE:2000000000}
   gas-limit: ${BLOCKCHAIN_GAS_LIMIT:30000000}
+  chain-id: ${BLOCKCHAIN_CHAIN_ID:31337}

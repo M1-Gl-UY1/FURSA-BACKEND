@@ -3,8 +3,8 @@ package com.fursa.fursa_backend.service;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.repository.ProprieteRepository;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.web3j.crypto.Credentials;
@@ -17,17 +17,23 @@ import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class TokenisationService {
 
     private final ProprieteRepository proprieteRepository;
     private final BlockchainRpcClient blockchainRpcClient;
+    private final Credentials credentials;
+    private final long chainId;
 
-    private static final String ADMIN_ADDRESS =
-            "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
-    private static final String ADMIN_PRIVATE_KEY =
-            "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-    private static final long CHAIN_ID = 31337L;
+    public TokenisationService(
+            ProprieteRepository proprieteRepository,
+            BlockchainRpcClient blockchainRpcClient,
+            Credentials credentials,
+            @Value("${blockchain.chain-id}") long chainId) {
+        this.proprieteRepository = proprieteRepository;
+        this.blockchainRpcClient = blockchainRpcClient;
+        this.credentials = credentials;
+        this.chainId = chainId;
+    }
 
     @Transactional
     public Propriete tokeniserPropriete(Long id) throws Exception {
@@ -68,14 +74,13 @@ public class TokenisationService {
 
         // 6. Nonce
         log.info("Récupération nonce...");
-        String nonceHex = blockchainRpcClient.getNonce(ADMIN_ADDRESS);
+        String nonceHex = blockchainRpcClient.getNonce(credentials.getAddress());
         log.info("NonceHex brut : {}", nonceHex);
         BigInteger nonce = Numeric.decodeQuantity(nonceHex);
         log.info("Nonce : {}", nonce);
 
         // 7. Crée et signe la transaction
         log.info("Signature transaction...");
-        Credentials credentials = Credentials.create(ADMIN_PRIVATE_KEY);
 
         RawTransaction rawTx = RawTransaction.createContractTransaction(
                 nonce,
@@ -85,7 +90,7 @@ public class TokenisationService {
                 data
         );
 
-        byte[] signedTx = TransactionEncoder.signMessage(rawTx, CHAIN_ID, credentials);
+        byte[] signedTx = TransactionEncoder.signMessage(rawTx, chainId, credentials);
         String hexTx = Numeric.toHexString(signedTx);
         log.info("Transaction signée, longueur : {}", hexTx.length());
 

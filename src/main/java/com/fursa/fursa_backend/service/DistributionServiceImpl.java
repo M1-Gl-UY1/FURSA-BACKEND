@@ -143,6 +143,25 @@ public class DistributionServiceImpl implements DistributionService {
             );
         }
 
+        // Pre-alimentation du contrat avec le total a distribuer (sinon payInvestor revert
+        // sur require(address(this).balance >= _amount) du RevenueDistribution.sol).
+        BigInteger totalWei = BigInteger.ZERO;
+        for (Dividende d : dividendes) {
+            Investisseur inv = d.getInvestisseur();
+            if (inv == null || inv.getWallet_address() == null || inv.getWallet_address().isBlank()) continue;
+            BigDecimal montantETH = d.getMontantCalcule().divide(TAUX_FCFA_PAR_ETH, 18, RoundingMode.HALF_UP);
+            totalWei = totalWei.add(blockchainService.ethToWei(montantETH.doubleValue()));
+        }
+        if (totalWei.compareTo(BigInteger.ZERO) > 0) {
+            try {
+                String fundTxHash = blockchainService.fundContract(totalWei);
+                log.info("Contrat pre-alimente : {} wei pour revenu {} (tx={})", totalWei, revenuId, fundTxHash);
+            } catch (Exception e) {
+                log.error("Echec pre-alimentation du contrat pour revenu {} : {}", revenuId, e.getMessage());
+                throw new IllegalStateException("Impossible d'alimenter le contrat : " + e.getMessage(), e);
+            }
+        }
+
         NumberFormat eurFormat = NumberFormat.getCurrencyInstance(Locale.FRANCE);
         List<Dividende> traites = new ArrayList<>();
 

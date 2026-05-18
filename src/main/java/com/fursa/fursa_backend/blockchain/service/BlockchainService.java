@@ -32,23 +32,25 @@ public class BlockchainService {
     private final ContractGasProvider gasProvider;
     private final TransactionManager transactionManager;
     private final String contractAddress;
+    private final long chainId;
 
     private static final BigInteger GAS_PRICE = BigInteger.valueOf(2_000_000_000L);
     private static final BigInteger GAS_LIMIT  = BigInteger.valueOf(300_000L);
-    private static final long CHAIN_ID = 1337L;
 
     public BlockchainService(
             Web3j web3j,
             Credentials credentials,
             ContractGasProvider gasProvider,
             @Qualifier("web3TransactionManager") TransactionManager transactionManager,
-            @Value("${blockchain.contract-address}") String contractAddress) {
+            @Value("${blockchain.contract-address}") String contractAddress,
+            @Value("${blockchain.chain-id}") long chainId) {
 
         this.web3j = web3j;
         this.credentials = credentials;
         this.gasProvider = gasProvider;
         this.transactionManager = transactionManager;
         this.contractAddress = contractAddress;
+        this.chainId = chainId;
     }
 
     // ==============================
@@ -79,7 +81,7 @@ public class BlockchainService {
                 encodedFunction
         );
 
-        byte[] signedTx = TransactionEncoder.signMessage(rawTx, CHAIN_ID, credentials);
+        byte[] signedTx = TransactionEncoder.signMessage(rawTx, chainId, credentials);
         String hexTx = Numeric.toHexString(signedTx);
 
         EthSendTransaction response = web3j.ethSendRawTransaction(hexTx).send();
@@ -112,6 +114,25 @@ public class BlockchainService {
 
         log.info("Ajout investisseur {}", cleanAddress);
         return sendRawTransaction(FunctionEncoder.encode(function), BigInteger.ZERO);
+    }
+
+    // ==============================
+    // FUND CONTRACT (pre-alimentation)
+    // ==============================
+
+    /**
+     * Envoie {@code amountWei} ETH au contrat via sendMoneyAInvestir() (payable).
+     * A appeler AVANT toute distribution pour s'assurer que le contrat a un solde
+     * suffisant pour payer les investisseurs (payInvestor revert sinon).
+     */
+    public String fundContract(BigInteger amountWei) throws Exception {
+        Function function = new Function(
+                "sendMoneyAInvestir",
+                Collections.emptyList(),
+                Collections.emptyList());
+
+        log.info("Alimentation du contrat : {} wei", amountWei);
+        return sendRawTransaction(FunctionEncoder.encode(function), amountWei);
     }
 
     // ==============================

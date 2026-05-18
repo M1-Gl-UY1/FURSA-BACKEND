@@ -24,24 +24,15 @@ public class Web3jConfig {
 
     @Bean
     public Web3j web3j() {
-        // ✅ Web3j.build — pas de lien Markdown
         Web3j web3j = Web3j.build(new HttpService(rpcUrl));
         try {
             var block = web3j.ethBlockNumber().send();
-            System.out.println("✅ Ganache connecté - bloc: "
-                + block.getBlockNumber());
+            System.out.println("Blockchain RPC OK (" + rpcUrl + ") - bloc: " + block.getBlockNumber());
         } catch (Exception e) {
-            System.err.println("❌ Ganache non disponible: " + e.getMessage());
+            System.err.println("Blockchain RPC injoignable (" + rpcUrl + "): " + e.getMessage());
         }
         return web3j;
     }
-
-    // @Bean
-    // public Credentials credentials() {
-    //     Credentials creds = Credentials.create(ownerPrivateKey);
-    //     System.out.println("👤 Adresse owner dérivée: " + creds.getAddress());
-    //     return creds;
-    // }
 
     @Bean
     public Credentials credentials() {
@@ -53,13 +44,15 @@ public class Web3jConfig {
         return Credentials.create(ownerPrivateKey);
     }
 
-
     @Bean
-    public TransactionManager web3TransactionManager(Web3j web3j, Credentials credentials) {
+    public TransactionManager web3TransactionManager(
+            Web3j web3j,
+            Credentials credentials,
+            @Value("${blockchain.chain-id}") long chainId) {
         return new RawTransactionManager(
             web3j,
             credentials,
-            1337L,
+            chainId,
             new NoOpProcessor(web3j)
         );
     }

@@ -11,6 +11,7 @@ import com.fursa.fursa_backend.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.fursa.fursa_backend.dto.InvestisseurPossessionResponse;
 import com.fursa.fursa_backend.dto.PaiementResponse;
 import com.fursa.fursa_backend.dto.PossessionResponse;
 import com.fursa.fursa_backend.dto.TransactionResponse;
@@ -197,6 +198,34 @@ public class MarchePrimaireService {
                 p.getPropriete().getNom(),
                 p.getDate()
         )).toList();
+    }
+
+    /**
+     * Liste les investisseurs d'une propriete avec leur nombre de parts et le pourcentage detenu.
+     * Utilise par l'admin et par le proprietaire qui a propose le bien.
+     */
+    public List<InvestisseurPossessionResponse> getInvestisseursParPropriete(Long proprieteId) {
+        Propriete propriete = proprieteRepository.findById(proprieteId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Propriete non trouvee avec l'id : " + proprieteId));
+
+        int totalParts = propriete.getNombreTotalPart() == null ? 0 : propriete.getNombreTotalPart();
+
+        return possessionRepository.findByProprieteId(proprieteId).stream()
+                .map(p -> {
+                    Investisseur inv = p.getInvestisseur();
+                    int parts = p.getNombreDeParts() == null ? 0 : p.getNombreDeParts();
+                    double pourcentage = totalParts > 0 ? (parts * 100.0) / totalParts : 0.0;
+                    return new InvestisseurPossessionResponse(
+                            inv.getId(),
+                            inv.getEmail(),
+                            inv.getNom(),
+                            inv.getPrenom(),
+                            parts,
+                            pourcentage
+                    );
+                })
+                .toList();
     }
 
     /**
