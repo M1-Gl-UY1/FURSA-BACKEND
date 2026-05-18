@@ -1,6 +1,6 @@
 # Plan de test - FURSA Backend Production
 
-> Environnement cible : `https://api.fursas.duckdns.org` (profil Spring `prod`)
+> Environnement cible : `https://api.fursa.seed-innov.com` (profil Spring `prod`)
 > Derniere verification : 2026-04-24
 
 ## Execution rapide
@@ -17,7 +17,7 @@ Le script teste 40+ endpoints dans un ordre qui respecte les dependances metier
 
 ## Comptes de test
 
-### Production (`https://api.fursas.duckdns.org`)
+### Production (`https://api.fursa.seed-innov.com`)
 
 Apres la bascule en profil `prod`, tous les comptes de seed ont ete purges.
 Le seul compte actif est :
@@ -204,7 +204,7 @@ A faire avec JMeter ou k6 separement :
 
 ### UX / Front
 
-- CORS : depuis `https://app.fursas.duckdns.org` (ou localhost:3000) un
+- CORS : depuis `https://fursa.seed-innov.com` (ou localhost:3000) un
   `OPTIONS /api/proprietes/public` doit retourner 204 avec les bons
   headers `Access-Control-Allow-*`
 
@@ -219,10 +219,10 @@ A faire avec JMeter ou k6 separement :
 ## Rollback si un test critique echoue en prod
 
 ```bash
-ssh -i ~/.ssh/koursa_deploy softengine@api.fursas.duckdns.org
+ssh -i ~/.ssh/koursa_deploy softengine@api.fursa.seed-innov.com
 cd ~/Fursa/FURSA-BACKEND
 git log --oneline -5       # identifie le commit precedent stable
 git reset --hard <sha>
 docker compose up -d --build
-curl https://api.fursas.duckdns.org/api/health
+curl https://api.fursa.seed-innov.com/api/health
 ```

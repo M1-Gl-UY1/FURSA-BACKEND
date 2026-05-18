@@ -2,7 +2,7 @@
 # Smoke test de l'API FURSA.
 # Usage : bash scripts/smoke-test.sh [URL_BASE] [ADMIN_EMAIL] [ADMIN_PASSWORD]
 #
-# Defaut (prod) : https://api.fursas.duckdns.org avec tiomelajorel@gmail.com / jorel2026
+# Defaut (prod) : https://api.fursa.seed-innov.com avec tiomelajorel@gmail.com / jorel2026
 #
 # Exemples :
 #   bash scripts/smoke-test.sh
@@ -11,7 +11,7 @@
 
 set -u
 
-BASE="${1:-https://api.fursas.duckdns.org}"
+BASE="${1:-https://api.fursa.seed-innov.com}"
 ADMIN_EMAIL="${2:-tiomelajorel@gmail.com}"
 ADMIN_PASSWORD="${3:-jorel2026}"
 

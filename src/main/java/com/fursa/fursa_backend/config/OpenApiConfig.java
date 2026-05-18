@@ -42,7 +42,7 @@ public class OpenApiConfig {
                                 .url("https://github.com/M1-Gl-UY1/FURSA-BACKEND"))
                         .license(new License().name("Usage academique - UE Projet M1")))
                 .servers(List.of(
-                        new Server().url("https://api.fursas.duckdns.org").description("Production (VPS Contabo)"),
+                        new Server().url("https://api.fursa.seed-innov.com").description("Production (VPS Contabo)"),
                         new Server().url("http://localhost:8081").description("Local")))
                 .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME))
                 .components(new Components()

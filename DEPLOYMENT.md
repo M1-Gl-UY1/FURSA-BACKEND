@@ -7,7 +7,7 @@ A faire **une fois** sur le VPS avant de pusher le code qui contient `docker-com
 ### 1. Se connecter au VPS
 
 ```bash
-ssh -i ~/.ssh/koursa_deploy softengine@api.fursas.duckdns.org
+ssh -i ~/.ssh/koursa_deploy softengine@api.fursa.seed-innov.com
 cd ~/Fursa/FURSA-BACKEND
 ```
 
@@ -38,7 +38,7 @@ POSTGRES_PASSWORD=${DB_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRATION_MS=86400000
 
-CORS_ALLOWED_ORIGINS=https://app.fursas.duckdns.org
+CORS_ALLOWED_ORIGINS=https://fursa.seed-innov.com
 EOF
 
 chmod 600 .env
@@ -97,7 +97,7 @@ ne leve pas d'exception, et que `/api/health` retourne 200.
 Script automatise :
 
 ```bash
-bash scripts/smoke-test.sh https://api.fursas.duckdns.org tiomelajorel@gmail.com jorel2026
+bash scripts/smoke-test.sh https://api.fursa.seed-innov.com tiomelajorel@gmail.com jorel2026
 # => 66/66 tests passants
 ```
 
@@ -105,16 +105,16 @@ Verification manuelle rapide :
 
 ```bash
 # Health public
-curl -s https://api.fursas.duckdns.org/api/health
+curl -s https://api.fursa.seed-innov.com/api/health
 # => {"status":"UP"}
 
 # Login du compte admin actuel de la prod
-TOKEN=$(curl -sX POST https://api.fursas.duckdns.org/api/user/auth/login \
+TOKEN=$(curl -sX POST https://api.fursa.seed-innov.com/api/user/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"tiomelajorel@gmail.com","password":"jorel2026"}' | jq -r .token)
 
 # Dashboard admin (confirme le role ADMIN)
-curl -s -H "Authorization: Bearer ${TOKEN}" https://api.fursas.duckdns.org/api/dashboard/admin
+curl -s -H "Authorization: Bearer ${TOKEN}" https://api.fursa.seed-innov.com/api/dashboard/admin
 ```
 
 ### Creer un autre admin (facultatif)
@@ -123,7 +123,7 @@ Spring ne permet pas l'auto-promotion en ADMIN par API (securite). Procedure :
 
 ```bash
 # 1. L'utilisateur s'inscrit normalement (role=INVESTISSEUR par defaut)
-curl -sX POST https://api.fursas.duckdns.org/api/user/auth/register \
+curl -sX POST https://api.fursa.seed-innov.com/api/user/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email":"newadmin@fursas.com","password":"ChooseStrong2026","nom":"Admin","prenom":"Two","telephone":"+237600000001"}'
 
@@ -162,7 +162,7 @@ Consequence : **tous les tokens emis sont invalides** -> tous les users doivent
 se re-logger. C'est normal et attendu.
 
 ```bash
-ssh softengine@api.fursas.duckdns.org
+ssh softengine@api.fursa.seed-innov.com
 cd ~/Fursa/FURSA-BACKEND
 
 NEW_SECRET=$(openssl rand -base64 48)

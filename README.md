@@ -6,7 +6,7 @@ primaire (achat de parts), marche secondaire (revente entre investisseurs),
 distribution de dividendes, notifications, dashboard et administration.
 
 **Production** : `https://api.fursa.seed-innov.com` (nouveau domaine principal)
-**Production legacy** : `https://api.fursas.duckdns.org` (toujours actif, transition)
+**Production legacy** : `https://api.fursa.seed-innov.com` (toujours actif, transition)
 **Swagger UI** : `https://api.fursa.seed-innov.com/swagger-ui`
 **Frontend** : `https://fursa.seed-innov.com`
 **Status** : 48 endpoints + endpoints Phase 7+8 (soumission propriétaire + déclaration revenu), 49 tests unitaires verts, 66/66 smoke tests.
@@ -107,7 +107,7 @@ Tous les endpoints sont proteges par JWT sauf :
 ### Obtenir un token
 
 ```bash
-curl -X POST https://api.fursas.duckdns.org/api/user/auth/login \
+curl -X POST https://api.fursa.seed-innov.com/api/user/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"tiomelajorel@gmail.com","password":"jorel2026"}'
 # => { "token": "eyJhbGciOi...", "type": "Bearer" }
@@ -116,7 +116,7 @@ curl -X POST https://api.fursas.duckdns.org/api/user/auth/login \
 ### Utiliser le token
 
 ```bash
-curl -H "Authorization: Bearer <token>" https://api.fursas.duckdns.org/api/user/me
+curl -H "Authorization: Bearer <token>" https://api.fursa.seed-innov.com/api/user/me
 ```
 
 Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
@@ -239,7 +239,7 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 
 | Champ     | Valeur                      |
 |-----------|-----------------------------|
-| URL       | https://api.fursas.duckdns.org |
+| URL       | https://api.fursa.seed-innov.com |
 | Email     | `tiomelajorel@gmail.com`    |
 | Password  | `jorel2026`                 |
 | Role      | ADMIN                       |
@@ -316,7 +316,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=<obligatoire>
 JWT_SECRET=<obligatoire, min 32 octets>
 JWT_EXPIRATION_MS=86400000
-CORS_ALLOWED_ORIGINS=https://app.fursas.duckdns.org,http://localhost:3000
+CORS_ALLOWED_ORIGINS=https://fursa.seed-innov.com,http://localhost:3000
 ```
 
 ### Profils Spring
