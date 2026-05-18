@@ -39,6 +39,16 @@ JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRATION_MS=86400000
 
 CORS_ALLOWED_ORIGINS=https://fursa.seed-innov.com
+
+# Blockchain (Web3j). Cible : Sepolia testnet (Ethereum).
+# Recuperer un endpoint RPC sur Infura ou Alchemy (gratuit).
+# La cle privee doit avoir des ETH testnet (faucet : https://sepoliafaucet.com).
+BLOCKCHAIN_RPC_URL=https://sepolia.infura.io/v3/<PROJECT_ID>
+BLOCKCHAIN_CONTRACT_ADDRESS=<adresse du contrat RevenueDistribution deploye>
+BLOCKCHAIN_OWNER_PRIVATE_KEY=<cle privee du wallet owner, jamais committee>
+BLOCKCHAIN_CHAIN_ID=11155111
+BLOCKCHAIN_GAS_PRICE=2000000000
+BLOCKCHAIN_GAS_LIMIT=300000
 EOF
 
 chmod 600 .env

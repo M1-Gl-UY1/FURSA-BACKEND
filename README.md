@@ -138,7 +138,7 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 
 ---
 
-## Endpoints (48)
+## Endpoints (55)
 
 ### Auth (public)
 | Methode | Chemin                      |
@@ -175,6 +175,7 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 | GET     | `/api/marche-primaire/me/{possessions,transactions,paiements}` | authentifie |
 | GET     | `/api/marche-primaire/{possessions,transactions,paiements}`    | **admin**   |
 | GET     | `/api/marche-primaire/{possessions,transactions,paiements}/{investisseurId}` | **admin** |
+| GET     | `/api/marche-primaire/proprietes/{id}/investisseurs` | **admin** ou proposeur |
 
 ### Marche secondaire
 | Methode | Chemin                                                 | Acces      |
@@ -219,6 +220,16 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 | GET     | `/api/dashboard/me`                        | authentifie|
 | GET     | `/api/dashboard/investisseur/{id}`         | **admin**  |
 | GET     | `/api/dashboard/admin`                     | **admin**  |
+
+### Blockchain (on-chain via web3j)
+| Methode | Chemin                                                | Acces       |
+|---------|-------------------------------------------------------|-------------|
+| GET     | `/api/proprietes/public/blockchain/status`            | authentifie |
+| POST    | `/api/proprietes/admin/{id}/tokeniser`                | **admin**   |
+| POST    | `/api/blockchain/investors`                           | authentifie |
+| POST    | `/api/blockchain/distribute/blockchain/{revenuId}`    | authentifie |
+| GET     | `/api/blockchain/investors/{address}/dividend`        | authentifie |
+| GET     | `/api/blockchain/balance`                             | authentifie |
 
 ### Infra & Monitoring
 | Methode | Chemin                     | Acces  |
@@ -317,6 +328,14 @@ POSTGRES_PASSWORD=<obligatoire>
 JWT_SECRET=<obligatoire, min 32 octets>
 JWT_EXPIRATION_MS=86400000
 CORS_ALLOWED_ORIGINS=https://fursa.seed-innov.com,http://localhost:3000
+
+# Blockchain (Web3j). Cible Sepolia testnet en V1.
+BLOCKCHAIN_RPC_URL=https://sepolia.infura.io/v3/<PROJECT_ID>
+BLOCKCHAIN_CONTRACT_ADDRESS=<adresse RevenueDistribution deploye sur Sepolia>
+BLOCKCHAIN_OWNER_PRIVATE_KEY=<cle privee du wallet owner, jamais committee>
+BLOCKCHAIN_CHAIN_ID=11155111            # 11155111 = Sepolia, 31337 = Hardhat, 137 = Polygon mainnet
+BLOCKCHAIN_GAS_PRICE=2000000000
+BLOCKCHAIN_GAS_LIMIT=300000
 ```
 
 ### Profils Spring
@@ -357,19 +376,26 @@ un body JSON uniforme :
 }
 ```
 
-| Exception                               | Code |
-|-----------------------------------------|------|
-| `EntityNotFoundException`               | 404  |
-| `IllegalArgumentException`              | 400  |
-| `IllegalStateException`                 | 400  |
-| `MethodArgumentNotValidException`       | 400 (+ fieldErrors) |
-| `AccessDeniedException`                 | 403  |
-| `OptimisticLockingFailureException`     | 409  |
-| `DataIntegrityViolationException`       | 409  |
-| `MaxUploadSizeExceededException`        | 413  |
-| `MultipartException`                    | 400  |
-| `HttpMediaTypeNotSupportedException`    | 415  |
-| `Exception` / `RuntimeException`        | 500 (stacktrace loggee, pas exposee) |
+| Exception                                          | Code |
+|----------------------------------------------------|------|
+| `EntityNotFoundException`                          | 404  |
+| `NoResourceFoundException`                         | 404 (endpoint inconnu) |
+| `IllegalArgumentException`                         | 400  |
+| `IllegalStateException`                            | 400  |
+| `MethodArgumentNotValidException`                  | 400 (+ fieldErrors) |
+| `HttpMessageNotReadableException`                  | 400 (body JSON invalide ou manquant) |
+| `MethodArgumentTypeMismatchException`              | 400 (parametre de type invalide) |
+| `ConstraintViolationException`                     | 400 (+ fieldErrors) |
+| `MissingServletRequestParameterException`          | 400  |
+| `MissingServletRequestPartException`               | 400  |
+| `AccessDeniedException`                            | 403  |
+| `HttpRequestMethodNotSupportedException`           | 405  |
+| `OptimisticLockingFailureException`                | 409  |
+| `DataIntegrityViolationException`                  | 409  |
+| `MaxUploadSizeExceededException`                   | 413  |
+| `MultipartException`                               | 400  |
+| `HttpMediaTypeNotSupportedException`               | 415  |
+| `Exception` / `RuntimeException`                   | 500 (stacktrace loggee, pas exposee) |
 
 ---
 
