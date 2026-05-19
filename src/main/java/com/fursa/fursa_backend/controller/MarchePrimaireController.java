@@ -9,6 +9,7 @@ import com.fursa.fursa_backend.dto.TransactionResponse;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import com.fursa.fursa_backend.service.MarchePrimaireService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -46,9 +48,12 @@ public class MarchePrimaireController {
     // Seuls les comptes INVESTISSEUR peuvent acheter des parts.
     @PreAuthorize("hasRole('INVESTISSEUR')")
     @PostMapping("/acheter")
-    public ResponseEntity<AchatResponse> acheterParts(@RequestBody AchatRequest request) {
+    public ResponseEntity<AchatResponse> acheterParts(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody AchatRequest request) {
         Long investisseurId = authInvestisseur.currentId();
-        return ResponseEntity.ok(marchePrimaireService.acheterParts(investisseurId, request));
+        return ResponseEntity.ok(
+                marchePrimaireService.acheterParts(investisseurId, request, idempotencyKey));
     }
 
     @Operation(summary = "Mon portefeuille", description = "Possessions de l'investisseur connecte.")

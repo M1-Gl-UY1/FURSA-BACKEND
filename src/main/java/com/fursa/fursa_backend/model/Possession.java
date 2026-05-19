@@ -7,6 +7,13 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
+@Table(
+        name = "possession",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_possession_investisseur_propriete",
+                columnNames = {"id_inv", "id_prop"}
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor

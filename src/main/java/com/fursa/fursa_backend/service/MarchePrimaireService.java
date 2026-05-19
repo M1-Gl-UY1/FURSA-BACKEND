@@ -1,5 +1,7 @@
 package com.fursa.fursa_backend.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fursa.fursa_backend.dto.AchatRequest;
 import com.fursa.fursa_backend.dto.AchatResponse;
 import com.fursa.fursa_backend.model.*;
@@ -8,6 +10,7 @@ import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.StatutTransaction;
 import com.fursa.fursa_backend.model.enumeration.TypePaiement;
 import com.fursa.fursa_backend.repository.*;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,49 +22,57 @@ import com.fursa.fursa_backend.dto.TransactionResponse;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class MarchePrimaireService {
+
+    private static final String ENDPOINT_ACHETER = "POST /api/marche-primaire/acheter";
 
     private final PaiementRepository paiementRepository;
     private final TransactionRepository transactionRepository;
     private final PossessionRepository possessionRepository;
     private final ProprieteRepository proprieteRepository;
     private final InvestisseurRepository investisseurRepository;
+    private final IdempotencyRecordRepository idempotencyRepository;
+    private final ObjectMapper objectMapper;
 
     public MarchePrimaireService(PaiementRepository paiementRepository,
                                   TransactionRepository transactionRepository,
                                   PossessionRepository possessionRepository,
                                   ProprieteRepository proprieteRepository,
-                                  InvestisseurRepository investisseurRepository) {
+                                  InvestisseurRepository investisseurRepository,
+                                  IdempotencyRecordRepository idempotencyRepository,
+                                  ObjectMapper objectMapper) {
         this.paiementRepository = paiementRepository;
         this.transactionRepository = transactionRepository;
         this.possessionRepository = possessionRepository;
         this.proprieteRepository = proprieteRepository;
         this.investisseurRepository = investisseurRepository;
+        this.idempotencyRepository = idempotencyRepository;
+        this.objectMapper = objectMapper;
     }
 
-    /**
-     * Mission 1 + 2 + 3 : Flux complet d'achat de parts
-     * 1. Créer l'intention d'achat (Paiement)
-     * 2. Créer la Transaction avec un faux hash blockchain
-     * 3. Si SUCCESS → mettre à jour la Possession et diminuer les parts disponibles
-     */
     @Transactional
-    public AchatResponse acheterParts(Long investisseurId, AchatRequest request) {
+    public AchatResponse acheterParts(Long investisseurId, AchatRequest request, String idempotencyKey) {
 
-        // --- Récupérer l'investisseur ---
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<IdempotencyRecord> existing = idempotencyRepository
+                    .findByIdempotencyKeyAndUserIdAndEndpoint(idempotencyKey, investisseurId, ENDPOINT_ACHETER);
+            if (existing.isPresent() && existing.get().getResponseBody() != null) {
+                return deserialize(existing.get().getResponseBody());
+            }
+        }
+
         Investisseur investisseur = investisseurRepository.findById(investisseurId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Investisseur non trouve avec l'id : " + investisseurId));
 
-        // --- Récupérer la propriété ---
         Propriete propriete = proprieteRepository.findById(request.getProprieteId())
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Propriete non trouvee avec l'id : " + request.getProprieteId()));
 
-        // --- Vérifications métier ---
         if (propriete.getStatut() != StatutPropriete.PUBLIEE) {
             throw new IllegalStateException("Cette propriete n'est pas disponible a l'achat.");
         }
@@ -70,79 +81,52 @@ public class MarchePrimaireService {
             throw new IllegalStateException("Parts insuffisantes. Disponibles : " + propriete.getPartsDisponibles());
         }
 
-        if (request.getNombreParts() <= 0) {
-            throw new IllegalArgumentException("Le nombre de parts doit etre superieur a 0.");
-        }
-
-        // --- Calculer le montant total ---
         BigDecimal montantTotal = propriete.getPrixUnitairePart()
                 .multiply(BigDecimal.valueOf(request.getNombreParts()));
 
-        // =============================================
-        // MISSION 1 : Créer l'intention d'achat (Paiement)
-        // =============================================
+        // V1.5 : pas encore de vrai paiement crypto. On marque FIAT par defaut.
+        // TODO chantier blockchain : determiner le type depuis le token utilise (USDC/USDT/EURC).
+        // TODO V2 : verifier la balance/solvabilite de l'investisseur avant de creer le Paiement.
         Paiement paiement = new Paiement();
         paiement.setInvestisseur(investisseur);
         paiement.setPropriete(propriete);
         paiement.setMontant(montantTotal);
         paiement.setNombre_parts(request.getNombreParts());
-        paiement.setType(TypePaiement.CRYPTO);
-        paiement.setStatut(StatutPaiement.EN_ATTENTE);
+        paiement.setType(TypePaiement.FIAT);
+        paiement.setStatut(StatutPaiement.VALIDE);
         paiement.setDate(LocalDateTime.now());
         paiement = paiementRepository.save(paiement);
 
-        // =============================================
-        // MISSION 2 : Créer la Transaction (faux hash blockchain V1)
-        // =============================================
-        String fauxHash = "0x" + UUID.randomUUID().toString().replace("-", "");
+        // V1.5 : hash factice tant que l'integration on-chain (Sepolia) n'est pas branchee.
+        // TODO chantier blockchain : remplacer par le vrai tx hash retourne par BlockchainService.
+        String hashTransaction = "0x" + UUID.randomUUID().toString().replace("-", "");
 
         Transaction transaction = new Transaction();
         transaction.setPaiement(paiement);
-        transaction.setHashTransaction(fauxHash);
+        transaction.setHashTransaction(hashTransaction);
         transaction.setTypeOperation(com.fursa.fursa_backend.model.enumeration.TypeOperation.ACHAT);
         transaction.setNombreParts(request.getNombreParts());
         transaction.setMontant(montantTotal);
         transaction.setDateTransaction(LocalDateTime.now());
-        transaction.setStatut(StatutTransaction.SUCCES); // V1 : on simule le succès
+        transaction.setStatut(StatutTransaction.SUCCES);
         transaction = transactionRepository.save(transaction);
 
-        // =============================================
-        // MISSION 3 : Logique métier critique (si SUCCESS)
-        // =============================================
-        if (transaction.getStatut() == StatutTransaction.SUCCES) {
+        Possession possession = possessionRepository
+                .findByInvestisseurIdAndProprieteId(investisseur.getId(), propriete.getId())
+                .orElseGet(() -> {
+                    Possession p = new Possession();
+                    p.setInvestisseur(investisseur);
+                    p.setPropriete(propriete);
+                    p.setNombreDeParts(0);
+                    return p;
+                });
+        possession.setNombreDeParts(possession.getNombreDeParts() + request.getNombreParts());
+        possessionRepository.save(possession);
 
-            // Valider le paiement
-            paiement.setStatut(StatutPaiement.VALIDE);
-            paiementRepository.save(paiement);
+        propriete.setPartsDisponibles(propriete.getPartsDisponibles() - request.getNombreParts());
+        proprieteRepository.save(propriete);
 
-            // Mettre à jour ou créer la Possession
-            Possession possession = possessionRepository
-                    .findByInvestisseurIdAndProprieteId(investisseur.getId(), propriete.getId())
-                    .orElse(null);
-
-            if (possession == null) {
-                // Première fois que cet investisseur achète des parts de cette propriété
-                possession = new Possession();
-                possession.setInvestisseur(investisseur);
-                possession.setPropriete(propriete);
-                possession.setNombreDeParts(request.getNombreParts());
-            } else {
-                // L'investisseur possède déjà des parts → on ajoute
-                possession.setNombreDeParts(
-                        possession.getNombreDeParts() + request.getNombreParts()
-                );
-            }
-            possessionRepository.save(possession);
-
-            // Diminuer les parts disponibles de la propriété
-            propriete.setPartsDisponibles(
-                    propriete.getPartsDisponibles() - request.getNombreParts()
-            );
-            proprieteRepository.save(propriete);
-        }
-
-        // --- Construire la réponse ---
-        return new AchatResponse(
+        AchatResponse response = new AchatResponse(
                 paiement.getId(),
                 transaction.getId(),
                 transaction.getHashTransaction(),
@@ -152,6 +136,38 @@ public class MarchePrimaireService {
                 propriete.getNom(),
                 transaction.getDateTransaction()
         );
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            persistIdempotency(idempotencyKey, investisseurId, response);
+        }
+
+        return response;
+    }
+
+    private void persistIdempotency(String key, Long userId, AchatResponse response) {
+        try {
+            IdempotencyRecord record = new IdempotencyRecord();
+            record.setIdempotencyKey(key);
+            record.setUserId(userId);
+            record.setEndpoint(ENDPOINT_ACHETER);
+            record.setResponseBody(objectMapper.writeValueAsString(response));
+            record.setCreatedAt(LocalDateTime.now());
+            idempotencyRepository.save(record);
+        } catch (JsonProcessingException e) {
+            // L'achat metier a reussi : on ne fait pas echouer le call si seule la sauvegarde de la cle echoue.
+            throw new IllegalStateException("Echec serialisation reponse idempotente", e);
+        } catch (DataIntegrityViolationException e) {
+            // Course condition : deux requetes simultanees avec la meme cle.
+            // La 2e tombe ici ; on rejoue l'enregistrement gagnant.
+        }
+    }
+
+    private AchatResponse deserialize(String json) {
+        try {
+            return objectMapper.readValue(json, AchatResponse.class);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Cle d'idempotence corrompue", e);
+        }
     }
 
     /**
