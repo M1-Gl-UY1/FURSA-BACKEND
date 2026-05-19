@@ -26,6 +26,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          BLOCKCHAIN_RPC_URL: ${{ secrets.BLOCKCHAIN_RPC_URL }}
+          BLOCKCHAIN_CONTRACT_ADDRESS: ${{ secrets.BLOCKCHAIN_CONTRACT_ADDRESS }}
+          BLOCKCHAIN_OWNER_PRIVATE_KEY: ${{ secrets.BLOCKCHAIN_OWNER_PRIVATE_KEY }}
+          BLOCKCHAIN_CHAIN_ID: ${{ secrets.BLOCKCHAIN_CHAIN_ID }}
+          BLOCKCHAIN_GAS_PRICE: ${{ secrets.BLOCKCHAIN_GAS_PRICE }}
+          BLOCKCHAIN_GAS_LIMIT: ${{ secrets.BLOCKCHAIN_GAS_LIMIT }}
         run: |
           ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash -s" <<EOF
             set -e
@@ -35,6 +41,20 @@ jobs:
             git fetch "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" main
             git reset --hard FETCH_HEAD
             git clean -fd
+
+            echo "=== Syncing BLOCKCHAIN_* secrets dans .env (sans toucher au reste) ==="
+            # Atomic update : on retire toutes les anciennes lignes BLOCKCHAIN_* puis on append les valeurs des secrets.
+            # Les \${BLOCKCHAIN_*} sont substitues cote GH Actions runner avant l'envoi SSH.
+            grep -v '^BLOCKCHAIN_' .env > .env.tmp 2>/dev/null || cp .env .env.tmp
+            echo "BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}" >> .env.tmp
+            echo "BLOCKCHAIN_CONTRACT_ADDRESS=${BLOCKCHAIN_CONTRACT_ADDRESS}" >> .env.tmp
+            echo "BLOCKCHAIN_OWNER_PRIVATE_KEY=${BLOCKCHAIN_OWNER_PRIVATE_KEY}" >> .env.tmp
+            echo "BLOCKCHAIN_CHAIN_ID=${BLOCKCHAIN_CHAIN_ID}" >> .env.tmp
+            echo "BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE}" >> .env.tmp
+            echo "BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT}" >> .env.tmp
+            mv .env.tmp .env
+            chmod 600 .env
+            echo "Vars BLOCKCHAIN_* injectees (\$(grep -c '^BLOCKCHAIN_' .env) lignes)"
 
             echo "=== Building new backend image ==="
             docker compose build fursa-backend
