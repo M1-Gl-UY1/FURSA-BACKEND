@@ -56,6 +56,12 @@ jobs:
             chmod 600 .env
             echo "Vars BLOCKCHAIN_* injectees (\$(grep -c '^BLOCKCHAIN_' .env) lignes)"
 
+            echo "=== Applying DB migrations (idempotent) ==="
+            # Copie le fichier SQL dans le conteneur Postgres puis l'execute
+            docker cp scripts/migrations/001_idempotency_and_possession_unique.sql fursa-db:/tmp/migration.sql
+            docker exec fursa-db psql -U postgres -d fursa -f /tmp/migration.sql
+            echo "=== Migrations DB OK ==="
+
             echo "=== Building new backend image ==="
             docker compose build fursa-backend
 
