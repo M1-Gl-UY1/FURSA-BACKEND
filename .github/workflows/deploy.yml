@@ -33,7 +33,10 @@ jobs:
           BLOCKCHAIN_GAS_PRICE: ${{ secrets.BLOCKCHAIN_GAS_PRICE }}
           BLOCKCHAIN_GAS_LIMIT: ${{ secrets.BLOCKCHAIN_GAS_LIMIT }}
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash -s" <<EOF
+          # ServerAliveInterval=30s + Count=240 = keepalive jusqu'a 2h d'idle, evite "Broken pipe"
+          # quand wait_healthy reste silencieux pendant Spring Boot startup (~5min)
+          ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=240 \
+              -i ~/.ssh/deploy_key ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "bash -s" <<EOF
             set -e
             cd ~/Fursa/FURSA-BACKEND
 
@@ -74,6 +77,10 @@ jobs:
                 if [ "\$status" = "healthy" ]; then
                   echo "\$container is healthy after \$((i * 5))s"
                   return 0
+                fi
+                # Output keepalive toutes les 30s (6 iterations * 5s) pour eviter SSH idle timeout
+                if [ \$((i % 6)) -eq 0 ]; then
+                  echo "  ... still waiting (\$((i * 5))s elapsed, status=\$status)"
                 fi
                 sleep 5
               done

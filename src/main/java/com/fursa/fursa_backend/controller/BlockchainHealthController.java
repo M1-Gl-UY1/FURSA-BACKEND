@@ -40,30 +40,45 @@ public class BlockchainHealthController {
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
+        // Tout le code est en try-catch pour TOUJOURS renvoyer un JSON exploitable
+        // (et pas un 500 avec message generique masquant le diagnostic).
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("chainId", chainId);
-        body.put("contractAddress", contractAddress);
-        body.put("ownerAddress", credentials.getAddress());
+        try {
+            body.put("chainId", chainId);
+            body.put("contractAddress", contractAddress);
+            body.put("ownerAddress", credentials != null ? credentials.getAddress() : "credentials_NULL");
+        } catch (Throwable t) {
+            body.put("error_config", t.getClass().getSimpleName() + ": " + t.getMessage());
+        }
 
         try {
             BigInteger blockNumber = web3j.ethBlockNumber().send().getBlockNumber();
             body.put("rpcReachable", true);
             body.put("blockNumber", blockNumber);
+        } catch (Throwable t) {
+            body.put("rpcReachable", false);
+            body.put("error_rpc", t.getClass().getSimpleName() + ": " + t.getMessage());
+        }
 
+        try {
             BigInteger ownerBalanceWei = web3j.ethGetBalance(
                     credentials.getAddress(),
                     DefaultBlockParameterName.LATEST
             ).send().getBalance();
             body.put("ownerBalanceWei", ownerBalanceWei);
             body.put("ownerBalanceEth", weiToEthString(ownerBalanceWei));
+        } catch (Throwable t) {
+            body.put("error_owner_balance", t.getClass().getSimpleName() + ": " + t.getMessage());
+        }
 
+        try {
             BigInteger contractBalanceWei = blockchainService.getContractBalance();
             body.put("contractBalanceWei", contractBalanceWei);
             body.put("contractBalanceEth", weiToEthString(contractBalanceWei));
-        } catch (Exception e) {
-            body.put("rpcReachable", false);
-            body.put("error", e.getMessage());
+        } catch (Throwable t) {
+            body.put("error_contract_balance", t.getClass().getSimpleName() + ": " + t.getMessage());
         }
+
         return ResponseEntity.ok(body);
     }
 
