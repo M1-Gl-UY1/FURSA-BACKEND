@@ -44,7 +44,7 @@ public class CorsConfig {
                 .toList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "Origin",
-                "X-Requested-With", "X-Idempotency-Key"));
+                "X-Requested-With", "X-Idempotency-Key", "Idempotency-Key"));
         config.setExposedHeaders(List.of("Location", "X-Total-Count"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
