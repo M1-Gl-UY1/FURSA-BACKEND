@@ -7,7 +7,7 @@ import com.fursa.fursa_backend.repository.PaymentSessionRepository;
 import com.fursa.fursa_backend.service.MarchePrimaireService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Profile;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -18,18 +18,22 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Scheduler de dev qui auto-confirme les PaymentSession PENDING du provider MOCK.
+ * Scheduler qui auto-confirme les PaymentSession PENDING du provider MOCK
+ * en simulant un webhook PSP {@code PAYMENT_CONFIRMED} apres ~5 secondes.
  *
- * En attendant Session 2 (PaymentWebhookController + MarchePrimaireService.confirmerAchat),
- * ce composant ne fait QUE logguer les sessions qu'il aurait confirmees.
+ * Active par defaut. Pour le desactiver (typiquement quand Yellow Card sera operationnel) :
+ * <pre>
+ * # application-prod.yaml
+ * app:
+ *   payment:
+ *     mock-auto-confirm: false
+ * </pre>
  *
- * Une fois Session 2 livree, on injectera le webhook handler et on appellera
- * processWebhook(payload simule) ici.
- *
- * Profil dev uniquement : aucun risque qu'il tourne en prod.
+ * En prod actuellement (M1, sans entite juridique pour signer Yellow Card), il reste actif
+ * pour permettre la demo bout-en-bout avec creation reelle des parts on-chain Sepolia.
  */
 @Component
-@Profile("!prod")
+@ConditionalOnProperty(name = "app.payment.mock-auto-confirm", havingValue = "true", matchIfMissing = true)
 public class MockPaymentScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(MockPaymentScheduler.class);
