@@ -171,11 +171,20 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 ### Marche primaire
 | Methode | Chemin                                        | Acces           |
 |---------|-----------------------------------------------|-----------------|
-| POST    | `/api/marche-primaire/acheter`                | authentifie     |
+| POST    | `/api/marche-primaire/acheter`                | **investisseur** uniquement (admin bloque - delit d'initie) |
 | GET     | `/api/marche-primaire/me/{possessions,transactions,paiements}` | authentifie |
 | GET     | `/api/marche-primaire/{possessions,transactions,paiements}`    | **admin**   |
 | GET     | `/api/marche-primaire/{possessions,transactions,paiements}/{investisseurId}` | **admin** |
 | GET     | `/api/marche-primaire/proprietes/{id}/investisseurs` | **admin** ou proposeur |
+
+`POST /acheter` accepte un header optionnel **`Idempotency-Key`** (UUID genere
+cote front a chaque tentative). Si la cle existe deja en DB pour l'utilisateur,
+l'endpoint renvoie la reponse cachee au lieu de creer un 2e achat. Garanti contre
+les double-clics, retry HTTP, et requetes simultanees (course condition couverte
+par contrainte unique DB).
+
+La validation Bean Validation est appliquee : `proprieteId` et `nombreParts`
+obligatoires, `nombreParts` strictement positif. Erreur 400 avec `fieldErrors` sinon.
 
 ### Marche secondaire
 | Methode | Chemin                                                 | Acces      |
@@ -222,8 +231,14 @@ Sur Swagger UI, cliquer **Authorize** en haut a droite et coller le token
 | GET     | `/api/dashboard/admin`                     | **admin**  |
 
 ### Blockchain (on-chain via web3j)
+
+Contrat `RevenueDistribution` deploye sur Sepolia testnet : `0x5F24D4e615e60C2cfA959CfDFcf82c7937A969b9`.
+Voir [SMARTCONTRATS/README.md](../SMARTCONTRATS/README.md) pour le deploiement et la regeneration du wrapper.
+
 | Methode | Chemin                                                | Acces       |
 |---------|-------------------------------------------------------|-------------|
+| GET     | `/api/blockchain/health`                              | **admin** - solde wallet + solde contrat + bloc Sepolia courant |
+| GET     | `/api/blockchain/dividende/{address}`                 | **admin** - dividende on-chain stocke pour une adresse |
 | GET     | `/api/proprietes/public/blockchain/status`            | authentifie |
 | POST    | `/api/proprietes/admin/{id}/tokeniser`                | **admin**   |
 | POST    | `/api/blockchain/investors`                           | authentifie |
@@ -416,13 +431,31 @@ un body JSON uniforme :
 Workflow : `.github/workflows/deploy.yml` - declencheur : push sur `main`.
 
 1. `actions/checkout@v5`
-2. SSH vers le VPS avec `VPS_SSH_KEY` (secret GitHub)
+2. SSH vers le VPS avec `VPS_SSH_KEY` (secret GitHub) + `ServerAliveInterval=30` pour eviter le broken pipe
 3. `git fetch + reset --hard` (auth via `GITHUB_TOKEN`)
-4. `docker compose build fursa-backend && docker compose up -d`
-5. `docker image prune -f`
-6. Health check : `curl https://.../api/health` attendu 200
+4. Sync des secrets `BLOCKCHAIN_*` dans le `.env` du VPS depuis les GitHub Secrets (atomic, sans toucher au reste)
+5. Application automatique des migrations DB idempotentes (`scripts/migrations/*.sql`) via `docker exec fursa-db psql -f`
+6. `docker compose build fursa-backend` (deps Maven cachees grace au Dockerfile multi-stage)
+7. Rolling restart blue-green : `fursa-backend-2` (port 18082) puis `fursa-backend` (port 8081), avec `wait_healthy` 600s et keepalive output toutes les 30s
+8. `docker image prune -f`
+9. Health check public : `curl https://api.fursa.seed-innov.com/api/health` attendu 200
 
-Secrets GitHub requis : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
+Duree typique : **~4 min** (vs ~14 min sans cache Maven).
+
+### Secrets GitHub requis (`gh secret list -R M1-Gl-UY1/FURSA-BACKEND`)
+
+| Secret | Usage |
+|--------|-------|
+| `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` | acces SSH au VPS |
+| `BLOCKCHAIN_RPC_URL` | endpoint Alchemy Sepolia |
+| `BLOCKCHAIN_CONTRACT_ADDRESS` | adresse du `RevenueDistribution` deploye |
+| `BLOCKCHAIN_OWNER_PRIVATE_KEY` | cle privee du wallet owner (signe les tx admin) |
+| `BLOCKCHAIN_CHAIN_ID` | 11155111 (Sepolia) |
+| `BLOCKCHAIN_GAS_PRICE` | 2000000000 wei (2 gwei) |
+| `BLOCKCHAIN_GAS_LIMIT` | 300000 |
+
+Pour rotater un secret : `echo "<nouvelle_valeur>" | gh secret set <NAME> -R M1-Gl-UY1/FURSA-BACKEND`
+(la valeur ne transite jamais en ligne de commande, ne s'affiche pas en clair).
 
 ---
 

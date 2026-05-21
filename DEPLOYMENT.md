@@ -39,20 +39,22 @@ JWT_SECRET=${JWT_SECRET}
 JWT_EXPIRATION_MS=86400000
 
 CORS_ALLOWED_ORIGINS=https://fursa.seed-innov.com
-
-# Blockchain (Web3j). Cible : Sepolia testnet (Ethereum).
-# Recuperer un endpoint RPC sur Infura ou Alchemy (gratuit).
-# La cle privee doit avoir des ETH testnet (faucet : https://sepoliafaucet.com).
-BLOCKCHAIN_RPC_URL=https://sepolia.infura.io/v3/<PROJECT_ID>
-BLOCKCHAIN_CONTRACT_ADDRESS=<adresse du contrat RevenueDistribution deploye>
-BLOCKCHAIN_OWNER_PRIVATE_KEY=<cle privee du wallet owner, jamais committee>
-BLOCKCHAIN_CHAIN_ID=11155111
-BLOCKCHAIN_GAS_PRICE=2000000000
-BLOCKCHAIN_GAS_LIMIT=300000
 EOF
 
 chmod 600 .env
 ```
+
+> **Note** : les variables `BLOCKCHAIN_*` ne sont **plus** ajoutees ici manuellement.
+> Elles sont stockees comme **GitHub Secrets** sur le repo (`gh secret list -R M1-Gl-UY1/FURSA-BACKEND`)
+> et le workflow `deploy.yml` les sync automatiquement dans le `.env` du VPS a chaque deploiement
+> (cf section "CI/CD" du README). Pour les rotater :
+>
+> ```bash
+> # localement, sans imprimer la valeur
+> echo "0xNEW_KEY" | gh secret set BLOCKCHAIN_OWNER_PRIVATE_KEY -R M1-Gl-UY1/FURSA-BACKEND
+> # puis trigger un redeploy
+> git commit --allow-empty -m "chore: rotate blockchain key" && git push
+> ```
 
 ### 4. Migrer le mot de passe Postgres existant
 
