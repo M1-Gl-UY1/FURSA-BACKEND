@@ -2,14 +2,25 @@ package com.fursa.fursa_backend.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fursa.fursa_backend.blockchain.service.BlockchainService;
 import com.fursa.fursa_backend.dto.AchatRequest;
 import com.fursa.fursa_backend.dto.AchatResponse;
+import com.fursa.fursa_backend.dto.PaymentInitResponse;
 import com.fursa.fursa_backend.model.*;
 import com.fursa.fursa_backend.model.enumeration.StatutPaiement;
+import com.fursa.fursa_backend.model.enumeration.StatutPaymentSession;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.StatutTransaction;
 import com.fursa.fursa_backend.model.enumeration.TypePaiement;
+import com.fursa.fursa_backend.payment.PaymentProvider;
+import com.fursa.fursa_backend.payment.PaymentProviderRegistry;
+import com.fursa.fursa_backend.payment.ProviderSessionRequest;
+import com.fursa.fursa_backend.payment.ProviderSessionResponse;
+import com.fursa.fursa_backend.payment.WebhookEvent;
+import com.fursa.fursa_backend.payment.WebhookEventType;
 import com.fursa.fursa_backend.repository.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,15 +31,20 @@ import com.fursa.fursa_backend.dto.PossessionResponse;
 import com.fursa.fursa_backend.dto.TransactionResponse;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 @Service
 public class MarchePrimaireService {
 
+    private static final Logger log = LoggerFactory.getLogger(MarchePrimaireService.class);
     private static final String ENDPOINT_ACHETER = "POST /api/marche-primaire/acheter";
+    private static final BigDecimal AMOUNT_TOLERANCE_PCT = new BigDecimal("0.005"); // 0.5% tolerance anti-frais PSP
 
     private final PaiementRepository paiementRepository;
     private final TransactionRepository transactionRepository;
@@ -36,6 +52,10 @@ public class MarchePrimaireService {
     private final ProprieteRepository proprieteRepository;
     private final InvestisseurRepository investisseurRepository;
     private final IdempotencyRecordRepository idempotencyRepository;
+    private final PaymentSessionRepository paymentSessionRepository;
+    private final DeviseRateService deviseRateService;
+    private final PaymentProviderRegistry providerRegistry;
+    private final BlockchainService blockchainService;
     private final ObjectMapper objectMapper;
 
     public MarchePrimaireService(PaiementRepository paiementRepository,
@@ -44,6 +64,10 @@ public class MarchePrimaireService {
                                   ProprieteRepository proprieteRepository,
                                   InvestisseurRepository investisseurRepository,
                                   IdempotencyRecordRepository idempotencyRepository,
+                                  PaymentSessionRepository paymentSessionRepository,
+                                  DeviseRateService deviseRateService,
+                                  PaymentProviderRegistry providerRegistry,
+                                  BlockchainService blockchainService,
                                   ObjectMapper objectMapper) {
         this.paiementRepository = paiementRepository;
         this.transactionRepository = transactionRepository;
@@ -51,6 +75,10 @@ public class MarchePrimaireService {
         this.proprieteRepository = proprieteRepository;
         this.investisseurRepository = investisseurRepository;
         this.idempotencyRepository = idempotencyRepository;
+        this.paymentSessionRepository = paymentSessionRepository;
+        this.deviseRateService = deviseRateService;
+        this.providerRegistry = providerRegistry;
+        this.blockchainService = blockchainService;
         this.objectMapper = objectMapper;
     }
 
@@ -304,5 +332,242 @@ public class MarchePrimaireService {
                 p.getPropriete().getNom(),
                 p.getDate()
         )).toList();
+    }
+
+    // =========================================================================
+    // V2 - Paiements asynchrones via PSP (Yellow Card / Mock)
+    // Voir DESIGN_PAIEMENTS.md pour le flow complet.
+    // =========================================================================
+
+    /**
+     * Cree une session de paiement chez le PSP actif et persiste une PaymentSession PENDING.
+     * Renvoie l'URL du widget vers laquelle rediriger l'investisseur.
+     *
+     * Idempotent : si idempotencyKey deja vue pour cet utilisateur, renvoie la session existante.
+     */
+    @Transactional
+    public PaymentInitResponse initierAchat(Long investisseurId, AchatRequest request, String idempotencyKey) {
+
+        // Idempotence : meme cle deja utilisee -> on renvoie la session existante (PENDING ou terminale)
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<PaymentSession> existing = paymentSessionRepository
+                    .findByIdempotencyKeyAndInvestisseur_Id(idempotencyKey, investisseurId);
+            if (existing.isPresent()) {
+                return toInitResponse(existing.get());
+            }
+        }
+
+        Investisseur investisseur = investisseurRepository.findById(investisseurId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Investisseur non trouve avec l'id : " + investisseurId));
+
+        Propriete propriete = proprieteRepository.findById(request.getProprieteId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Propriete non trouvee avec l'id : " + request.getProprieteId()));
+
+        if (propriete.getStatut() != StatutPropriete.PUBLIEE) {
+            throw new IllegalStateException("Cette propriete n'est pas disponible a l'achat.");
+        }
+        if (propriete.getPartsDisponibles() < request.getNombreParts()) {
+            throw new IllegalStateException("Parts insuffisantes. Disponibles : " + propriete.getPartsDisponibles());
+        }
+
+        // Calcul des montants. V1.5 : on suppose une devise unique au niveau plateforme (EUR par defaut).
+        // V2 : on prendra investisseur.preferredCurrency ou la devise envoyee par le front.
+        BigDecimal montantFiat = propriete.getPrixUnitairePart()
+                .multiply(BigDecimal.valueOf(request.getNombreParts()))
+                .setScale(2, RoundingMode.HALF_UP);
+        String deviseFiat = "EUR";
+        BigDecimal montantUsdc = deviseRateService.convertirEnUsdc(montantFiat, deviseFiat);
+
+        PaymentProvider provider = providerRegistry.getActive();
+
+        // Metadata transmise au PSP (utile pour les webhooks et le support)
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("investisseurId", String.valueOf(investisseurId));
+        metadata.put("proprieteId", String.valueOf(propriete.getId()));
+        metadata.put("nombreParts", String.valueOf(request.getNombreParts()));
+
+        ProviderSessionRequest providerReq = new ProviderSessionRequest(
+                idempotencyKey,
+                investisseur.getEmail(),
+                montantFiat,
+                deviseFiat,
+                null,  // successCallbackUrl : a definir cote front quand l'integration sera completee
+                null,  // cancelCallbackUrl
+                metadata
+        );
+        ProviderSessionResponse providerResp = provider.createSession(providerReq);
+
+        PaymentSession session = new PaymentSession();
+        session.setExternalId(providerResp.externalId());
+        session.setInvestisseur(investisseur);
+        session.setPropriete(propriete);
+        session.setNombreParts(request.getNombreParts());
+        session.setMontantFiat(montantFiat);
+        session.setDeviseFiat(deviseFiat);
+        session.setMontantUsdc(montantUsdc);
+        session.setProviderName(provider.getName());
+        session.setWidgetUrl(providerResp.widgetUrl());
+        session.setStatut(StatutPaymentSession.PENDING);
+        session.setCreatedAt(LocalDateTime.now());
+        session.setExpiresAt(providerResp.expiresAt());
+        session.setIdempotencyKey(idempotencyKey);
+        session = paymentSessionRepository.save(session);
+
+        log.info("PaymentSession creee : id={} externalId={} provider={} montant={} {} ({} USDC)",
+                session.getId(), session.getExternalId(), provider.getName(),
+                montantFiat, deviseFiat, montantUsdc);
+
+        return toInitResponse(session);
+    }
+
+    /**
+     * Confirme une PaymentSession suite a la reception du webhook PSP.
+     * Cree Paiement + Transaction + Possession et inscrit l'investisseur on-chain (chantier 5).
+     *
+     * Idempotent : si la session est deja CONFIRMED, on no-op.
+     */
+    @Transactional
+    public void confirmerAchat(String externalId, WebhookEvent event) {
+        PaymentSession session = paymentSessionRepository.findByExternalIdForUpdate(externalId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "PaymentSession introuvable pour externalId=" + externalId));
+
+        if (session.getStatut() == StatutPaymentSession.CONFIRMED) {
+            log.info("PaymentSession {} deja CONFIRMED -> no-op idempotent", externalId);
+            return;
+        }
+        if (session.getStatut() != StatutPaymentSession.PENDING) {
+            throw new IllegalStateException(
+                    "PaymentSession " + externalId + " dans un etat non confirmable : " + session.getStatut());
+        }
+
+        if (event.type() == WebhookEventType.PAYMENT_FAILED || event.type() == WebhookEventType.PAYMENT_EXPIRED) {
+            session.setStatut(event.type() == WebhookEventType.PAYMENT_EXPIRED
+                    ? StatutPaymentSession.EXPIRED : StatutPaymentSession.FAILED);
+            session.setErrorMessage(event.errorMessage());
+            paymentSessionRepository.save(session);
+            log.warn("PaymentSession {} -> {} : {}", externalId, session.getStatut(), event.errorMessage());
+            return;
+        }
+
+        if (event.type() != WebhookEventType.PAYMENT_CONFIRMED) {
+            throw new IllegalStateException("WebhookEvent non confirmable : " + event.type());
+        }
+
+        // Verif montant : tolerance epsilon pour absorber les arrondis et frais PSP eventuels.
+        BigDecimal recu = event.amountReceived() == null ? BigDecimal.ZERO : event.amountReceived();
+        BigDecimal attendu = session.getMontantUsdc();
+        BigDecimal toleranceAbs = attendu.multiply(AMOUNT_TOLERANCE_PCT);
+        if (recu.subtract(attendu).abs().compareTo(toleranceAbs) > 0) {
+            session.setStatut(StatutPaymentSession.FAILED);
+            session.setErrorMessage("Montant recu " + recu + " hors tolerance vs attendu " + attendu);
+            paymentSessionRepository.save(session);
+            log.error("PaymentSession {} FAILED : montant incoherent (recu={}, attendu={})", externalId, recu, attendu);
+            return;
+        }
+
+        Propriete propriete = session.getPropriete();
+        Investisseur investisseur = session.getInvestisseur();
+
+        // Re-verification des parts disponibles (peuvent avoir diminue depuis l'init)
+        if (propriete.getPartsDisponibles() < session.getNombreParts()) {
+            session.setStatut(StatutPaymentSession.FAILED);
+            session.setErrorMessage("Parts plus disponibles a la confirmation (race condition entre 2 paiements)");
+            paymentSessionRepository.save(session);
+            log.error("PaymentSession {} FAILED : parts insuffisantes a la confirmation", externalId);
+            return;
+        }
+
+        // Paiement (montant en devise fiat, type CRYPTO car passe par on-ramp)
+        Paiement paiement = new Paiement();
+        paiement.setInvestisseur(investisseur);
+        paiement.setPropriete(propriete);
+        paiement.setMontant(session.getMontantFiat());
+        paiement.setNombre_parts(session.getNombreParts());
+        paiement.setType(TypePaiement.CRYPTO);
+        paiement.setStatut(StatutPaiement.VALIDE);
+        paiement.setDate(LocalDateTime.now());
+        paiement = paiementRepository.save(paiement);
+
+        // Transaction : on stocke d'abord le PSP tx hash (ETH/USDC reception), on tentera ensuite l'on-chain mint
+        Transaction transaction = new Transaction();
+        transaction.setPaiement(paiement);
+        transaction.setHashTransaction(event.providerTxHash() != null ? event.providerTxHash() : "psp_" + UUID.randomUUID());
+        transaction.setTypeOperation(com.fursa.fursa_backend.model.enumeration.TypeOperation.ACHAT);
+        transaction.setNombreParts(session.getNombreParts());
+        transaction.setMontant(session.getMontantFiat());
+        transaction.setDateTransaction(LocalDateTime.now());
+        transaction.setStatut(StatutTransaction.SUCCES);
+        transaction = transactionRepository.save(transaction);
+
+        // Possession : creation ou increment
+        Possession possession = possessionRepository
+                .findByInvestisseurIdAndProprieteId(investisseur.getId(), propriete.getId())
+                .orElseGet(() -> {
+                    Possession p = new Possession();
+                    p.setInvestisseur(investisseur);
+                    p.setPropriete(propriete);
+                    p.setNombreDeParts(0);
+                    return p;
+                });
+        possession.setNombreDeParts(possession.getNombreDeParts() + session.getNombreParts());
+        possession = possessionRepository.save(possession);
+
+        propriete.setPartsDisponibles(propriete.getPartsDisponibles() - session.getNombreParts());
+        proprieteRepository.save(propriete);
+
+        // CHANTIER 5 : ecriture on-chain
+        // Si l'investisseur n'a pas encore d'adresse wallet, on log un warning mais on confirme quand meme la session
+        // (le mint on-chain pourra etre rejoue plus tard via endpoint admin /retry-on-chain).
+        String walletAddress = investisseur.getWallet_address();
+        if (walletAddress == null || walletAddress.isBlank()) {
+            log.warn("Investisseur {} sans wallet_address : on-chain skip pour session {}",
+                    investisseur.getId(), externalId);
+        } else {
+            try {
+                String onChainTxHash = blockchainService.addInvestor(walletAddress);
+                transaction.setHashTransaction(onChainTxHash);
+                transactionRepository.save(transaction);
+                log.info("On-chain addInvestor OK : wallet={} tx={}", walletAddress, onChainTxHash);
+            } catch (Exception e) {
+                // Le paiement est valide cote DB mais le on-chain a echoue.
+                // On marque la session FAILED pour visibilite admin, mais on NE rollback PAS les entites
+                // (l'investisseur a paye, ses parts sont a lui). Admin pourra retry via /retry-on-chain.
+                // TODO : envoyer Notification ADMIN, intégrer Sentry.
+                session.setErrorMessage("On-chain echoue : " + e.getMessage());
+                log.error("On-chain ECHEC pour session {} : {}", externalId, e.getMessage(), e);
+                // On laisse statut CONFIRMED quand meme (paiement valide off-chain). Le champ errorMessage signale le souci.
+            }
+        }
+
+        // Finalisation session
+        session.setStatut(StatutPaymentSession.CONFIRMED);
+        session.setConfirmedAt(LocalDateTime.now());
+        session.setPaiementId(paiement.getId());
+        session.setTransactionId(transaction.getId());
+        session.setPossessionId(possession.getId());
+        try {
+            session.setWebhookRawPayload(objectMapper.writeValueAsString(event));
+        } catch (JsonProcessingException ignore) { /* non critique */ }
+        paymentSessionRepository.save(session);
+
+        log.info("PaymentSession {} CONFIRMED : paiement={} transaction={} possession={}",
+                externalId, paiement.getId(), transaction.getId(), possession.getId());
+    }
+
+    private PaymentInitResponse toInitResponse(PaymentSession session) {
+        return new PaymentInitResponse(
+                session.getId(),
+                session.getExternalId(),
+                session.getWidgetUrl(),
+                session.getExpiresAt(),
+                session.getMontantFiat(),
+                session.getDeviseFiat(),
+                session.getMontantUsdc(),
+                session.getProviderName(),
+                session.getStatut().name()
+        );
     }
 }
