@@ -570,4 +570,52 @@ public class MarchePrimaireService {
                 session.getStatut().name()
         );
     }
+
+    /**
+     * Admin uniquement : relance l'ecriture on-chain pour une session deja CONFIRMED dont le on-chain
+     * a echoue (cas : argent recu mais addInvestor a fail). Le champ errorMessage de la session signale ce cas.
+     * Met a jour la Transaction.hashTransaction avec le vrai tx hash si succes.
+     */
+    @Transactional
+    public void retryOnChain(Long sessionId) {
+        PaymentSession session = paymentSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Session introuvable : " + sessionId));
+
+        if (session.getStatut() != StatutPaymentSession.CONFIRMED) {
+            throw new IllegalStateException("Retry on-chain refuse : la session doit etre CONFIRMED (etat actuel : "
+                    + session.getStatut() + ")");
+        }
+        if (session.getErrorMessage() == null || !session.getErrorMessage().contains("On-chain")) {
+            throw new IllegalStateException("Retry on-chain refuse : pas d'echec on-chain trace dans errorMessage");
+        }
+
+        Investisseur investisseur = session.getInvestisseur();
+        String walletAddress = investisseur.getWallet_address();
+        if (walletAddress == null || walletAddress.isBlank()) {
+            throw new IllegalStateException("Impossible de retry : investisseur " + investisseur.getId()
+                    + " n'a toujours pas de wallet_address. Mettre a jour son profil d'abord.");
+        }
+
+        if (session.getTransactionId() == null) {
+            throw new IllegalStateException("Pas de Transaction associee a cette session");
+        }
+        Transaction transaction = transactionRepository.findById(session.getTransactionId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Transaction introuvable"));
+
+        String onChainTxHash;
+        try {
+            onChainTxHash = blockchainService.addInvestor(walletAddress);
+        } catch (Exception e) {
+            log.error("Retry on-chain ECHEC pour session {} : {}", sessionId, e.getMessage(), e);
+            session.setErrorMessage("On-chain retry echoue : " + e.getMessage());
+            paymentSessionRepository.save(session);
+            throw new IllegalStateException("Retry on-chain echoue : " + e.getMessage(), e);
+        }
+
+        transaction.setHashTransaction(onChainTxHash);
+        transactionRepository.save(transaction);
+        session.setErrorMessage(null);  // l'echec est resolu, on retire le message
+        paymentSessionRepository.save(session);
+        log.info("Retry on-chain OK : session {} -> txHash {}", sessionId, onChainTxHash);
+    }
 }

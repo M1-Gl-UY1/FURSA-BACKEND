@@ -28,4 +28,6 @@ public interface PaymentSessionRepository extends JpaRepository<PaymentSession, 
     List<PaymentSession> findByStatutAndProviderName(StatutPaymentSession statut, String providerName);
 
     List<PaymentSession> findByStatutAndExpiresAtBefore(StatutPaymentSession statut, LocalDateTime cutoff);
+
+    List<PaymentSession> findByStatutOrderByCreatedAtDesc(StatutPaymentSession statut);
 }
