@@ -23,6 +23,7 @@ services:
 
   fursa-backend:
     build: .
+    image: fursa-backend:latest
     container_name: fursa-backend
     ports:
       - "8081:8081"
@@ -52,7 +53,9 @@ services:
       start_period: 360s  # Spring Boot 4 + JPA peut prendre 5-6 min à démarrer
 
   fursa-backend-2:
-    build: .
+    # Reutilise l'image construite par fursa-backend (evite un 2e build et garantit
+    # que les 2 instances tournent EXACTEMENT le meme code apres deploy).
+    image: fursa-backend:latest
     container_name: fursa-backend-2
     ports:
       - "18082:8081"
@@ -71,6 +74,8 @@ services:
       - BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE:-2000000000}
       - BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT:-300000}
     depends_on:
+      fursa-backend:
+        condition: service_started
       fursa-db:
         condition: service_healthy
     restart: unless-stopped
