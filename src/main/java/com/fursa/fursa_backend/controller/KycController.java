@@ -45,9 +45,12 @@ public class KycController {
     @GetMapping("/me")
     public ResponseEntity<Map<String, Object>> me() {
         Long id = authInvestisseur.currentId();
-        return kycService.findMine(id)
-                .map(r -> ResponseEntity.ok(Map.<String, Object>of("statut", r.statut(), "submission", r)))
-                .orElseGet(() -> ResponseEntity.ok(Map.<String, Object>of("statut", "NONE", "submission", (Object) null)));
+        // Map.of() n'accepte pas les valeurs null -> on utilise un HashMap.
+        var current = kycService.findMine(id);
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("statut", current.map(KycSubmissionResponse::statut).orElse("NONE"));
+        body.put("submission", current.orElse(null));
+        return ResponseEntity.ok(body);
     }
 
     @Operation(summary = "Historique des soumissions KYC")

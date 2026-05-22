@@ -11,9 +11,9 @@ import java.time.LocalDateTime;
 @Setter
 @AllArgsConstructor
 public class PaiementResponse {
-    private Long paiementId;
+    private Long id;
     private BigDecimal montant;
-    private String typePaiement;
+    private String type;
     private String statut;
     private Integer nombreParts;
     private String proprieteNom;
