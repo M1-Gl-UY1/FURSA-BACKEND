@@ -47,6 +47,7 @@ public class UserController {
     private final com.fursa.fursa_backend.service.AuthenticatedInvestisseurService authInvestisseur;
     private final com.fursa.fursa_backend.config.LoginRateLimiter loginRateLimiter;
     private final RefreshTokenService refreshTokenService;
+    private final com.fursa.fursa_backend.service.WalletService walletService;
 
     @Operation(summary = "Profil de l'utilisateur courant", description = "Retourne le profil de l'investisseur authentifie.")
     @GetMapping("/me")
@@ -115,6 +116,17 @@ public class UserController {
         inv.setIsVerified(false);
 
         userRepository.save(inv);
+
+        // Phase 10a : creation automatique du wallet polymorphique a l'inscription.
+        // Le wallet est cree avec solde=0 EUR. Toute defaillance ici ne doit pas bloquer
+        // l'inscription : on logue et on continue (le wallet sera cree a la 1ere consultation).
+        try {
+            walletService.createForUser(inv.getId());
+        } catch (Exception e) {
+            log.warn("Wallet auto-creation a echoue pour user {} : {} (sera reessaye au 1er /api/wallet/me)",
+                    inv.getId(), e.getMessage());
+        }
+
         return ResponseEntity.status(HttpStatus.CREATED).body(new RegisterResponse(inv));
     }
 

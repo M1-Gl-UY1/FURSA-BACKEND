@@ -14,6 +14,7 @@ import com.fursa.fursa_backend.repository.UserRepository;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import com.fursa.fursa_backend.service.CustomUserService;
 import com.fursa.fursa_backend.service.RefreshTokenService;
+import com.fursa.fursa_backend.service.WalletService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +56,7 @@ class UserControllerAuthTest {
     @MockitoBean private LoginRateLimiter loginRateLimiter;
     @MockitoBean private RefreshTokenService refreshTokenService;
     @MockitoBean private CustomUserService customUserService;
+    @MockitoBean private WalletService walletService;
 
     private Investisseur alice;
 
