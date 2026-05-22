@@ -361,6 +361,13 @@ public class MarchePrimaireService {
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Investisseur non trouve avec l'id : " + investisseurId));
 
+        // GARDE KYC : un investisseur non verifie ne peut pas acheter (conformite AML).
+        // L'investisseur doit completer son KYC via /api/kyc/submit et attendre l'approbation admin.
+        if (!Boolean.TRUE.equals(investisseur.getIsVerified())) {
+            throw new IllegalStateException(
+                    "Verification d'identite requise. Completez votre dossier KYC avant d'investir.");
+        }
+
         Propriete propriete = proprieteRepository.findById(request.getProprieteId())
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
                         "Propriete non trouvee avec l'id : " + request.getProprieteId()));
