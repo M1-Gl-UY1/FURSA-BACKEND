@@ -48,4 +48,22 @@ public class Revenus {
 
     private LocalDate periodeDebut;
     private LocalDate periodeFin;
+
+    // --- Phase 9 : tracabilite du payout ---
+
+    /**
+     * URL du justificatif uploade par le proprietaire (PDF/image) :
+     * preuve du loyer percu (virement, capture Mobile Money, contrat de bail...).
+     * Visible par l'admin lors de la validation.
+     */
+    @Column(name = "justificatif_url", length = 500)
+    private String justificatifUrl;
+
+    /**
+     * L'admin a confirme visuellement que FURSA a bien recu l'argent du proprietaire.
+     * GUARD : la distribution est REFUSEE tant que ce flag est false.
+     * Eviter de distribuer de l'argent qu'on n'a pas encaisse.
+     */
+    @Column(name = "argent_recu_par_fursa", nullable = false)
+    private Boolean argentRecuParFursa = false;
 }

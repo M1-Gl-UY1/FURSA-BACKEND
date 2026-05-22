@@ -14,5 +14,9 @@ public record DividendeResponse(
         BigDecimal montantCalcule,
         LocalDate dateDistribution,
         StatutPaiement statut,
-        String hashTransaction
+        String hashTransaction,
+        // Phase 9 : tracabilite du payout effectif
+        LocalDate datePaiementEffectif,
+        String preuvePaiement,
+        String methodePaiement
 ) {}

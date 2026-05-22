@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +30,7 @@ public class RevenuService {
     private final ProprieteRepository proprieteRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final FileStorageService fileStorageService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -170,7 +172,66 @@ public class RevenuService {
                 r.getStatut(),
                 r.getMotifRefus(),
                 r.getPeriodeDebut(),
-                r.getPeriodeFin()
+                r.getPeriodeFin(),
+                r.getJustificatifUrl(),
+                r.getArgentRecuParFursa()
         );
+    }
+
+    // =========================================================================
+    // PHASE 9 : justificatif (preuve de revenu) + confirmation reception FURSA
+    // =========================================================================
+
+    @Transactional
+    public RevenuResponse soumettreAvecJustificatif(Long proposeurId,
+                                                     SubmissionRevenuRequest req,
+                                                     MultipartFile justificatif) {
+        RevenuResponse response = soumettre(proposeurId, req);
+        if (justificatif != null && !justificatif.isEmpty()) {
+            return uploadJustificatif(proposeurId, response.id(), justificatif);
+        }
+        return response;
+    }
+
+    @Transactional
+    public RevenuResponse uploadJustificatif(Long proposeurId, Long revenuId, MultipartFile file) {
+        Revenus r = revenusRepository.findById(revenuId)
+                .orElseThrow(() -> new EntityNotFoundException("Revenu non trouve: id=" + revenuId));
+
+        if (r.getProposeurId() == null || !r.getProposeurId().equals(proposeurId)) {
+            throw new AccessDeniedException("Vous ne pouvez uploader un justificatif que pour vos propres declarations.");
+        }
+        if (r.getStatut() != StatutRevenu.EN_REVIEW && r.getStatut() != StatutRevenu.REFUSE) {
+            throw new IllegalStateException("Justificatif modifiable uniquement quand statut EN_REVIEW ou REFUSE (actuel : " + r.getStatut() + ")");
+        }
+
+        // Supprime l'ancien si existant (cleanup)
+        if (r.getJustificatifUrl() != null) {
+            String oldName = extractFileName(r.getJustificatifUrl());
+            if (oldName != null) {
+                try { fileStorageService.delete(oldName); } catch (RuntimeException ignored) {}
+            }
+        }
+
+        String stored = fileStorageService.save(file);
+        r.setJustificatifUrl("/api/fichiers/" + stored);
+        return toResponse(revenusRepository.save(r));
+    }
+
+    @Transactional
+    public RevenuResponse marquerArgentRecu(Long revenuId, boolean recu) {
+        Revenus r = revenusRepository.findById(revenuId)
+                .orElseThrow(() -> new EntityNotFoundException("Revenu non trouve: id=" + revenuId));
+        if (r.getStatut() != StatutRevenu.VALIDE) {
+            throw new IllegalStateException("L'argent ne peut etre confirme que sur un revenu VALIDE (actuel : " + r.getStatut() + ")");
+        }
+        r.setArgentRecuParFursa(recu);
+        return toResponse(revenusRepository.save(r));
+    }
+
+    private String extractFileName(String url) {
+        if (url == null) return null;
+        int slash = url.lastIndexOf('/');
+        return slash >= 0 ? url.substring(slash + 1) : url;
     }
 }

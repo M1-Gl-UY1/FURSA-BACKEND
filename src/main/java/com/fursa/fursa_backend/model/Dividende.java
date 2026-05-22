@@ -37,4 +37,26 @@ public class Dividende {
     @ManyToOne
     @JoinColumn(name = "id_inv")
     private Investisseur investisseur;
+
+    // --- Phase 9 : tracabilite du payout effectif ---
+
+    /**
+     * Date a laquelle l'admin a confirme le versement reel a l'investisseur.
+     * Null tant que statut = VALIDE. Set quand statut passe a PAYE.
+     */
+    @Column(name = "date_paiement_effectif")
+    private LocalDate datePaiementEffectif;
+
+    /**
+     * Reference / preuve du paiement effectif (numero de virement, tx blockchain reelle,
+     * reference Mobile Money). Permet a l'investisseur de tracer son versement.
+     */
+    @Column(name = "preuve_paiement", length = 500)
+    private String preuvePaiement;
+
+    /**
+     * Methode utilisee pour le versement final : MOBILE_MONEY / VIREMENT / CRYPTO / AUTRE.
+     */
+    @Column(name = "methode_paiement", length = 30)
+    private String methodePaiement;
 }

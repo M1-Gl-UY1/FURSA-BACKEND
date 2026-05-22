@@ -74,6 +74,15 @@ public class DistributionServiceImpl implements DistributionService {
             );
         }
 
+        // GUARD payout : refuser la distribution si l'argent n'a pas ete encaisse par FURSA.
+        // Eviter de creer des dettes envers les investisseurs sans avoir recu le loyer.
+        if (!Boolean.TRUE.equals(revenus.getArgentRecuParFursa())) {
+            throw new IllegalStateException(
+                "Distribution impossible : l'argent du loyer n'a pas encore ete confirme recu par FURSA. " +
+                "Validez le justificatif et cochez 'Argent recu' avant de distribuer."
+            );
+        }
+
         Propriete propriete = revenus.getPropriete();
         if (propriete == null) {
             throw new IllegalStateException("Aucune propriete associee au revenu " + revenuId);

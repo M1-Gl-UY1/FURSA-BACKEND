@@ -16,5 +16,8 @@ public record RevenuResponse(
         StatutRevenu statut,
         String motifRefus,
         LocalDate periodeDebut,
-        LocalDate periodeFin
+        LocalDate periodeFin,
+        // Phase 9 : tracabilite payout
+        String justificatifUrl,
+        Boolean argentRecuParFursa
 ) {}

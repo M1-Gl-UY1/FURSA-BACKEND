@@ -13,11 +13,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/revenus")
@@ -67,7 +72,7 @@ public class RevenuController {
     // =========================================================================
 
     @Operation(summary = "Soumettre une déclaration de revenu (propriétaire)",
-            description = "Le propriétaire d'un bien soumet une déclaration de revenu en attente de validation admin. Statut auto = EN_REVIEW. Vérifie que le bien appartient bien à l'utilisateur.")
+            description = "Le propriétaire d'un bien soumet une déclaration de revenu en attente de validation admin. Statut auto = EN_REVIEW.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Soumission enregistrée"),
             @ApiResponse(responseCode = "403", description = "L'utilisateur n'est pas propriétaire du bien"),
@@ -77,6 +82,36 @@ public class RevenuController {
     public ResponseEntity<RevenuResponse> soumettre(@Valid @RequestBody SubmissionRevenuRequest request) {
         Long userId = authInvestisseur.currentId();
         return ResponseEntity.status(HttpStatus.CREATED).body(revenuService.soumettre(userId, request));
+    }
+
+    @Operation(summary = "Soumettre une déclaration avec justificatif PDF (propriétaire)",
+            description = "Variante multipart : permet d'attacher directement le justificatif (PMS, relevé bancaire) à la soumission.")
+    @PostMapping(value = "/submissions/multipart", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RevenuResponse> soumettreMultipart(
+            @RequestParam Long proprieteId,
+            @RequestParam BigDecimal montantTotal,
+            @RequestParam(required = false) String periodeDebut,
+            @RequestParam(required = false) String periodeFin,
+            @RequestParam(required = false) MultipartFile justificatif) {
+        Long userId = authInvestisseur.currentId();
+        SubmissionRevenuRequest req = new SubmissionRevenuRequest(
+                proprieteId,
+                montantTotal,
+                periodeDebut != null && !periodeDebut.isBlank() ? LocalDate.parse(periodeDebut) : null,
+                periodeFin != null && !periodeFin.isBlank() ? LocalDate.parse(periodeFin) : null
+        );
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(revenuService.soumettreAvecJustificatif(userId, req, justificatif));
+    }
+
+    @Operation(summary = "Uploader / remplacer le justificatif d'une déclaration (propriétaire)",
+            description = "Permet d'ajouter ou remplacer le PDF/image après soumission, tant que le revenu est EN_REVIEW ou REFUSE.")
+    @PostMapping(value = "/{id}/justificatif", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<RevenuResponse> uploadJustificatif(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        Long userId = authInvestisseur.currentId();
+        return ResponseEntity.ok(revenuService.uploadJustificatif(userId, id, file));
     }
 
     @Operation(summary = "Mes déclarations de revenu", description = "Liste les revenus que j'ai déclarés sur mes biens.")
@@ -100,5 +135,22 @@ public class RevenuController {
             @PathVariable Long id,
             @Valid @RequestBody RefusRevenuRequest request) {
         return ResponseEntity.ok(revenuService.refuser(id, request.motif()));
+    }
+
+    @Operation(summary = "Marquer l'argent du revenu comme reçu par FURSA (admin)",
+            description = """
+                    Quand l'admin a vérifié le justificatif et confirmé que le propriétaire a bien
+                    versé le net à FURSA, il coche cette case. Sans ce flag, la distribution
+                    aux investisseurs est refusée par DistributionService.
+                    Body : { argentRecu: true | false }""")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/{id}/argent-recu")
+    public ResponseEntity<RevenuResponse> marquerArgentRecu(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, Object> body) {
+        boolean recu = body == null || !body.containsKey("argentRecu")
+                ? true
+                : Boolean.TRUE.equals(body.get("argentRecu"));
+        return ResponseEntity.ok(revenuService.marquerArgentRecu(id, recu));
     }
 }

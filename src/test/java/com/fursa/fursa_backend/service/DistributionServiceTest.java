@@ -1,13 +1,18 @@
 package com.fursa.fursa_backend.service;
 
+import com.fursa.fursa_backend.blockchain.service.BlockchainService;
+import com.fursa.fursa_backend.dividende.service.DividendeFactory;
+import com.fursa.fursa_backend.dividend_Calculation.services.distributionStrategy.DistributionStrategy;
 import com.fursa.fursa_backend.model.Dividende;
 import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Possession;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.Revenus;
 import com.fursa.fursa_backend.repository.DividendeRepository;
+import com.fursa.fursa_backend.repository.PaiementRepository;
 import com.fursa.fursa_backend.repository.PossessionRepository;
 import com.fursa.fursa_backend.repository.RevenusRepository;
+import com.fursa.fursa_backend.repository.TransactionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,6 +38,12 @@ class DistributionServiceTest {
     @Mock private RevenusRepository revenusRepository;
     @Mock private PossessionRepository possessionRepository;
     @Mock private DividendeRepository dividendeRepository;
+    @Mock private PaiementRepository paiementRepository;
+    @Mock private TransactionRepository transactionRepository;
+    @Mock private NotificationService notificationService;
+    @Mock private DistributionStrategy distributionStrategy;
+    @Mock private DividendeFactory dividendeFactory;
+    @Mock private BlockchainService blockchainService;
 
     @InjectMocks private DistributionServiceImpl distributionService;
 
@@ -51,6 +62,8 @@ class DistributionServiceTest {
         revenus.setId(1L);
         revenus.setMontantTotal(new BigDecimal("10000.00"));
         revenus.setPropriete(propriete);
+        // Phase 9 : la garde exige que l'argent ait ete confirme recu par FURSA
+        revenus.setArgentRecuParFursa(true);
 
         jean = new Investisseur();
         jean.setId(10L);
@@ -69,6 +82,22 @@ class DistributionServiceTest {
 
         when(revenusRepository.findById(1L)).thenReturn(Optional.of(revenus));
         when(possessionRepository.findByProprieteId(1L)).thenReturn(List.of(possJean, possMarie));
+        when(distributionStrategy.calculerMontant(any(BigDecimal.class), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenAnswer(inv -> {
+                    BigDecimal total = inv.getArgument(0);
+                    int parts = inv.getArgument(1);
+                    int totalParts = inv.getArgument(2);
+                    return total.multiply(BigDecimal.valueOf(parts))
+                            .divide(BigDecimal.valueOf(totalParts), 2, java.math.RoundingMode.HALF_UP);
+                });
+        when(dividendeFactory.create(any(BigDecimal.class), any(Investisseur.class), any(Revenus.class)))
+                .thenAnswer(inv -> {
+                    Dividende d = new Dividende();
+                    d.setMontantCalcule(inv.getArgument(0));
+                    d.setInvestisseur(inv.getArgument(1));
+                    d.setRevenus(inv.getArgument(2));
+                    return d;
+                });
         when(dividendeRepository.save(any(Dividende.class))).thenAnswer(inv -> inv.getArgument(0));
 
         List<Dividende> result = distributionService.distribuer(1L);
@@ -91,9 +120,22 @@ class DistributionServiceTest {
         orphelin.setId(2L);
         orphelin.setMontantTotal(new BigDecimal("500.00"));
         orphelin.setPropriete(null);
+        orphelin.setArgentRecuParFursa(true);
         when(revenusRepository.findById(2L)).thenReturn(Optional.of(orphelin));
 
         assertThrows(IllegalStateException.class, () -> distributionService.distribuer(2L));
+    }
+
+    @Test
+    void distribuer_argentNonRecu_leveIllegalState() {
+        Revenus pasEncoreRecu = new Revenus();
+        pasEncoreRecu.setId(3L);
+        pasEncoreRecu.setMontantTotal(new BigDecimal("1000.00"));
+        pasEncoreRecu.setPropriete(propriete);
+        pasEncoreRecu.setArgentRecuParFursa(false);
+        when(revenusRepository.findById(3L)).thenReturn(Optional.of(pasEncoreRecu));
+
+        assertThrows(IllegalStateException.class, () -> distributionService.distribuer(3L));
     }
 
     @Test
