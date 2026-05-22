@@ -14,7 +14,12 @@ public class CustomUserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return (UserDetails) userRepository.findByEmail(username)
+        var user = userRepository.findByEmail(username)
                 .orElseThrow(()-> new UsernameNotFoundException("User with email : "+username+" not found"));
+        // Refuser le login pour les utilisateurs soft-deleted.
+        if (user.getDeletedAt() != null) {
+            throw new UsernameNotFoundException("User with email : "+username+" not found");
+        }
+        return user;
     }
 }

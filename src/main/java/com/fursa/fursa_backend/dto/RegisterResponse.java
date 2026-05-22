@@ -12,6 +12,9 @@ public class RegisterResponse {
     private String telephone;
     private String email;
     private Role role;
+    private Boolean isVerified;
+    private String walletAddress;
+    private java.time.LocalDateTime deletedAt;
 
     public  RegisterResponse(Investisseur user){
         id = user.getId();
@@ -20,5 +23,8 @@ public class RegisterResponse {
         telephone = user.getTelephone();
         email = user.getEmail();
         role = user.getRole();
+        isVerified = user.getIsVerified();
+        walletAddress = user.getWallet_address();
+        deletedAt = user.getDeletedAt();
     }
 }

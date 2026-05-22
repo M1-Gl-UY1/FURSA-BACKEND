@@ -57,9 +57,11 @@ public class UserController {
     @Operation(summary = "Lister les utilisateurs (admin)")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public ResponseEntity<java.util.List<RegisterResponse>> listerTous() {
+    public ResponseEntity<java.util.List<RegisterResponse>> listerTous(
+            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "false") boolean includeDeleted) {
         return ResponseEntity.ok(userRepository.findAll().stream()
                 .filter(u -> u instanceof Investisseur)
+                .filter(u -> includeDeleted || u.getDeletedAt() == null)
                 .map(u -> new RegisterResponse((Investisseur) u))
                 .toList());
     }
@@ -221,18 +223,46 @@ public class UserController {
         return ResponseEntity.ok(registerResponse);
     }
 
-    @Operation(summary = "Supprimer un utilisateur", description = "Self ou admin uniquement.")
+    @Operation(
+            summary = "Supprimer un utilisateur (soft delete)",
+            description = """
+                    Set `deleted_at = now()`. L'utilisateur ne peut plus se logger et n'apparait
+                    plus dans les listes admin par defaut, mais ses transactions/possessions/paiements
+                    restent en DB pour la conformite comptable.
+                    Self ou admin uniquement. Idempotent.""")
     @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> delete(
             @PathVariable Long id
     ){
-        Optional<User> optionalInvestisseur = userRepository.findById(id);
-        if (optionalInvestisseur.isPresent()){
-            userRepository.delete(optionalInvestisseur.get());
-            return ResponseEntity.status(HttpStatus.OK).build();
+        Optional<User> optionalUser = userRepository.findById(id);
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
+        User user = optionalUser.get();
+        if (user.getDeletedAt() == null) {
+            user.setDeletedAt(java.time.LocalDateTime.now());
+            userRepository.save(user);
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(
+            summary = "Restaurer un utilisateur supprime (admin)",
+            description = "Annule un soft delete : set `deleted_at = null`. Admin uniquement.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<?> restore(@PathVariable Long id) {
+        Optional<User> optionalUser = userRepository.findById(id);
+        if (optionalUser.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        User user = optionalUser.get();
+        if (user.getDeletedAt() != null) {
+            user.setDeletedAt(null);
+            userRepository.save(user);
+        }
+        return ResponseEntity.ok().build();
     }
 
     @Operation(summary = "Recuperer un utilisateur par id", description = "Self ou admin uniquement.")
