@@ -241,4 +241,52 @@ public class DistributionServiceImpl implements DistributionService {
 
         return traites;
     }
+
+    /**
+     * Calcule la repartition prevue (qui recoit combien) sans persister.
+     * Utile pour l'admin UX : valider visuellement avant de declencher la distribution.
+     * Ne refuse pas si le revenu n'est pas VALIDE, juste informatif.
+     */
+    @Override
+    public List<com.fursa.fursa_backend.dto.DistributionPreviewItem> preview(Long revenuId) {
+        Revenus revenus = revenusRepository.findById(revenuId)
+                .orElseThrow(() -> new EntityNotFoundException("Revenu non trouve: id=" + revenuId));
+
+        Propriete propriete = revenus.getPropriete();
+        if (propriete == null) {
+            throw new IllegalStateException("Aucune propriete associee au revenu " + revenuId);
+        }
+
+        int totalParts = propriete.getNombreTotalPart() == null ? 0 : propriete.getNombreTotalPart();
+        if (totalParts <= 0) {
+            throw new IllegalStateException("Nombre total de parts invalide pour la propriete " + propriete.getId());
+        }
+
+        List<Possession> possessions = possessionRepository.findByProprieteId(propriete.getId());
+        BigDecimal montantTotal = revenus.getMontantTotal();
+
+        List<com.fursa.fursa_backend.dto.DistributionPreviewItem> items = new ArrayList<>();
+        for (Possession possession : possessions) {
+            int parts = possession.getNombreDeParts() == null ? 0 : possession.getNombreDeParts();
+            if (parts <= 0) continue;
+
+            BigDecimal montant = distributionStrategy.calculerMontant(montantTotal, parts, totalParts);
+            BigDecimal pourcentage = BigDecimal.valueOf(parts)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(totalParts), 2, RoundingMode.HALF_UP);
+
+            Investisseur inv = possession.getInvestisseur();
+            items.add(new com.fursa.fursa_backend.dto.DistributionPreviewItem(
+                    inv == null ? null : inv.getId(),
+                    inv == null ? null : inv.getEmail(),
+                    inv == null ? null : inv.getNom(),
+                    inv == null ? null : inv.getPrenom(),
+                    parts,
+                    totalParts,
+                    pourcentage,
+                    montant
+            ));
+        }
+        return items;
+    }
 }
