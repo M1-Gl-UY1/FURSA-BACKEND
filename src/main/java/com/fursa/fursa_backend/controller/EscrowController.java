@@ -10,10 +10,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Phase 10c : etat de la collecte crowdfunding d'une propriete (escrow).
@@ -51,5 +54,22 @@ public class EscrowController {
     @GetMapping
     public ResponseEntity<List<EscrowProprieteResponse>> tous() {
         return ResponseEntity.ok(escrowService.listerTous());
+    }
+
+    @Operation(summary = "Annuler une collecte (admin)",
+            description = """
+                    Phase 10c bis : annule une collecte EN_COLLECTE. Refund integral de
+                    tous les investisseurs (credit wallet USD), Possessions passees a ANNULEE,
+                    escrow ferme avec motif. Une collecte deja FINANCEE ne peut PAS etre
+                    annulee via cet endpoint (les fonds ont deja ete debloques).
+                    Body : { motif: 'min 10 caracteres' }""")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/propriete/{proprieteId}/annuler")
+    public ResponseEntity<EscrowProprieteResponse> annulerCollecte(
+            @PathVariable Long proprieteId,
+            @RequestBody Map<String, String> body) {
+        String motif = body == null ? null : body.get("motif");
+        escrowService.annulerCollecte(proprieteId, motif);
+        return ResponseEntity.ok(escrowService.getStatut(proprieteId));
     }
 }
