@@ -19,15 +19,19 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Phase 10b : envoie automatiquement les notifications de declaration mensuelle.
+ * P3 (Hugh 22/05/2026) : notifications automatiques pour la declaration
+ * TRIMESTRIELLE des revenus.
  *
- * 3 jobs :
- *  - Le 1er du mois 09h00 : notif aux proprietaires "La fenetre est ouverte"
- *  - Le 5 du mois  18h00 : notif rappel aux retardataires
- *  - Le 6 du mois  09h00 : notif admin "Voici les proprietes en retard"
+ * 3 jobs * 4 trimestres = 12 declenchements annuels :
+ *  - Le 1er du mois d'ouverture (janv/avril/juill/oct) a 09h00 : notif proprietaires
+ *  - Le 15 du mois d'ouverture a 18h00 : notif rappel retardataires
+ *  - Le 16 du mois d'ouverture a 09h00 : notif admin "Voici les biens en retard"
+ *
+ * Le 1er mois du trimestre N+1 declenche la declaration du trimestre N.
+ * Ex : le 1er avril, on ouvre la fenetre pour declarer Q1 (janv-fev-mars).
  *
  * Idempotent : si pour une raison X le job tourne 2 fois, on accepte d'envoyer
- * 2 notifs. Une dedup plus stricte (table envois) viendra en V2 si besoin.
+ * 2 notifs.
  */
 @Component
 @RequiredArgsConstructor
@@ -40,12 +44,14 @@ public class DeclarationReminderScheduler {
     private final NotificationService notificationService;
 
     // =========================================================================
-    // Job 1 : le 1er du mois a 09h00 -> proprietaires
+    // Job 1 : le 1er des mois d'ouverture (janv/avril/juill/oct) a 09h00
+    // -> notif proprietaires que la fenetre trimestrielle est ouverte
     // =========================================================================
-    @Scheduled(cron = "0 0 9 1 * *", zone = "Europe/Paris")
+    @Scheduled(cron = "0 0 9 1 1,4,7,10 *", zone = "Europe/Paris")
     public void notifierOuvertureFenetre() {
         LocalDate today = LocalDate.now();
-        log.info("[Phase 10b] Cron ouverture fenetre declaration : {}", today);
+        YearQuarter trimestre = DeclarationWindowRules.trimestreADeclarer(today);
+        log.info("[P3] Cron ouverture fenetre declaration trimestrielle : {}", trimestre);
 
         Map<Long, List<Propriete>> parProposeur = proprieteRepository.findAll().stream()
                 .filter(p -> p.getProposeurId() != null)
@@ -61,22 +67,22 @@ public class DeclarationReminderScheduler {
             int nbBiens = entry.getValue().size();
             notificationService.envoyer(
                     propriOpt.get(),
-                    "Periode de declaration ouverte",
-                    "La fenetre de declaration mensuelle est ouverte du 1er au 5. "
-                            + "Declarez vos revenus pour " + nbBiens
-                            + " bien(s) avant le 5 pour eviter la penalite de 300 EUR.",
+                    "Periode de declaration trimestrielle ouverte (" + trimestre + ")",
+                    "La fenetre de declaration pour le trimestre " + trimestre
+                            + " est ouverte du 1er au 15. Declarez vos revenus pour "
+                            + nbBiens + " bien(s) avant le 15 pour eviter la penalite de 300 USD.",
                     TypeMessage.ANNONCE
             );
         }
-        log.info("[Phase 10b] Notif ouverture envoyee a {} proprietaire(s)", parProposeur.size());
+        log.info("[P3] Notif ouverture envoyee a {} proprietaire(s)", parProposeur.size());
     }
 
     // =========================================================================
-    // Job 2 : le 5 du mois a 18h00 -> rappel retardataires
+    // Job 2 : le 15 des mois d'ouverture a 18h00 -> rappel retardataires
     // =========================================================================
-    @Scheduled(cron = "0 0 18 5 * *", zone = "Europe/Paris")
+    @Scheduled(cron = "0 0 18 15 1,4,7,10 *", zone = "Europe/Paris")
     public void rappelDernierJour() {
-        log.info("[Phase 10b] Cron rappel dernier jour (J-0 fenetre)");
+        log.info("[P3] Cron rappel dernier jour (J-0 fenetre trimestrielle)");
         List<StatutDeclarationResponse> tous = revenuService.statutsTouteLaPlateforme();
         long retardCount = 0;
 
@@ -91,30 +97,30 @@ public class DeclarationReminderScheduler {
 
                 notificationService.envoyer(
                         propriOpt.get(),
-                        "Derniere chance : declaration avant minuit",
+                        "Derniere chance : declaration trimestrielle avant minuit",
                         "Le bien \"" + s.proprieteNom() + "\" n'a toujours pas ete declare pour "
-                                + s.moisADeclarer() + ". Apres minuit, une penalite de 300 EUR sera appliquee.",
+                                + s.moisADeclarer() + ". Apres minuit, une penalite de 300 USD sera appliquee.",
                         TypeMessage.AVERTISSEMENT
                 );
                 retardCount++;
             }
         }
-        log.info("[Phase 10b] Rappel dernier jour envoye pour {} declaration(s) en attente", retardCount);
+        log.info("[P3] Rappel dernier jour envoye pour {} declaration(s) en attente", retardCount);
     }
 
     // =========================================================================
-    // Job 3 : le 6 du mois a 09h00 -> notif admin des retardataires
+    // Job 3 : le 16 des mois d'ouverture a 09h00 -> rapport admin retardataires
     // =========================================================================
-    @Scheduled(cron = "0 0 9 6 * *", zone = "Europe/Paris")
+    @Scheduled(cron = "0 0 9 16 1,4,7,10 *", zone = "Europe/Paris")
     public void rapportRetardsPourAdmin() {
-        log.info("[Phase 10b] Cron rapport retards aux admins (J+1 apres fermeture)");
+        log.info("[P3] Cron rapport retards aux admins (J+1 apres fermeture)");
         List<StatutDeclarationResponse> tous = revenuService.statutsTouteLaPlateforme();
         List<StatutDeclarationResponse> enRetard = tous.stream()
                 .filter(s -> s.statut() == StatutDeclarationResponse.Statut.EN_RETARD)
                 .toList();
 
         if (enRetard.isEmpty()) {
-            log.info("[Phase 10b] Aucun retard a signaler aux admins.");
+            log.info("[P3] Aucun retard a signaler aux admins.");
             return;
         }
 
@@ -128,10 +134,10 @@ public class DeclarationReminderScheduler {
                 .filter(u -> u.getRole() == Role.ADMIN && u instanceof Investisseur)
                 .forEach(u -> notificationService.envoyer(
                         (Investisseur) u,
-                        "Retards de declaration mensuelle",
+                        "Retards de declaration trimestrielle",
                         resume,
                         TypeMessage.AVERTISSEMENT
                 ));
-        log.info("[Phase 10b] Rapport retards envoye aux admins ({} retards)", enRetard.size());
+        log.info("[P3] Rapport retards envoye aux admins ({} retards)", enRetard.size());
     }
 }

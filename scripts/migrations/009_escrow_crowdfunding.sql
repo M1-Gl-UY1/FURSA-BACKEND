@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS escrow_propriete (
     solde             NUMERIC(15, 2) NOT NULL DEFAULT 0,
     total_collecte    NUMERIC(15, 2) NOT NULL DEFAULT 0,
     statut            VARCHAR(16) NOT NULL DEFAULT 'EN_COLLECTE',
-    seuil_pct         INTEGER NOT NULL DEFAULT 80,
+    seuil_pct         INTEGER NOT NULL DEFAULT 100,
     created_at        TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     financee_le       TIMESTAMP,
     annulee_le        TIMESTAMP,

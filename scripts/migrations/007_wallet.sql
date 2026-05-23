@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS wallet (
     id_wallet      BIGSERIAL PRIMARY KEY,
     id_user        BIGINT NOT NULL,
     solde          NUMERIC(15, 2) NOT NULL DEFAULT 0,
-    devise         VARCHAR(3) NOT NULL DEFAULT 'EUR',
+    devise         VARCHAR(3) NOT NULL DEFAULT 'USD',
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     version        BIGINT NOT NULL DEFAULT 0,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS wallet (
     CONSTRAINT uk_wallet_user UNIQUE (id_user),
     CONSTRAINT fk_wallet_user FOREIGN KEY (id_user) REFERENCES users(id_user) ON DELETE CASCADE,
     CONSTRAINT chk_wallet_solde_positif CHECK (solde >= 0),
-    CONSTRAINT chk_wallet_devise CHECK (devise = 'EUR')
+    CONSTRAINT chk_wallet_devise CHECK (devise IN ('USD', 'EUR'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_wallet_user ON wallet (id_user);
@@ -55,7 +55,7 @@ CREATE INDEX IF NOT EXISTS idx_walletTx_ref ON wallet_transaction (ref_table, re
 -- (pour eviter les requetes orphelines apres deploiement)
 -- ============================================================================
 INSERT INTO wallet (id_user, solde, devise)
-SELECT u.id_user, 0, 'EUR'
+SELECT u.id_user, 0, 'USD'
 FROM users u
 LEFT JOIN wallet w ON w.id_user = u.id_user
 WHERE w.id_wallet IS NULL

@@ -67,7 +67,7 @@ public class WalletService {
         Wallet w = new Wallet();
         w.setUser(user);
         w.setSolde(BigDecimal.ZERO);
-        w.setDevise("EUR");
+        w.setDevise("USD");
         Wallet saved = walletRepository.save(w);
         log.info("Wallet cree pour user {} : id={}", userId, saved.getId());
         return saved;

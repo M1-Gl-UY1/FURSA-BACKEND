@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
  * Source de verite fonctionnelle du solde. Mirror on-chain optionnel (Phase 10f via fEUR).
  * Tous les mouvements passent par WalletService pour garantir append-only + optimistic lock.
  *
- * Le solde est toujours en EUR (devise figee pour MVP, multi-devise en V2).
+ * Le solde est en USD (decision Hugh 22/05/2026 ; saisie en devise locale possible cote
+ * formulaire bien, conversion auto vers USD pour le wallet).
  * Le solde ne peut jamais etre negatif (CHECK constraint + validation service).
  */
 @Entity
@@ -39,13 +40,17 @@ public class Wallet {
     @JoinColumn(name = "id_user", nullable = false, unique = true)
     private Investisseur user;
 
-    /** Solde courant en EUR. Toujours >= 0. */
+    /** Solde courant en USD. Toujours >= 0. */
     @Column(name = "solde", nullable = false, precision = 15, scale = 2)
     private BigDecimal solde = BigDecimal.ZERO;
 
-    /** Devise (toujours EUR en MVP, multi-devise en V2). */
+    /**
+     * Devise. USD par defaut (decision Hugh 22/05/2026 : USD est la monnaie
+     * d'harmonisation de la plateforme). Saisie en devise locale possible
+     * dans le formulaire bien, conversion vers USD pour le wallet.
+     */
     @Column(name = "devise", nullable = false, length = 3)
-    private String devise = "EUR";
+    private String devise = "USD";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -63,7 +68,7 @@ public class Wallet {
         if (createdAt == null) createdAt = now;
         updatedAt = now;
         if (solde == null) solde = BigDecimal.ZERO;
-        if (devise == null) devise = "EUR";
+        if (devise == null) devise = "USD";
     }
 
     @PreUpdate

@@ -65,7 +65,8 @@ public class EscrowService {
         e.setSolde(BigDecimal.ZERO);
         e.setTotalCollecte(BigDecimal.ZERO);
         e.setStatut(StatutEscrow.EN_COLLECTE);
-        e.setSeuilPct(80);
+        // Phase 10c ajustement (Hugh 22/05/2026) : 100% (toutes parts vendues) avant deblocage.
+        e.setSeuilPct(100);
         EscrowPropriete saved = escrowRepository.save(e);
         log.info("Escrow cree pour propriete {} : id={}", proprieteId, saved.getId());
         return saved;

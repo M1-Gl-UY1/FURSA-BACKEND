@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.List;
 
 @Service
@@ -157,27 +156,28 @@ public class RevenuService {
     // =========================================================================
 
     /**
-     * Statut de declaration mensuelle d'une propriete pour le mois N-1.
-     * Utilise par le proprietaire (sur sa fiche de bien) et par l'admin (vue retards).
+     * Statut de declaration TRIMESTRIELLE d'une propriete (P3 / Hugh 22/05/2026).
+     * Le proprio doit declarer ses revenus une fois par trimestre, entre le 1er et
+     * le 15 du 1er mois du trimestre N+1.
      */
     public StatutDeclarationResponse statutDeclarationCourant(Long proprieteId) {
         Propriete propriete = proprieteRepository.findById(proprieteId)
                 .orElseThrow(() -> new EntityNotFoundException("Propriete non trouvee: id=" + proprieteId));
 
         LocalDate today = LocalDate.now();
-        YearMonth moisADeclarer = DeclarationWindowRules.moisADeclarer(today);
-        LocalDate moisDebut = moisADeclarer.atDay(1);
-        LocalDate moisFin = moisADeclarer.atEndOfMonth();
+        YearQuarter trimestreADeclarer = DeclarationWindowRules.trimestreADeclarer(today);
+        LocalDate trimestreDebut = trimestreADeclarer.premierJour();
+        LocalDate trimestreFin = trimestreADeclarer.dernierJour();
         boolean dansFenetre = DeclarationWindowRules.estDansFenetre(today);
         int joursRestants = DeclarationWindowRules.joursRestantsAvantFermeture(today);
         java.math.BigDecimal penaliteSi = dansFenetre ? java.math.BigDecimal.ZERO
-                : DeclarationWindowRules.PENALITE_RETARD_EUR;
+                : DeclarationWindowRules.PENALITE_RETARD_USD;
 
-        // Recherche d'une declaration deja faite pour le mois N-1
+        // Recherche d'une declaration deja faite pour le trimestre precedent
         List<Revenus> existantes = revenusRepository.findByProprieteAndPeriode(
-                proprieteId, moisDebut, moisFin);
+                proprieteId, trimestreDebut, trimestreFin);
         Revenus dejaDeclare = existantes.isEmpty() ? null
-                : existantes.get(existantes.size() - 1);  // la plus recente
+                : existantes.get(existantes.size() - 1);
 
         StatutDeclarationResponse.Statut statut;
         if (dejaDeclare != null) {
@@ -191,7 +191,7 @@ public class RevenuService {
         return new StatutDeclarationResponse(
                 proprieteId,
                 propriete.getNom(),
-                moisADeclarer.toString(),
+                trimestreADeclarer.toString(),
                 statut,
                 joursRestants,
                 dansFenetre,

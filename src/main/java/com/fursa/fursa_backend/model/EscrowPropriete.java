@@ -43,7 +43,7 @@ public class EscrowPropriete {
     @JoinColumn(name = "id_prop", nullable = false, unique = true)
     private Propriete propriete;
 
-    /** Solde disponible (en EUR) pour retrait par le proprietaire ou refund. */
+    /** Solde disponible (en USD) pour retrait par le proprietaire ou refund. */
     @Column(name = "solde", nullable = false, precision = 15, scale = 2)
     private BigDecimal solde = BigDecimal.ZERO;
 
@@ -58,9 +58,13 @@ public class EscrowPropriete {
     @Column(name = "statut", nullable = false, length = 16)
     private StatutEscrow statut = StatutEscrow.EN_COLLECTE;
 
-    /** Seuil de declenchement (pourcentage). Defaut 80%. */
+    /**
+     * Seuil de declenchement (pourcentage). Defaut 100% (reunion Hugh 22/05/2026 :
+     * il faut que TOUTES les parts soient vendues avant que la propriete passe
+     * a FINANCEE et que FURSA achete le bien chez le proprietaire reel).
+     */
     @Column(name = "seuil_pct", nullable = false)
-    private Integer seuilPct = 80;
+    private Integer seuilPct = 100;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -84,6 +88,6 @@ public class EscrowPropriete {
         if (solde == null) solde = BigDecimal.ZERO;
         if (totalCollecte == null) totalCollecte = BigDecimal.ZERO;
         if (statut == null) statut = StatutEscrow.EN_COLLECTE;
-        if (seuilPct == null) seuilPct = 80;
+        if (seuilPct == null) seuilPct = 100;
     }
 }
