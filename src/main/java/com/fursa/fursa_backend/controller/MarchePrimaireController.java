@@ -56,6 +56,31 @@ public class MarchePrimaireController {
                 marchePrimaireService.acheterParts(investisseurId, request, idempotencyKey));
     }
 
+    @Operation(
+            summary = "Acheter des parts via wallet (Phase 10c - crowdfunding escrow)",
+            description = """
+                    Achat instantane par debit du wallet interne FURSA.
+                    Verifie KYC + solde wallet >= prixUnitaire * nombreParts.
+                    Cree la Possession en statut PENDING (activee quand collecte atteint 80%, Phase 10c bis).
+                    L'argent va sur l'escrow de la propriete, pas sur le wallet du proprietaire.
+                    Le proprietaire ne recevra son cash qu'apres validation d'une demande de retrait par l'admin (Phase 10e).""")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Achat reussi"),
+            @ApiResponse(responseCode = "400", description = "Solde insuffisant / parts insuffisantes / collecte annulee / KYC manquant"),
+            @ApiResponse(responseCode = "401", description = "Non authentifie"),
+            @ApiResponse(responseCode = "403", description = "Acces refuse (admin ne peut pas acheter)"),
+            @ApiResponse(responseCode = "404", description = "Propriete ou investisseur introuvable")
+    })
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PostMapping("/acheter-via-wallet")
+    public ResponseEntity<AchatResponse> acheterViaWallet(
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody AchatRequest request) {
+        Long investisseurId = authInvestisseur.currentId();
+        return ResponseEntity.ok(
+                marchePrimaireService.acheterViaWallet(investisseurId, request, idempotencyKey));
+    }
+
     @Operation(summary = "Mon portefeuille", description = "Possessions de l'investisseur connecte.")
     @GetMapping("/me/possessions")
     public ResponseEntity<List<PossessionResponse>> mesPossessions() {

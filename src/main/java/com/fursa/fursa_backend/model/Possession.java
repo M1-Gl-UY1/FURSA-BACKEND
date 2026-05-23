@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.model;
 
+import com.fursa.fursa_backend.model.enumeration.StatutPossession;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -33,6 +34,19 @@ public class Possession {
     @ManyToOne
     @JoinColumn(name = "id_inv")
     private Investisseur investisseur;
+
+    /**
+     * Phase 10c : statut de la possession.
+     * PENDING tant que la collecte de la propriete n'a pas atteint 80%.
+     * ACTIVE des qu'elle est FINANCEE, l'investisseur percoit alors les dividendes.
+     * ANNULEE si la collecte a ete annulee, l'investisseur a ete rembourse.
+     *
+     * Default = PENDING pour les nouveaux achats. Les possessions historiques sont
+     * migrees a ACTIVE par le script SQL.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut", nullable = false, length = 16)
+    private StatutPossession statut = StatutPossession.PENDING;
 
     @Version
     private Long version;

@@ -9,9 +9,11 @@ import com.fursa.fursa_backend.dto.PaymentInitResponse;
 import com.fursa.fursa_backend.model.*;
 import com.fursa.fursa_backend.model.enumeration.StatutPaiement;
 import com.fursa.fursa_backend.model.enumeration.StatutPaymentSession;
+import com.fursa.fursa_backend.model.enumeration.StatutPossession;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.StatutTransaction;
 import com.fursa.fursa_backend.model.enumeration.TypePaiement;
+import com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction;
 import com.fursa.fursa_backend.payment.PaymentProvider;
 import com.fursa.fursa_backend.payment.PaymentProviderRegistry;
 import com.fursa.fursa_backend.payment.ProviderSessionRequest;
@@ -57,6 +59,8 @@ public class MarchePrimaireService {
     private final PaymentProviderRegistry providerRegistry;
     private final BlockchainService blockchainService;
     private final ObjectMapper objectMapper;
+    private final WalletService walletService;
+    private final EscrowService escrowService;
 
     public MarchePrimaireService(PaiementRepository paiementRepository,
                                   TransactionRepository transactionRepository,
@@ -68,7 +72,9 @@ public class MarchePrimaireService {
                                   DeviseRateService deviseRateService,
                                   PaymentProviderRegistry providerRegistry,
                                   BlockchainService blockchainService,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  WalletService walletService,
+                                  EscrowService escrowService) {
         this.paiementRepository = paiementRepository;
         this.transactionRepository = transactionRepository;
         this.possessionRepository = possessionRepository;
@@ -80,6 +86,8 @@ public class MarchePrimaireService {
         this.providerRegistry = providerRegistry;
         this.blockchainService = blockchainService;
         this.objectMapper = objectMapper;
+        this.walletService = walletService;
+        this.escrowService = escrowService;
     }
 
     @Transactional
@@ -170,6 +178,176 @@ public class MarchePrimaireService {
         }
 
         return response;
+    }
+
+    /**
+     * Phase 10c : achat de parts via le wallet de l'investisseur (crowdfunding escrow).
+     *
+     * Flux atomique :
+     *  1. GUARD KYC : isVerified=true requis
+     *  2. GUARD propriete PUBLIEE + parts dispo + escrow != ANNULEE
+     *  3. DEBIT wallet investisseur du montant total
+     *  4. CREDIT escrow propriete du meme montant
+     *  5. CREATE/UPDATE Possession (statut PENDING tant que collecte < 80%, ACTIVE si deja FINANCEE)
+     *  6. DECREMENT propriete.partsDisponibles
+     *  7. CREATE Paiement (statut VALIDE, type FIAT - wallet interne FURSA)
+     *  8. CREATE Transaction (statut SUCCES)
+     *  9. Idempotency : si key fournie et deja vue, retourne la reponse cachee
+     *
+     * En cas d'echec a n'importe quelle etape, la transaction Spring rollback
+     * (y compris le debit wallet -> @Version garantit l'integrite).
+     */
+    @Transactional
+    public AchatResponse acheterViaWallet(Long investisseurId, AchatRequest request, String idempotencyKey) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<IdempotencyRecord> existing = idempotencyRepository
+                    .findByIdempotencyKeyAndUserIdAndEndpoint(idempotencyKey, investisseurId, ENDPOINT_ACHETER_WALLET);
+            if (existing.isPresent() && existing.get().getResponseBody() != null) {
+                return deserialize(existing.get().getResponseBody());
+            }
+        }
+
+        Investisseur investisseur = investisseurRepository.findById(investisseurId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Investisseur non trouve avec l'id : " + investisseurId));
+
+        if (!Boolean.TRUE.equals(investisseur.getIsVerified())) {
+            throw new IllegalStateException(
+                    "Verification d'identite requise. Completez votre dossier KYC avant d'investir.");
+        }
+
+        Propriete propriete = proprieteRepository.findById(request.getProprieteId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Propriete non trouvee avec l'id : " + request.getProprieteId()));
+
+        if (propriete.getStatut() != StatutPropriete.PUBLIEE) {
+            throw new IllegalStateException("Cette propriete n'est pas disponible a l'achat.");
+        }
+
+        if (request.getNombreParts() == null || request.getNombreParts() <= 0) {
+            throw new IllegalArgumentException("Le nombre de parts doit etre strictement positif.");
+        }
+
+        if (propriete.getPartsDisponibles() < request.getNombreParts()) {
+            throw new IllegalStateException("Parts insuffisantes. Disponibles : " + propriete.getPartsDisponibles());
+        }
+
+        // Verifie l'escrow : ne doit pas etre ANNULEE
+        EscrowPropriete escrow = escrowService.getOrCreate(propriete.getId());
+        if (escrow.getStatut() == com.fursa.fursa_backend.model.enumeration.StatutEscrow.ANNULEE) {
+            throw new IllegalStateException(
+                    "La collecte de cette propriete a ete annulee. Achat impossible.");
+        }
+
+        BigDecimal montantTotal = propriete.getPrixUnitairePart()
+                .multiply(BigDecimal.valueOf(request.getNombreParts()))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        // 1. Debit wallet investisseur (leve InsufficientFundsException si solde insuffisant -> 400)
+        String libelleDebit = "Achat " + request.getNombreParts() + " part(s) - " + propriete.getNom();
+        WalletTransaction walletTx = walletService.debit(
+                investisseurId, montantTotal,
+                TypeWalletTransaction.DEBIT_ACHAT_PARTS,
+                libelleDebit,
+                "propriete", propriete.getId(),
+                null);
+
+        // 2. Credit escrow propriete (referent : la wallet_transaction qu'on vient de creer)
+        escrowService.creditAchat(
+                propriete.getId(), montantTotal, investisseurId,
+                "wallet_transaction", walletTx.getId(),
+                "Achat " + request.getNombreParts() + " part(s) par " + investisseur.getEmail());
+
+        // 3. Hash transaction local (la phase blockchain on-chain viendra en 10f)
+        String hashTransaction = "0x" + UUID.randomUUID().toString().replace("-", "");
+
+        // 4. Create Paiement (statut VALIDE - on a deja debite le wallet)
+        Paiement paiement = new Paiement();
+        paiement.setInvestisseur(investisseur);
+        paiement.setPropriete(propriete);
+        paiement.setMontant(montantTotal);
+        paiement.setNombre_parts(request.getNombreParts());
+        paiement.setType(TypePaiement.FIAT);
+        paiement.setStatut(StatutPaiement.VALIDE);
+        paiement.setDate(LocalDateTime.now());
+        paiement = paiementRepository.save(paiement);
+
+        // 5. Create Transaction
+        Transaction transaction = new Transaction();
+        transaction.setPaiement(paiement);
+        transaction.setHashTransaction(hashTransaction);
+        transaction.setTypeOperation(com.fursa.fursa_backend.model.enumeration.TypeOperation.ACHAT);
+        transaction.setNombreParts(request.getNombreParts());
+        transaction.setMontant(montantTotal);
+        transaction.setDateTransaction(LocalDateTime.now());
+        transaction.setStatut(StatutTransaction.SUCCES);
+        transaction = transactionRepository.save(transaction);
+
+        // 6. Create/update Possession (statut PENDING par defaut, ACTIVE si la propriete est deja FINANCEE)
+        StatutPossession statutPoss =
+                escrow.getStatut() == com.fursa.fursa_backend.model.enumeration.StatutEscrow.FINANCEE
+                        ? StatutPossession.ACTIVE
+                        : StatutPossession.PENDING;
+        final StatutPossession statutFinal = statutPoss;
+        Possession possession = possessionRepository
+                .findByInvestisseurIdAndProprieteId(investisseur.getId(), propriete.getId())
+                .orElseGet(() -> {
+                    Possession p = new Possession();
+                    p.setInvestisseur(investisseur);
+                    p.setPropriete(propriete);
+                    p.setNombreDeParts(0);
+                    p.setStatut(statutFinal);
+                    return p;
+                });
+        possession.setNombreDeParts(possession.getNombreDeParts() + request.getNombreParts());
+        // Si la propriete est deja FINANCEE, les nouvelles parts sont ACTIVE.
+        // Si PENDING + nouvelles parts -> reste PENDING.
+        if (statutPoss == StatutPossession.ACTIVE) {
+            possession.setStatut(StatutPossession.ACTIVE);
+        }
+        possessionRepository.save(possession);
+
+        // 7. Decrement parts disponibles
+        propriete.setPartsDisponibles(propriete.getPartsDisponibles() - request.getNombreParts());
+        proprieteRepository.save(propriete);
+
+        AchatResponse response = new AchatResponse(
+                paiement.getId(),
+                transaction.getId(),
+                hashTransaction,
+                transaction.getStatut().name(),
+                request.getNombreParts(),
+                montantTotal,
+                propriete.getNom(),
+                transaction.getDateTransaction()
+        );
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            persistIdempotencyWallet(idempotencyKey, investisseurId, response);
+        }
+
+        log.info("Achat via wallet : inv={} prop={} parts={} montant={} EUR (statutPossession={})",
+                investisseurId, propriete.getId(), request.getNombreParts(), montantTotal, statutPoss);
+
+        return response;
+    }
+
+    private static final String ENDPOINT_ACHETER_WALLET = "POST /api/marche-primaire/acheter-via-wallet";
+
+    private void persistIdempotencyWallet(String key, Long userId, AchatResponse response) {
+        try {
+            IdempotencyRecord record = new IdempotencyRecord();
+            record.setIdempotencyKey(key);
+            record.setUserId(userId);
+            record.setEndpoint(ENDPOINT_ACHETER_WALLET);
+            record.setResponseBody(objectMapper.writeValueAsString(response));
+            record.setCreatedAt(LocalDateTime.now());
+            idempotencyRepository.save(record);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Echec serialisation reponse idempotente", e);
+        } catch (DataIntegrityViolationException e) {
+            // Course condition acceptable.
+        }
     }
 
     private void persistIdempotency(String key, Long userId, AchatResponse response) {
