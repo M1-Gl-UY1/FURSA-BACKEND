@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.dto;
 
 import com.fursa.fursa_backend.model.enumeration.SourceRevenu;
+import com.fursa.fursa_backend.model.enumeration.StatutCertification;
 import com.fursa.fursa_backend.model.enumeration.StatutExploitation;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.TypeBien;
@@ -59,4 +60,8 @@ public class ProprieteResponse {
     private String videoUrl;
     private Boolean certifie;
     private LocalDateTime certifieLe;
+    // Phase Certification (Hugh 22/05/2026)
+    private StatutCertification statutCertif;
+    private LocalDateTime certifSoumiseLe;
+    private String certifMotifRefus;
 }

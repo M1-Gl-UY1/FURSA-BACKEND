@@ -82,6 +82,10 @@ public class ProprieteMapper {
                 .videoUrl(p.getVideoUrl())
                 .certifie(p.getCertifie())
                 .certifieLe(p.getCertifieLe())
+                // Phase Certification (Hugh 22/05/2026)
+                .statutCertif(p.getStatutCertif())
+                .certifSoumiseLe(p.getCertifSoumiseLe())
+                .certifMotifRefus(p.getCertifMotifRefus())
                 .build();
     }
 }

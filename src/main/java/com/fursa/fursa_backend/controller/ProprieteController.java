@@ -221,4 +221,64 @@ public class ProprieteController {
         Propriete tokenisee = tokenisationService.tokeniserPropriete(id);
         return ResponseEntity.ok(proprieteMapper.toResponse(tokenisee));
     }
+
+    // =========================================================================
+    // Phase Certification (Hugh 22/05/2026) : etape post-creation separee
+    // =========================================================================
+
+    @Operation(summary = "Uploader des documents legaux pour certification (proprio)",
+            description = """
+                    Permet au proprietaire d'uploader les documents legaux (titre foncier,
+                    contrat, etc.) en vue de la certification. Les fichiers sont stockes
+                    comme documents PDFs separes des photos. Acceptable a tout moment,
+                    mais doit etre fait AVANT le clic 'Soumettre certification'.""")
+    @PostMapping(value = "/{id}/certification/documents",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProprieteResponse> uploadDocsCertif(
+            @PathVariable Long id,
+            @RequestPart("documents") List<MultipartFile> documents) {
+        Long userId = authInvestisseur.currentId();
+        Propriete p = proprieteService.uploadDocumentCertification(userId, id, documents);
+        return ResponseEntity.ok(proprieteMapper.toResponse(p));
+    }
+
+    @Operation(summary = "Soumettre la demande de certification (proprio)",
+            description = """
+                    Le proprietaire declare avoir uploade tous les documents necessaires
+                    et demande la verification admin. Statut passe NON_CERTIFIE -> EN_REVIEW.
+                    Pre-requis : au moins un document legal PDF uploade.""")
+    @PostMapping("/{id}/certification/soumettre")
+    public ResponseEntity<ProprieteResponse> soumettreCertif(@PathVariable Long id) {
+        Long userId = authInvestisseur.currentId();
+        Propriete p = proprieteService.soumettreCertification(userId, id);
+        return ResponseEntity.ok(proprieteMapper.toResponse(p));
+    }
+
+    @Operation(summary = "Approuver la certification (admin)",
+            description = "Le bien devient CERTIFIE et donc ACHETABLE par les investisseurs.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/{id}/certification/approuver")
+    public ResponseEntity<ProprieteResponse> approuverCertif(@PathVariable Long id) {
+        return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.approuverCertification(id)));
+    }
+
+    @Operation(summary = "Refuser la certification (admin)",
+            description = "Body : { motif: 'min 10 caracteres' }. Le proprio peut re-uploader et resoumettre.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/{id}/certification/refuser")
+    public ResponseEntity<ProprieteResponse> refuserCertif(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String motif = body == null ? null : body.get("motif");
+        return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.refuserCertification(id, motif)));
+    }
+
+    @Operation(summary = "Liste des biens en attente de certification (admin)")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/certification/pending")
+    public ResponseEntity<List<ProprieteResponse>> certifsEnAttente() {
+        return ResponseEntity.ok(
+                proprieteService.listerEnAttenteCertification().stream()
+                        .map(proprieteMapper::toResponse).toList());
+    }
 }

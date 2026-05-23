@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.model;
 
 import com.fursa.fursa_backend.model.enumeration.SourceRevenu;
+import com.fursa.fursa_backend.model.enumeration.StatutCertification;
 import com.fursa.fursa_backend.model.enumeration.StatutExploitation;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.model.enumeration.TypeBien;
@@ -157,4 +158,25 @@ public class Propriete {
 
     @Column(name = "certifie_le")
     private LocalDateTime certifieLe;
+
+    // ========================================================================
+    // Phase Certification (Hugh 22/05/2026) : etape post-creation separee
+    // ========================================================================
+
+    /**
+     * Etat de certification du bien (independant du statut de publication).
+     * NON_CERTIFIE par defaut. Si CERTIFIE, le bien est achetable.
+     * Si autre, le bien est visible mais non achetable.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut_certif", nullable = false, length = 20)
+    private StatutCertification statutCertif = StatutCertification.NON_CERTIFIE;
+
+    /** Date a laquelle le proprio a soumis sa demande de certification. */
+    @Column(name = "certif_soumise_le")
+    private LocalDateTime certifSoumiseLe;
+
+    /** Motif du refus si statut_certif = REFUSEE. */
+    @Column(name = "certif_motif_refus", length = 500)
+    private String certifMotifRefus;
 }

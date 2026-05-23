@@ -224,6 +224,14 @@ public class MarchePrimaireService {
             throw new IllegalStateException("Cette propriete n'est pas disponible a l'achat.");
         }
 
+        // GUARD Phase Certification (Hugh 22/05/2026) : bien doit etre CERTIFIE pour etre achete.
+        // Sans certification, le bien est visible (preview) mais l'investissement est bloque.
+        if (propriete.getStatutCertif() != com.fursa.fursa_backend.model.enumeration.StatutCertification.CERTIFIE) {
+            throw new IllegalStateException(
+                    "Achat impossible : cette propriete n'a pas encore ete certifiee. "
+                            + "Les documents legaux doivent etre verifies par l'admin avant que les investisseurs puissent acheter.");
+        }
+
         if (request.getNombreParts() == null || request.getNombreParts() <= 0) {
             throw new IllegalArgumentException("Le nombre de parts doit etre strictement positif.");
         }
