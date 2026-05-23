@@ -19,5 +19,8 @@ public record RevenuResponse(
         LocalDate periodeFin,
         // Phase 9 : tracabilite payout
         String justificatifUrl,
-        Boolean argentRecuParFursa
+        Boolean argentRecuParFursa,
+        // Phase 10b : window declaration + penalite retard
+        BigDecimal penaliteRetard,
+        BigDecimal montantDistribuable
 ) {}

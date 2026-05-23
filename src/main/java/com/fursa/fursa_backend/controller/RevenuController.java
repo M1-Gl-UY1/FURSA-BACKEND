@@ -3,6 +3,7 @@ package com.fursa.fursa_backend.controller;
 import com.fursa.fursa_backend.dto.RefusRevenuRequest;
 import com.fursa.fursa_backend.dto.RevenuRequest;
 import com.fursa.fursa_backend.dto.RevenuResponse;
+import com.fursa.fursa_backend.dto.StatutDeclarationResponse;
 import com.fursa.fursa_backend.dto.SubmissionRevenuRequest;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import com.fursa.fursa_backend.service.RevenuService;
@@ -135,6 +136,36 @@ public class RevenuController {
             @PathVariable Long id,
             @Valid @RequestBody RefusRevenuRequest request) {
         return ResponseEntity.ok(revenuService.refuser(id, request.motif()));
+    }
+
+    // =========================================================================
+    // PHASE 10b : statut de declaration (window 1-5 + penalite retard)
+    // =========================================================================
+
+    @Operation(summary = "Statut de declaration mensuel d'une propriete",
+            description = """
+                    Indique si la propriete a deja ete declaree pour le mois N-1,
+                    si on est dans la fenetre normale (1-5) ou en retard, et la penalite
+                    applicable si declaration tardive.""")
+    @GetMapping("/propriete/{proprieteId}/statut-mois-courant")
+    public ResponseEntity<StatutDeclarationResponse> statutCourant(@PathVariable Long proprieteId) {
+        return ResponseEntity.ok(revenuService.statutDeclarationCourant(proprieteId));
+    }
+
+    @Operation(summary = "Statuts de declaration de mes proprietes",
+            description = "Liste les statuts de declaration mensuelle pour toutes mes proprietes proposees.")
+    @GetMapping("/me/statuts")
+    public ResponseEntity<List<StatutDeclarationResponse>> mesStatuts() {
+        Long userId = authInvestisseur.currentId();
+        return ResponseEntity.ok(revenuService.statutsPourProposeur(userId));
+    }
+
+    @Operation(summary = "Statuts de declaration de toutes les proprietes (admin)",
+            description = "Vue globale des declarations mensuelles pour toutes les proprietes de la plateforme.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/statuts")
+    public ResponseEntity<List<StatutDeclarationResponse>> tousLesStatuts() {
+        return ResponseEntity.ok(revenuService.statutsTouteLaPlateforme());
     }
 
     @Operation(summary = "Marquer l'argent du revenu comme reçu par FURSA (admin)",

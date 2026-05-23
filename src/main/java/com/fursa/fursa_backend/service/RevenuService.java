@@ -2,6 +2,7 @@ package com.fursa.fursa_backend.service;
 
 import com.fursa.fursa_backend.dto.RevenuRequest;
 import com.fursa.fursa_backend.dto.RevenuResponse;
+import com.fursa.fursa_backend.dto.StatutDeclarationResponse;
 import com.fursa.fursa_backend.dto.SubmissionRevenuRequest;
 import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Propriete;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 @Service
@@ -76,20 +78,29 @@ public class RevenuService {
             throw new AccessDeniedException("Vous ne pouvez déclarer un revenu que pour vos propres biens.");
         }
 
+        // Phase 10b : penalite forfaitaire si declaration apres le 5 du mois.
+        LocalDate today = LocalDate.now();
+        java.math.BigDecimal penalite = DeclarationWindowRules.penaliteApplicable(
+                today, req.montantTotal());
+
         Revenus revenu = new Revenus();
         revenu.setPropriete(propriete);
         revenu.setMontantTotal(req.montantTotal());
-        revenu.setDate(LocalDate.now());
+        revenu.setDate(today);
         revenu.setProposeurId(proposeurId);
         revenu.setStatut(StatutRevenu.EN_REVIEW);
         revenu.setPeriodeDebut(req.periodeDebut());
         revenu.setPeriodeFin(req.periodeFin());
+        revenu.setPenaliteRetard(penalite);
 
         Revenus saved = revenusRepository.save(revenu);
 
+        String suffixe = penalite.signum() > 0
+                ? " (penalite retard appliquee : " + penalite + " EUR)"
+                : "";
         notifierAdmins(
                 "Nouvelle déclaration de revenu",
-                "Le bien \"" + propriete.getNom() + "\" a une nouvelle déclaration de revenu en attente.",
+                "Le bien \"" + propriete.getNom() + "\" a une nouvelle déclaration de revenu en attente." + suffixe,
                 TypeMessage.INFO
         );
 
@@ -142,6 +153,76 @@ public class RevenuService {
     }
 
     // =========================================================================
+    // PHASE 10b : statut de declaration par propriete (window 1-5 + penalite)
+    // =========================================================================
+
+    /**
+     * Statut de declaration mensuelle d'une propriete pour le mois N-1.
+     * Utilise par le proprietaire (sur sa fiche de bien) et par l'admin (vue retards).
+     */
+    public StatutDeclarationResponse statutDeclarationCourant(Long proprieteId) {
+        Propriete propriete = proprieteRepository.findById(proprieteId)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete non trouvee: id=" + proprieteId));
+
+        LocalDate today = LocalDate.now();
+        YearMonth moisADeclarer = DeclarationWindowRules.moisADeclarer(today);
+        LocalDate moisDebut = moisADeclarer.atDay(1);
+        LocalDate moisFin = moisADeclarer.atEndOfMonth();
+        boolean dansFenetre = DeclarationWindowRules.estDansFenetre(today);
+        int joursRestants = DeclarationWindowRules.joursRestantsAvantFermeture(today);
+        java.math.BigDecimal penaliteSi = dansFenetre ? java.math.BigDecimal.ZERO
+                : DeclarationWindowRules.PENALITE_RETARD_EUR;
+
+        // Recherche d'une declaration deja faite pour le mois N-1
+        List<Revenus> existantes = revenusRepository.findByProprieteAndPeriode(
+                proprieteId, moisDebut, moisFin);
+        Revenus dejaDeclare = existantes.isEmpty() ? null
+                : existantes.get(existantes.size() - 1);  // la plus recente
+
+        StatutDeclarationResponse.Statut statut;
+        if (dejaDeclare != null) {
+            statut = StatutDeclarationResponse.Statut.DECLARE;
+        } else if (dansFenetre) {
+            statut = StatutDeclarationResponse.Statut.DANS_FENETRE;
+        } else {
+            statut = StatutDeclarationResponse.Statut.EN_RETARD;
+        }
+
+        return new StatutDeclarationResponse(
+                proprieteId,
+                propriete.getNom(),
+                moisADeclarer.toString(),
+                statut,
+                joursRestants,
+                dansFenetre,
+                penaliteSi,
+                dejaDeclare == null ? null : dejaDeclare.getDate(),
+                dejaDeclare == null ? null : dejaDeclare.getId()
+        );
+    }
+
+    /**
+     * Statuts pour toutes les proprietes proposees par un proprietaire (sa "to-do liste mensuelle").
+     */
+    public List<StatutDeclarationResponse> statutsPourProposeur(Long proposeurId) {
+        return proprieteRepository.findAll().stream()
+                .filter(p -> proposeurId.equals(p.getProposeurId()))
+                .map(p -> statutDeclarationCourant(p.getId()))
+                .toList();
+    }
+
+    /**
+     * Statuts pour TOUTES les proprietes publiees (vue admin globale).
+     * Filtrable cote appelant pour ne garder que EN_RETARD si besoin.
+     */
+    public List<StatutDeclarationResponse> statutsTouteLaPlateforme() {
+        return proprieteRepository.findAll().stream()
+                .filter(p -> p.getProposeurId() != null)
+                .map(p -> statutDeclarationCourant(p.getId()))
+                .toList();
+    }
+
+    // =========================================================================
     // Helpers
     // =========================================================================
 
@@ -174,7 +255,9 @@ public class RevenuService {
                 r.getPeriodeDebut(),
                 r.getPeriodeFin(),
                 r.getJustificatifUrl(),
-                r.getArgentRecuParFursa()
+                r.getArgentRecuParFursa(),
+                r.getPenaliteRetard(),
+                r.getMontantDistribuable()
         );
     }
 
