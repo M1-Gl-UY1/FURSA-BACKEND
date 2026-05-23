@@ -1,6 +1,9 @@
 package com.fursa.fursa_backend.model;
 
+import com.fursa.fursa_backend.model.enumeration.SourceRevenu;
+import com.fursa.fursa_backend.model.enumeration.StatutExploitation;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
+import com.fursa.fursa_backend.model.enumeration.TypeBien;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -65,4 +68,93 @@ public class Propriete {
 
     @OneToMany(mappedBy = "propriete")
     private List<Possession> possessions;
+
+    // ========================================================================
+    // P1 (reunion Hugh 22/05/2026) : refonte fiche bien
+    // ========================================================================
+
+    /** Code ISO 2 lettres du pays (TZ, KE, CI, CM, SN, NG, GH, RW, UG, EG). */
+    @Column(name = "pays", length = 2)
+    private String pays;
+
+    /** Ville (selection dans la liste des villes principales du pays). */
+    @Column(name = "ville", length = 100)
+    private String ville;
+
+    /** Adresse precise complementaire (rue, quartier). */
+    @Column(name = "adresse_precise", length = 300)
+    private String adressePrecise;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type_bien", length = 20)
+    private TypeBien typeBien;
+
+    @Column(name = "nombre_pieces")
+    private Integer nombrePieces;
+
+    @Column(name = "nombre_chambres")
+    private Integer nombreChambres;
+
+    @Column(name = "superficie_m2")
+    private Integer superficieM2;
+
+    @Column(name = "has_piscine", nullable = false)
+    private Boolean hasPiscine = false;
+
+    @Column(name = "has_climatisation", nullable = false)
+    private Boolean hasClimatisation = false;
+
+    @Column(name = "has_parking", nullable = false)
+    private Boolean hasParking = false;
+
+    @Column(name = "has_ascenseur", nullable = false)
+    private Boolean hasAscenseur = false;
+
+    @Column(name = "has_jardin", nullable = false)
+    private Boolean hasJardin = false;
+
+    @Column(name = "has_vue_mer", nullable = false)
+    private Boolean hasVueMer = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "statut_exploitation", length = 20, nullable = false)
+    private StatutExploitation statutExploitation = StatutExploitation.NEUF;
+
+    /** Si DEJA_RENTABLE : revenu mensuel approximatif declare par le proprio. */
+    @Column(name = "revenu_mensuel_actuel", precision = 15, scale = 2)
+    private BigDecimal revenuMensuelActuel;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_revenu", length = 20)
+    private SourceRevenu sourceRevenu;
+
+    /**
+     * Prix total demande par le proprio pour son bien (devise locale).
+     * La logique de parts (nombreTotalPart, prixUnitairePart) est calculee
+     * par la plateforme a partir de ce prix.
+     */
+    @Column(name = "prix_vente_total", precision = 15, scale = 2)
+    private BigDecimal prixVenteTotal;
+
+    /** Devise locale du proprio (XAF, EUR, USD, TZS, etc.). Conversion auto USD pour affichage. */
+    @Column(name = "devise_locale", length = 3)
+    private String deviseLocale;
+
+    /**
+     * Fraction du bien que le proprio met en vente (1-100%).
+     * 100 = il vend tout le bien, 50 = il garde la moitie pour lui.
+     */
+    @Column(name = "fraction_vendue_pct", nullable = false)
+    private Integer fractionVenduePct = 100;
+
+    /** URL de la video de visite guidee (obligatoire pour validation prealable). */
+    @Column(name = "video_url", length = 500)
+    private String videoUrl;
+
+    /** True une fois que tous les documents legaux ont ete uploades + valides par l'admin. */
+    @Column(name = "certifie", nullable = false)
+    private Boolean certifie = false;
+
+    @Column(name = "certifie_le")
+    private LocalDateTime certifieLe;
 }

@@ -14,10 +14,13 @@ import java.util.UUID;
 public class FileStorageService {
 
     private static final java.util.Set<String> ALLOWED_EXTENSIONS =
-            java.util.Set.of(".pdf", ".jpg", ".jpeg", ".png", ".webp");
+            java.util.Set.of(".pdf", ".jpg", ".jpeg", ".png", ".webp",
+                    // P1 (Hugh 22/05/2026) : video de visite guidee
+                    ".mp4", ".mov", ".webm");
     private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
-            "application/pdf", "image/jpeg", "image/png", "image/webp");
-    private static final long MAX_FILE_SIZE_BYTES = 10L * 1024 * 1024; // 10 MB
+            "application/pdf", "image/jpeg", "image/png", "image/webp",
+            "video/mp4", "video/quicktime", "video/webm");
+    private static final long MAX_FILE_SIZE_BYTES = 100L * 1024 * 1024; // 100 MB (videos)
 
     private final Path root = Paths.get("uploads");
 

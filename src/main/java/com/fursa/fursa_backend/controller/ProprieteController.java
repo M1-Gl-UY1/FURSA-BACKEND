@@ -141,10 +141,20 @@ public class ProprieteController {
     @PostMapping(value = "/submissions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> soumettre(
             @RequestPart("submission") @Valid SubmissionRequest request,
-            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+            // Legacy : ancien champ "files" (toutes photos vrac, sans section). Conserve pour compat.
+            @RequestPart(value = "files", required = false) List<MultipartFile> files,
+            // P1 (Hugh 22/05/2026) : video de visite guidee (1 fichier max).
+            @RequestPart(value = "video", required = false) MultipartFile video,
+            // P1 : photos structurees par section (FACADE, SALON, ...).
+            @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
+            // P1 : sections paralleles aux photos (meme ordre). Ex : ["FACADE", "SALON", "CHAMBRE"]
+            @org.springframework.web.bind.annotation.RequestParam(value = "photoSections", required = false) List<String> photoSections,
+            // P1 : documents legaux (PDFs). Pour MVP gardes ensemble, certification separee plus tard.
+            @RequestPart(value = "documents", required = false) List<MultipartFile> documents) {
 
         Long userId = authInvestisseur.currentId();
-        Propriete created = proprieteService.soumettre(userId, request, files);
+        Propriete created = proprieteService.soumettre(
+                userId, request, files, video, photos, photoSections, documents);
         return ResponseEntity.status(HttpStatus.CREATED).body(proprieteMapper.toResponse(created));
     }
 

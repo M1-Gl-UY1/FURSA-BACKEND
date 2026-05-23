@@ -133,11 +133,45 @@ public class ProprieteService {
     // PHASE 7 : workflow soumission propriétaire
     // =========================================================================
 
+    /**
+     * Overload pour compatibilite : l'ancien appel sans video / photos par section.
+     */
     @Transactional
     public Propriete soumettre(Long proposeurId, SubmissionRequest req, List<MultipartFile> fichiers) {
+        return soumettre(proposeurId, req, fichiers, null, null, null, null);
+    }
+
+    @Transactional
+    public Propriete soumettre(Long proposeurId, SubmissionRequest req,
+                                List<MultipartFile> filesLegacy,
+                                MultipartFile video,
+                                List<MultipartFile> photos,
+                                List<String> photoSections,
+                                List<MultipartFile> documents) {
+        // P1 (Hugh 22/05/2026) : validation cross-field pour les biens DEJA_RENTABLE.
+        if (req.getStatutExploitation() == com.fursa.fursa_backend.model.enumeration.StatutExploitation.DEJA_RENTABLE) {
+            if (req.getRevenuMensuelActuel() == null || req.getRevenuMensuelActuel().signum() <= 0) {
+                throw new IllegalArgumentException(
+                        "Un bien deja rentable doit declarer un revenu mensuel actuel > 0.");
+            }
+            if (req.getSourceRevenu() == null) {
+                throw new IllegalArgumentException(
+                        "Un bien deja rentable doit indiquer la source des revenus (BAIL / AIRBNB / AUTRE).");
+            }
+        }
+
+        // Localisation derivee si non fournie explicitement (compat ascendante).
+        String localisation = req.getLocalisation();
+        if (localisation == null || localisation.isBlank()) {
+            localisation = (req.getVille() != null ? req.getVille() : "")
+                    + (req.getPays() != null ? ", " + req.getPays() : "");
+            localisation = localisation.trim();
+            if (localisation.startsWith(",")) localisation = localisation.substring(1).trim();
+        }
+
         Propriete p = new Propriete();
         p.setNom(req.getNom());
-        p.setLocalisation(req.getLocalisation());
+        p.setLocalisation(localisation);
         p.setDescription(req.getDescription());
         p.setNombreTotalPart(req.getNombreTotalPart());
         p.setPartsDisponibles(req.getNombreTotalPart());
@@ -148,8 +182,42 @@ public class ProprieteService {
         p.setDateCreation(LocalDate.now());
         p.setSoumiseLe(LocalDateTime.now());
 
+        // P1 (Hugh 22/05/2026) : nouveaux champs structures.
+        p.setPays(req.getPays());
+        p.setVille(req.getVille());
+        p.setAdressePrecise(req.getAdressePrecise());
+        p.setTypeBien(req.getTypeBien());
+        p.setNombrePieces(req.getNombrePieces());
+        p.setNombreChambres(req.getNombreChambres());
+        p.setSuperficieM2(req.getSuperficieM2());
+        p.setHasPiscine(Boolean.TRUE.equals(req.getHasPiscine()));
+        p.setHasClimatisation(Boolean.TRUE.equals(req.getHasClimatisation()));
+        p.setHasParking(Boolean.TRUE.equals(req.getHasParking()));
+        p.setHasAscenseur(Boolean.TRUE.equals(req.getHasAscenseur()));
+        p.setHasJardin(Boolean.TRUE.equals(req.getHasJardin()));
+        p.setHasVueMer(Boolean.TRUE.equals(req.getHasVueMer()));
+        p.setStatutExploitation(req.getStatutExploitation());
+        p.setRevenuMensuelActuel(req.getRevenuMensuelActuel());
+        p.setSourceRevenu(req.getSourceRevenu());
+        p.setPrixVenteTotal(req.getPrixVenteTotal());
+        p.setDeviseLocale(req.getDeviseLocale());
+        p.setFractionVenduePct(req.getFractionVenduePct() == null ? 100 : req.getFractionVenduePct());
+        p.setVideoUrl(req.getVideoUrl());
+        p.setCertifie(false);
+
         Propriete saved = proprieteRepository.save(p);
-        sauvegarderFichiers(fichiers, saved);
+
+        // P1 : sauvegarde des fichiers selon leur type.
+        // 1. Legacy : ancien champ "files" (toutes en AUTRE pour ne rien casser).
+        sauvegarderPhotos(filesLegacy, saved,
+                java.util.Collections.nCopies(filesLegacy == null ? 0 : filesLegacy.size(), "AUTRE"));
+        // 2. Photos structurees par section.
+        sauvegarderPhotos(photos, saved, photoSections);
+        // 3. Video de visite guidee (Hugh exige).
+        sauvegarderVideo(video, saved);
+        // 4. Documents legaux (PDFs). Stockes mais NON marques certifies a la creation
+        //    (la certification est une etape separee Phase 7-bis demandee par Hugh).
+        sauvegarderDocuments(documents, saved);
 
         notifierAdmins(
                 "Nouvelle soumission de bien",
@@ -242,6 +310,87 @@ public class ProprieteService {
                     ? TypeDocument.PDF
                     : TypeDocument.IMAGE
             );
+            documentRepository.save(doc);
+        }
+    }
+
+    // =========================================================================
+    // P1 (Hugh 22/05/2026) : helpers fichiers structures
+    // =========================================================================
+
+    /**
+     * Sauvegarde une liste de photos avec leur section associee (FACADE, SALON, etc.).
+     * Les indices de sections doivent correspondre aux indices des photos (zip parallele).
+     * Si la liste sections est plus courte ou null, le reste est marque AUTRE.
+     */
+    private void sauvegarderPhotos(List<MultipartFile> photos, Propriete propriete,
+                                    List<String> sections) {
+        if (photos == null || photos.isEmpty()) return;
+        for (int i = 0; i < photos.size(); i++) {
+            MultipartFile f = photos.get(i);
+            if (f == null || f.isEmpty()) continue;
+            String nomFichier = fileStorageService.save(f);
+
+            com.fursa.fursa_backend.model.enumeration.SectionPhoto section;
+            try {
+                String code = sections != null && i < sections.size() ? sections.get(i) : "AUTRE";
+                section = com.fursa.fursa_backend.model.enumeration.SectionPhoto.valueOf(code);
+            } catch (IllegalArgumentException ex) {
+                section = com.fursa.fursa_backend.model.enumeration.SectionPhoto.AUTRE;
+            }
+
+            Document doc = new Document();
+            doc.setNom(f.getOriginalFilename());
+            doc.setUrl(nomFichier);
+            doc.setDateUpload(LocalDateTime.now());
+            doc.setPropriete(propriete);
+            doc.setType(TypeDocument.IMAGE);
+            doc.setSectionPhoto(section);
+            documentRepository.save(doc);
+        }
+    }
+
+    /**
+     * Sauvegarde la video de visite guidee. Met a jour propriete.videoUrl.
+     */
+    private void sauvegarderVideo(MultipartFile video, Propriete propriete) {
+        if (video == null || video.isEmpty()) return;
+        String nomFichier = fileStorageService.save(video);
+        propriete.setVideoUrl("/api/fichiers/" + nomFichier);
+        proprieteRepository.save(propriete);
+
+        // Trace egalement en Document (audit) pour retrouver la video.
+        Document doc = new Document();
+        doc.setNom(video.getOriginalFilename());
+        doc.setUrl(nomFichier);
+        doc.setDateUpload(LocalDateTime.now());
+        doc.setPropriete(propriete);
+        doc.setType(TypeDocument.IMAGE); // pas d'enum VIDEO pour l'instant, on garde IMAGE faute de mieux
+        documentRepository.save(doc);
+    }
+
+    /**
+     * Sauvegarde les documents legaux (PDFs titre foncier, contrats, etc.).
+     * Phase 7-bis : ces documents serviront a la certification du bien (validation
+     * admin separee). Ils sont stockes mais propriete.certifie reste false.
+     */
+    private void sauvegarderDocuments(List<MultipartFile> documents, Propriete propriete) {
+        if (documents == null || documents.isEmpty()) return;
+        for (MultipartFile f : documents) {
+            if (f == null || f.isEmpty()) continue;
+            String nomFichier = fileStorageService.save(f);
+
+            Document doc = new Document();
+            doc.setNom(f.getOriginalFilename());
+            doc.setUrl(nomFichier);
+            doc.setDateUpload(LocalDateTime.now());
+            doc.setPropriete(propriete);
+            doc.setType(
+                f.getContentType() != null && f.getContentType().contains("pdf")
+                    ? TypeDocument.PDF
+                    : TypeDocument.IMAGE
+            );
+            // sectionPhoto null = ce n'est pas une photo, c'est un document legal
             documentRepository.save(doc);
         }
     }

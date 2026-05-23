@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.model;
 
+import com.fursa.fursa_backend.model.enumeration.SectionPhoto;
 import com.fursa.fursa_backend.model.enumeration.TypeDocument;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -31,4 +32,13 @@ public class Document {
     @ManyToOne
     @JoinColumn(name = "id_prop")
     private Propriete propriete;
+
+    /**
+     * P1 (reunion Hugh 22/05/2026) : section structuree d'une photo.
+     * Non-null pour les photos (FACADE, SALON, etc.), null pour les documents
+     * techniques (PDFs legaux, contrats, etc.).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "section_photo", length = 20)
+    private SectionPhoto sectionPhoto;
 }

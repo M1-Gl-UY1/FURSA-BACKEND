@@ -36,6 +36,7 @@ public class ProprieteMapper {
                 .url(d.getUrl())
                 .type(d.getType())
                 .dateUpload(d.getDateUpload())
+                .sectionPhoto(d.getSectionPhoto())
                 .build()
             ).toList();
 
@@ -58,6 +59,29 @@ public class ProprieteMapper {
                 // Blockchain
                 .adresseContrat(p.getAdresseContrat())
                 .transactionHash(p.getTransactionHash())
+                // P1 (Hugh 22/05/2026)
+                .pays(p.getPays())
+                .ville(p.getVille())
+                .adressePrecise(p.getAdressePrecise())
+                .typeBien(p.getTypeBien())
+                .nombrePieces(p.getNombrePieces())
+                .nombreChambres(p.getNombreChambres())
+                .superficieM2(p.getSuperficieM2())
+                .hasPiscine(p.getHasPiscine())
+                .hasClimatisation(p.getHasClimatisation())
+                .hasParking(p.getHasParking())
+                .hasAscenseur(p.getHasAscenseur())
+                .hasJardin(p.getHasJardin())
+                .hasVueMer(p.getHasVueMer())
+                .statutExploitation(p.getStatutExploitation())
+                .revenuMensuelActuel(p.getRevenuMensuelActuel())
+                .sourceRevenu(p.getSourceRevenu())
+                .prixVenteTotal(p.getPrixVenteTotal())
+                .deviseLocale(p.getDeviseLocale())
+                .fractionVenduePct(p.getFractionVenduePct())
+                .videoUrl(p.getVideoUrl())
+                .certifie(p.getCertifie())
+                .certifieLe(p.getCertifieLe())
                 .build();
     }
 }
