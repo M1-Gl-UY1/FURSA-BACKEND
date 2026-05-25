@@ -292,6 +292,29 @@ public class ProprieteController {
     }
 
     // =========================================================================
+    // P4 (Hugh 22/05/2026) : modele FURSA acheteur
+    // =========================================================================
+
+    @Operation(summary = "Toggle le flag 'Acquis FURSA' (admin)",
+            description = """
+                    Marque ou de-marque un bien comme acquis par FURSA en one-time
+                    aupres d'un promoteur (workflow Paje Square). Body :
+                    { "acquisFursa": true | false }. Le bien affiche un badge "Acquis FURSA"
+                    cote investisseur si true.""")
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/admin/{id}/acquis-fursa")
+    public ResponseEntity<ProprieteResponse> toggleAcquisFursa(
+            @PathVariable Long id,
+            @RequestBody Map<String, Boolean> body) {
+        Boolean flag = body == null ? null : body.get("acquisFursa");
+        if (flag == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        Propriete p = proprieteService.setAcquisFursa(id, flag);
+        return ResponseEntity.ok(proprieteMapper.toResponse(p));
+    }
+
+    // =========================================================================
     // P1 (Hugh 22/05/2026) : prix dynamique
     // Voir PRIX_DYNAMIQUE_FURSA.md a la racine du projet.
     // =========================================================================

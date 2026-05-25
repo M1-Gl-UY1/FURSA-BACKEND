@@ -227,4 +227,17 @@ public class Propriete {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "gestionnaire_id")
     private PartenaireGestion gestionnaire;
+
+    // ========================================================================
+    // P4 (Hugh 22/05/2026) : modele "FURSA acheteur"
+    // ========================================================================
+
+    /**
+     * True si FURSA a achete le bien one-time aupres du promoteur (workflow
+     * Paje Square) puis le remet en vente fractionnee. Affiche un badge
+     * "Acquis FURSA" cote investisseur (gage de fiabilite : le bien est
+     * deja sous la responsabilite de la plateforme).
+     */
+    @Column(name = "acquis_fursa", nullable = false)
+    private Boolean acquisFursa = false;
 }

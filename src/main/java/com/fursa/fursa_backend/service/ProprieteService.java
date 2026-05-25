@@ -39,6 +39,9 @@ public class ProprieteService {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final DeviseRateService deviseRateService;
+    private final com.fursa.fursa_backend.repository.PossessionRepository possessionRepository;
+    private final com.fursa.fursa_backend.repository.AnnonceRepository annonceRepository;
+    private final com.fursa.fursa_backend.repository.EscrowProprieteRepository escrowProprieteRepository;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -116,11 +119,66 @@ public class ProprieteService {
         return new ProgressionResponse(p.getId(), total, vendues, dispo, pct);
     }
 
+    /**
+     * P4 (Hugh 22/05/2026) : toggle le flag "Acquis FURSA" sur un bien.
+     * Workflow : FURSA achete one-time au promoteur (ex : Paje Square / CPS Africa),
+     * puis remet le bien en vente fractionnee sur la plateforme.
+     */
+    @Transactional
+    public Propriete setAcquisFursa(Long proprieteId, boolean acquisFursa) {
+        Propriete p = proprieteRepository.findById(proprieteId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Propriete introuvable : " + proprieteId));
+        p.setAcquisFursa(acquisFursa);
+        return proprieteRepository.save(p);
+    }
+
+    /**
+     * Suppression admin d'une propriete. Refuse si le bien a deja eu de l'activite
+     * financiere (parts vendues, annonces ouvertes, escrow non vide) pour eviter
+     * la perte irreversible de donnees historiques investisseurs.
+     */
     @Transactional
     public void supprimer(Long id) {
         Propriete propriete = proprieteRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
 
+        // Garde-fou 1 : des investisseurs detiennent deja des parts -> suppression interdite.
+        java.util.List<com.fursa.fursa_backend.model.Possession> possessions =
+                possessionRepository.findByProprieteId(id);
+        long nbInvestisseurs = possessions == null ? 0L
+                : possessions.stream()
+                    .filter(p -> p.getNombreDeParts() != null && p.getNombreDeParts() > 0)
+                    .count();
+        if (nbInvestisseurs > 0) {
+            throw new IllegalStateException(
+                    "Suppression impossible : " + nbInvestisseurs + " investisseur(s) detiennent "
+                            + "des parts de ce bien. Annulez d'abord la collecte (escrow) pour "
+                            + "rembourser les investisseurs, ou contactez le support.");
+        }
+
+        // Garde-fou 2 : annonces marche secondaire ouvertes sur ce bien -> interdire.
+        java.util.List<com.fursa.fursa_backend.model.Annonce> annoncesOuvertes =
+                annonceRepository.findByProprieteIdAndStatut(id,
+                        com.fursa.fursa_backend.model.enumeration.StatutAnnonce.OUVERTE);
+        if (annoncesOuvertes != null && !annoncesOuvertes.isEmpty()) {
+            throw new IllegalStateException(
+                    "Suppression impossible : " + annoncesOuvertes.size()
+                            + " annonce(s) marche secondaire encore ouverte(s) sur ce bien.");
+        }
+
+        // Garde-fou 3 : escrow non vide (collecte en cours avec des paiements) -> interdire.
+        java.util.Optional<com.fursa.fursa_backend.model.EscrowPropriete> escrow =
+                escrowProprieteRepository.findByProprieteId(id);
+        if (escrow.isPresent()
+                && escrow.get().getSolde() != null
+                && escrow.get().getSolde().signum() > 0) {
+            throw new IllegalStateException(
+                    "Suppression impossible : l'escrow de ce bien contient encore "
+                            + escrow.get().getSolde() + " USD. Annulez la collecte d'abord.");
+        }
+
+        // OK : on peut supprimer. On nettoie les fichiers stockes.
         if (propriete.getDocuments() != null) {
             propriete.getDocuments().forEach(doc ->
                 fileStorageService.delete(doc.getUrl())

@@ -97,6 +97,8 @@ public class ProprieteMapper {
                 .bonusDemande(p.getBonusDemande())
                 // P9 (Hugh 22/05/2026) : gestionnaire locatif
                 .gestionnaire(toPartenaireResponse(p.getGestionnaire()))
+                // P4 (Hugh 22/05/2026) : modele FURSA acheteur
+                .acquisFursa(p.getAcquisFursa())
                 .build();
     }
 

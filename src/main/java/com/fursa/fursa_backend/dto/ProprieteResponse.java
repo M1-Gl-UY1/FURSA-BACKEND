@@ -80,4 +80,7 @@ public class ProprieteResponse {
 
     // --- P9 (Hugh 22/05/2026) : gestionnaire locatif assigne ---
     private PartenaireGestionResponse gestionnaire;
+
+    // --- P4 (Hugh 22/05/2026) : modele FURSA acheteur ---
+    private Boolean acquisFursa;
 }
