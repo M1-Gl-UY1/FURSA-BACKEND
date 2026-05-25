@@ -179,4 +179,29 @@ public class Propriete {
     /** Motif du refus si statut_certif = REFUSEE. */
     @Column(name = "certif_motif_refus", length = 500)
     private String certifMotifRefus;
+
+    // ========================================================================
+    // P1 (Hugh 22/05/2026) : prix dynamique des parts
+    // ========================================================================
+
+    /**
+     * Prix unitaire INITIAL (a la creation). Le prix courant reste dans
+     * prixUnitairePart et fluctue selon la rentabilite reelle et la demande.
+     */
+    @Column(name = "prix_initial_part", precision = 15, scale = 2)
+    private BigDecimal prixInitialPart;
+
+    /**
+     * Bonus cumule de rentabilite (fraction : 0.05 = +5%).
+     * Mis a jour a chaque revenu valide ou cron trimestriel.
+     */
+    @Column(name = "bonus_rentabilite_total", precision = 8, scale = 6, nullable = false)
+    private BigDecimal bonusRentabiliteTotal = BigDecimal.ZERO;
+
+    /**
+     * Bonus instantane de demande (fraction : 0.10 = +10%).
+     * Recalcule a chaque inscription/desinscription liste d'attente.
+     */
+    @Column(name = "bonus_demande", precision = 8, scale = 6, nullable = false)
+    private BigDecimal bonusDemande = BigDecimal.ZERO;
 }

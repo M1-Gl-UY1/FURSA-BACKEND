@@ -86,6 +86,10 @@ public class ProprieteMapper {
                 .statutCertif(p.getStatutCertif())
                 .certifSoumiseLe(p.getCertifSoumiseLe())
                 .certifMotifRefus(p.getCertifMotifRefus())
+                // P1 (Hugh 22/05/2026) : prix dynamique
+                .prixInitialPart(p.getPrixInitialPart())
+                .bonusRentabiliteTotal(p.getBonusRentabiliteTotal())
+                .bonusDemande(p.getBonusDemande())
                 .build();
     }
 }

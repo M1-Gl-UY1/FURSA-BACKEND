@@ -32,6 +32,7 @@ public class RevenuService {
     private final NotificationService notificationService;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    private final PrixPartService prixPartService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -121,6 +122,13 @@ public class RevenuService {
         r.setStatut(StatutRevenu.VALIDE);
         r.setMotifRefus(null);
         Revenus saved = revenusRepository.save(r);
+
+        // P1 (Hugh 22/05/2026) : prix dynamique. Un revenu valide modifie le
+        // bonus_rentabilite cumule de la propriete et recalcule le prix courant.
+        // Voir PRIX_DYNAMIQUE_FURSA.md §3.
+        if (saved.getPropriete() != null) {
+            prixPartService.appliquerRevenuValide(saved.getPropriete(), saved);
+        }
 
         notifierProposeur(saved,
                 "Revenu validé",

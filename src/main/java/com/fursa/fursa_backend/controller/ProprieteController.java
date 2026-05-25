@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.controller;
 
+import com.fursa.fursa_backend.dto.HistoriquePrixPartResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.ProprieteResponse;
 import com.fursa.fursa_backend.dto.RefusRequest;
@@ -8,6 +9,7 @@ import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import com.fursa.fursa_backend.service.BlockchainRpcClient;
+import com.fursa.fursa_backend.service.PrixPartService;
 import com.fursa.fursa_backend.service.ProprieteService;
 import com.fursa.fursa_backend.service.TokenisationService;
 
@@ -40,6 +42,7 @@ public class ProprieteController {
     private final AuthenticatedInvestisseurService authInvestisseur;
     private final BlockchainRpcClient blockchainRpcClient;
     private final TokenisationService tokenisationService;
+    private final PrixPartService prixPartService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -280,5 +283,18 @@ public class ProprieteController {
         return ResponseEntity.ok(
                 proprieteService.listerEnAttenteCertification().stream()
                         .map(proprieteMapper::toResponse).toList());
+    }
+
+    // =========================================================================
+    // P1 (Hugh 22/05/2026) : prix dynamique
+    // Voir PRIX_DYNAMIQUE_FURSA.md a la racine du projet.
+    // =========================================================================
+
+    @Operation(
+            summary = "Historique des prix d'une part",
+            description = "Snapshots chronologiques (du plus ancien au plus recent) des variations du prix unitaire d'une part. Alimente la sparkline cote investisseur.")
+    @GetMapping("/{id}/historique-prix")
+    public ResponseEntity<List<HistoriquePrixPartResponse>> historiquePrix(@PathVariable Long id) {
+        return ResponseEntity.ok(prixPartService.historique(id));
     }
 }

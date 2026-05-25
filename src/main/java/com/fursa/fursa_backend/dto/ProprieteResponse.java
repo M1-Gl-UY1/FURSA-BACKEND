@@ -64,4 +64,13 @@ public class ProprieteResponse {
     private StatutCertification statutCertif;
     private LocalDateTime certifSoumiseLe;
     private String certifMotifRefus;
+
+    // --- P1 (Hugh 22/05/2026) : prix dynamique ---
+    // Voir PRIX_DYNAMIQUE_FURSA.md a la racine du projet.
+    /** Prix unitaire INITIAL a la creation (le prixUnitairePart est le prix COURANT). */
+    private BigDecimal prixInitialPart;
+    /** Cumul des contributions de rentabilite (fraction : 0.05 = +5%). */
+    private BigDecimal bonusRentabiliteTotal;
+    /** Bonus instantane de demande (fraction : 0.10 = +10%). */
+    private BigDecimal bonusDemande;
 }
