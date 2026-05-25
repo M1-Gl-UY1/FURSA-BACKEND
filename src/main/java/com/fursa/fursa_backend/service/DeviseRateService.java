@@ -39,6 +39,23 @@ public class DeviseRateService {
                 .setScale(USDC_SCALE, RoundingMode.HALF_UP);
     }
 
+    /**
+     * P5 (Hugh 22/05/2026) : conversion devise locale -> USD pour l'affichage utilisateur.
+     * Equivalent a convertirEnUsdc mais arrondi a 2 decimales (centimes USD).
+     *
+     * Retourne null si montant null ou <= 0. Retourne le montant inchange si la devise
+     * est USD ou null. Leve IllegalArgumentException si la devise est inconnue.
+     */
+    public BigDecimal toUsd(BigDecimal montant, String codeDevise) {
+        if (montant == null || montant.signum() <= 0) return null;
+        if (codeDevise == null || codeDevise.trim().isEmpty()
+                || "USD".equalsIgnoreCase(codeDevise.trim())) {
+            return montant.setScale(2, RoundingMode.HALF_UP);
+        }
+        return convertirEnUsdc(montant, codeDevise)
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
     @Transactional
     public DeviseRate upsert(String codeDevise, BigDecimal tauxVersUsdc) {
         if (tauxVersUsdc == null || tauxVersUsdc.signum() <= 0) {

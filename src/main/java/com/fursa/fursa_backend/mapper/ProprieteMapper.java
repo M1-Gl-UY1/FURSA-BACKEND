@@ -78,6 +78,7 @@ public class ProprieteMapper {
                 .sourceRevenu(p.getSourceRevenu())
                 .prixVenteTotal(p.getPrixVenteTotal())
                 .deviseLocale(p.getDeviseLocale())
+                .prixVenteTotalUsd(p.getPrixVenteTotalUsd())
                 .fractionVenduePct(p.getFractionVenduePct())
                 .videoUrl(p.getVideoUrl())
                 .certifie(p.getCertifie())

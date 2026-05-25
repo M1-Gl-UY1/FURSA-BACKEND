@@ -142,6 +142,13 @@ public class Propriete {
     private String deviseLocale;
 
     /**
+     * Equivalent USD de prix_vente_total, calcule a la soumission via DeviseRateService.
+     * Sert de prix de reference partout sur la plateforme (decision Hugh 22/05/2026).
+     */
+    @Column(name = "prix_vente_total_usd", precision = 15, scale = 2)
+    private BigDecimal prixVenteTotalUsd;
+
+    /**
      * Fraction du bien que le proprio met en vente (1-100%).
      * 100 = il vend tout le bien, 50 = il garde la moitie pour lui.
      */

@@ -42,6 +42,7 @@ public class AnnonceService {
     private final PaiementRepository paiementRepository;
     private final TransactionRepository transactionRepository;
     private final NotificationService notificationService;
+    private final ListeAttenteService listeAttenteService;
 
     @Transactional
     public AnnonceResponse creer(Long vendeurId, AnnonceRequest request) {
@@ -74,7 +75,14 @@ public class AnnonceService {
         annonce.setPrixUnitaireDemande(request.prixUnitaireDemande());
         annonce.setStatut(StatutAnnonce.OUVERTE);
 
-        return toResponse(annonceRepository.save(annonce));
+        Annonce saved = annonceRepository.save(annonce);
+
+        // P2 (Hugh 22/05/2026) : une nouvelle annonce remet des parts sur le marche.
+        // Si le bien etait entierement vendu et qu'il y a une file d'attente,
+        // on notifie le premier inscrit FIFO.
+        listeAttenteService.notifierPremier(propriete.getId());
+
+        return toResponse(saved);
     }
 
     public List<AnnonceResponse> listerOuvertes() {
@@ -222,13 +230,14 @@ public class AnnonceService {
         }
         annonceRepository.save(annonce);
 
+        // Decision Hugh 22/05/2026 : USD comme devise de base sur la plateforme.
         notificationService.envoyer(vendeur,
                 "Vente realisee",
-                nbDemande + " part(s) de " + propriete.getNom() + " vendue(s) pour " + montantTotal + " EUR",
+                nbDemande + " part(s) de " + propriete.getNom() + " vendue(s) pour " + montantTotal + " USD",
                 TypeMessage.TRANSACTION);
         notificationService.envoyer(acheteur,
                 "Achat realise",
-                nbDemande + " part(s) de " + propriete.getNom() + " achetee(s) pour " + montantTotal + " EUR",
+                nbDemande + " part(s) de " + propriete.getNom() + " achetee(s) pour " + montantTotal + " USD",
                 TypeMessage.TRANSACTION);
 
         return new AchatAnnonceResponse(

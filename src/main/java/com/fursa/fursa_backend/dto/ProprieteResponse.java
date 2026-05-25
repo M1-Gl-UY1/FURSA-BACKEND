@@ -56,6 +56,8 @@ public class ProprieteResponse {
     private SourceRevenu sourceRevenu;
     private BigDecimal prixVenteTotal;
     private String deviseLocale;
+    /** Equivalent USD calcule a la soumission (P5 Hugh 22/05/2026). */
+    private BigDecimal prixVenteTotalUsd;
     private Integer fractionVenduePct;
     private String videoUrl;
     private Boolean certifie;

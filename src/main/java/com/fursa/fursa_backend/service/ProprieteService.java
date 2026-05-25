@@ -38,6 +38,7 @@ public class ProprieteService {
     private final ProprieteMapper proprieteMapper;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final DeviseRateService deviseRateService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -169,13 +170,35 @@ public class ProprieteService {
             if (localisation.startsWith(",")) localisation = localisation.substring(1).trim();
         }
 
+        // P5 (Hugh 22/05/2026) : conversion devise locale -> USD.
+        // Le wizard frontend calcule prixUnitairePart en DEVISE LOCALE (a partir de
+        // prixVenteTotal / fraction / nombreTotalPart). Le backend convertit en USD
+        // pour stocker un prix unifie sur toute la plateforme. Le prixVenteTotal
+        // d'origine reste en devise locale pour info.
+        java.math.BigDecimal prixUnitaireUsd = req.getPrixUnitairePart();
+        java.math.BigDecimal prixVenteTotalUsd = req.getPrixVenteTotal();
+        String devise = req.getDeviseLocale();
+        if (devise != null && !"USD".equalsIgnoreCase(devise.trim())) {
+            try {
+                if (req.getPrixUnitairePart() != null && req.getPrixUnitairePart().signum() > 0) {
+                    prixUnitaireUsd = deviseRateService.toUsd(req.getPrixUnitairePart(), devise);
+                }
+                if (req.getPrixVenteTotal() != null && req.getPrixVenteTotal().signum() > 0) {
+                    prixVenteTotalUsd = deviseRateService.toUsd(req.getPrixVenteTotal(), devise);
+                }
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException(
+                        "Devise '" + devise + "' non supportee. Configurez son taux via /admin/devises.");
+            }
+        }
+
         Propriete p = new Propriete();
         p.setNom(req.getNom());
         p.setLocalisation(localisation);
         p.setDescription(req.getDescription());
         p.setNombreTotalPart(req.getNombreTotalPart());
         p.setPartsDisponibles(req.getNombreTotalPart());
-        p.setPrixUnitairePart(req.getPrixUnitairePart());
+        p.setPrixUnitairePart(prixUnitaireUsd);
         p.setRentabilitePrevue(req.getRentabilitePrevue());
         p.setStatut(StatutPropriete.EN_REVIEW);
         p.setProposeurId(proposeurId);
@@ -201,6 +224,7 @@ public class ProprieteService {
         p.setSourceRevenu(req.getSourceRevenu());
         p.setPrixVenteTotal(req.getPrixVenteTotal());
         p.setDeviseLocale(req.getDeviseLocale());
+        p.setPrixVenteTotalUsd(prixVenteTotalUsd);
         p.setFractionVenduePct(req.getFractionVenduePct() == null ? 100 : req.getFractionVenduePct());
         p.setVideoUrl(req.getVideoUrl());
         p.setCertifie(false);
