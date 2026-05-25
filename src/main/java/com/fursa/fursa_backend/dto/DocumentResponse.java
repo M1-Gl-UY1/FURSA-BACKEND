@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.dto;
 
+import com.fursa.fursa_backend.model.enumeration.CategorieDocument;
 import com.fursa.fursa_backend.model.enumeration.SectionPhoto;
 import com.fursa.fursa_backend.model.enumeration.TypeDocument;
 import lombok.Builder;
@@ -17,4 +18,6 @@ public class DocumentResponse {
     private LocalDateTime dateUpload;
     /** P1 (Hugh 22/05/2026) : section structuree pour les photos. Null pour PDFs/contrats. */
     private SectionPhoto sectionPhoto;
+    /** P8 (Hugh 22/05/2026) : categorie precise pour les documents legaux. */
+    private CategorieDocument categorieDocument;
 }

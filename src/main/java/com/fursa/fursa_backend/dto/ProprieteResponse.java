@@ -52,6 +52,8 @@ public class ProprieteResponse {
     private Boolean hasJardin;
     private Boolean hasVueMer;
     private StatutExploitation statutExploitation;
+    /** P8b (Hugh 25/05/2026) : date prevue de livraison si EN_CONSTRUCTION. */
+    private LocalDate dateLivraisonPrevue;
     private BigDecimal revenuMensuelActuel;
     private SourceRevenu sourceRevenu;
     private BigDecimal prixVenteTotal;

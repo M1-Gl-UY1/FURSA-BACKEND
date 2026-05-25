@@ -78,6 +78,14 @@ public class RevenuService {
             throw new AccessDeniedException("Vous ne pouvez déclarer un revenu que pour vos propres biens.");
         }
 
+        // P8b (Hugh 25/05/2026) : un bien en construction ne peut pas generer de revenus.
+        if (propriete.getStatutExploitation() == com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION) {
+            throw new IllegalStateException(
+                    "Ce bien est encore en construction (livraison prevue "
+                            + (propriete.getDateLivraisonPrevue() == null ? "non renseignee" : propriete.getDateLivraisonPrevue())
+                            + "). Aucune declaration de revenu n'est possible tant que le bien n'a pas ete livre.");
+        }
+
         // Phase 10b : penalite forfaitaire si declaration apres le 5 du mois.
         LocalDate today = LocalDate.now();
         java.math.BigDecimal penalite = DeclarationWindowRules.penaliteApplicable(
@@ -211,10 +219,12 @@ public class RevenuService {
 
     /**
      * Statuts pour toutes les proprietes proposees par un proprietaire (sa "to-do liste mensuelle").
+     * P8b : ignore les biens EN_CONSTRUCTION (pas de revenus possibles).
      */
     public List<StatutDeclarationResponse> statutsPourProposeur(Long proposeurId) {
         return proprieteRepository.findAll().stream()
                 .filter(p -> proposeurId.equals(p.getProposeurId()))
+                .filter(p -> p.getStatutExploitation() != com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION)
                 .map(p -> statutDeclarationCourant(p.getId()))
                 .toList();
     }
@@ -222,10 +232,14 @@ public class RevenuService {
     /**
      * Statuts pour TOUTES les proprietes publiees (vue admin globale).
      * Filtrable cote appelant pour ne garder que EN_RETARD si besoin.
+     *
+     * P8b (Hugh 25/05/2026) : exclut les biens EN_CONSTRUCTION qui ne peuvent
+     * pas encore generer de revenus.
      */
     public List<StatutDeclarationResponse> statutsTouteLaPlateforme() {
         return proprieteRepository.findAll().stream()
                 .filter(p -> p.getProposeurId() != null)
+                .filter(p -> p.getStatutExploitation() != com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION)
                 .map(p -> statutDeclarationCourant(p.getId()))
                 .toList();
     }

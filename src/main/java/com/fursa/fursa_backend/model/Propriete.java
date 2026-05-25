@@ -121,6 +121,14 @@ public class Propriete {
     @Column(name = "statut_exploitation", length = 20, nullable = false)
     private StatutExploitation statutExploitation = StatutExploitation.NEUF;
 
+    /**
+     * P8b (Hugh 25/05/2026) : date de livraison prevue, utile pour les biens
+     * EN_CONSTRUCTION (ex : Paje Square livraison Q4 2028).
+     * Null si bien deja livre (NEUF ou DEJA_RENTABLE).
+     */
+    @Column(name = "date_livraison_prevue")
+    private LocalDate dateLivraisonPrevue;
+
     /** Si DEJA_RENTABLE : revenu mensuel approximatif declare par le proprio. */
     @Column(name = "revenu_mensuel_actuel", precision = 15, scale = 2)
     private BigDecimal revenuMensuelActuel;

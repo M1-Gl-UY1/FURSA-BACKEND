@@ -53,8 +53,10 @@ public class DeclarationReminderScheduler {
         YearQuarter trimestre = DeclarationWindowRules.trimestreADeclarer(today);
         log.info("[P3] Cron ouverture fenetre declaration trimestrielle : {}", trimestre);
 
+        // P8b : on ignore les biens en construction (pas encore livres, donc 0 revenu).
         Map<Long, List<Propriete>> parProposeur = proprieteRepository.findAll().stream()
                 .filter(p -> p.getProposeurId() != null)
+                .filter(p -> p.getStatutExploitation() != com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION)
                 .collect(Collectors.groupingBy(Propriete::getProposeurId));
 
         for (var entry : parProposeur.entrySet()) {

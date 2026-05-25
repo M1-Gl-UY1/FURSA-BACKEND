@@ -220,6 +220,7 @@ public class ProprieteService {
         p.setHasJardin(Boolean.TRUE.equals(req.getHasJardin()));
         p.setHasVueMer(Boolean.TRUE.equals(req.getHasVueMer()));
         p.setStatutExploitation(req.getStatutExploitation());
+        p.setDateLivraisonPrevue(req.getDateLivraisonPrevue());
         p.setRevenuMensuelActuel(req.getRevenuMensuelActuel());
         p.setSourceRevenu(req.getSourceRevenu());
         p.setPrixVenteTotal(req.getPrixVenteTotal());
@@ -316,10 +317,15 @@ public class ProprieteService {
      * Upload d'un document legal pour certification (titre foncier, contrat, etc.).
      * Le proprietaire DOIT etre proposeur du bien. Le document est stocke avec
      * sectionPhoto=null (= document legal, pas une photo).
+     *
+     * P8 (Hugh 22/05/2026) : chaque document peut etre type via `categories`
+     * (CONTRAT_BAIL, RELEVE_AIRBNB, TITRE_FONCIER, etc.). Si null/absent, le doc
+     * est categorise AUTRE.
      */
     @Transactional
     public Propriete uploadDocumentCertification(Long proposeurId, Long proprieteId,
-                                                  List<MultipartFile> documents) {
+                                                  List<MultipartFile> documents,
+                                                  List<com.fursa.fursa_backend.model.enumeration.CategorieDocument> categories) {
         Propriete p = proprieteRepository.findById(proprieteId)
                 .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + proprieteId));
         if (p.getProposeurId() == null || !p.getProposeurId().equals(proposeurId)) {
@@ -329,7 +335,7 @@ public class ProprieteService {
         if (documents == null || documents.isEmpty()) {
             throw new IllegalArgumentException("Au moins un document est requis.");
         }
-        sauvegarderDocuments(documents, p);
+        sauvegarderDocuments(documents, p, categories);
         return proprieteRepository.findById(p.getId()).orElseThrow();
     }
 
@@ -541,9 +547,20 @@ public class ProprieteService {
      * admin separee). Ils sont stockes mais propriete.certifie reste false.
      */
     private void sauvegarderDocuments(List<MultipartFile> documents, Propriete propriete) {
+        sauvegarderDocuments(documents, propriete, null);
+    }
+
+    /**
+     * P8 (Hugh 22/05/2026) : variante avec categories parallles pour les documents legaux.
+     * Si `categories` est null ou trop court, les documents restants sont sauvegardes
+     * avec categorie=AUTRE.
+     */
+    private void sauvegarderDocuments(List<MultipartFile> documents, Propriete propriete,
+                                       List<com.fursa.fursa_backend.model.enumeration.CategorieDocument> categories) {
         if (documents == null || documents.isEmpty()) return;
+        int i = 0;
         for (MultipartFile f : documents) {
-            if (f == null || f.isEmpty()) continue;
+            if (f == null || f.isEmpty()) { i++; continue; }
             String nomFichier = fileStorageService.save(f);
 
             Document doc = new Document();
@@ -557,7 +574,13 @@ public class ProprieteService {
                     : TypeDocument.IMAGE
             );
             // sectionPhoto null = ce n'est pas une photo, c'est un document legal
+            if (categories != null && i < categories.size() && categories.get(i) != null) {
+                doc.setCategorieDocument(categories.get(i));
+            } else {
+                doc.setCategorieDocument(com.fursa.fursa_backend.model.enumeration.CategorieDocument.AUTRE);
+            }
             documentRepository.save(doc);
+            i++;
         }
     }
 }

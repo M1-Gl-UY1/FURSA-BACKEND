@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.model;
 
+import com.fursa.fursa_backend.model.enumeration.CategorieDocument;
 import com.fursa.fursa_backend.model.enumeration.SectionPhoto;
 import com.fursa.fursa_backend.model.enumeration.TypeDocument;
 import jakarta.persistence.*;
@@ -41,4 +42,14 @@ public class Document {
     @Enumerated(EnumType.STRING)
     @Column(name = "section_photo", length = 20)
     private SectionPhoto sectionPhoto;
+
+    /**
+     * P8 (Hugh 22/05/2026) : categorie precise d'un document legal
+     * (TITRE_FONCIER, CONTRAT_BAIL, RELEVE_AIRBNB, etc.). Permet a l'admin
+     * de voir le type de preuve fournie au lieu d'un PDF generique.
+     * Null pour les photos (qui ont sectionPhoto a la place).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "categorie_document", length = 30)
+    private CategorieDocument categorieDocument;
 }

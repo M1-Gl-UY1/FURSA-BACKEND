@@ -39,6 +39,7 @@ public class ProprieteMapper {
                 .type(d.getType())
                 .dateUpload(d.getDateUpload())
                 .sectionPhoto(d.getSectionPhoto())
+                .categorieDocument(d.getCategorieDocument())
                 .build()
             ).toList();
 
@@ -76,6 +77,7 @@ public class ProprieteMapper {
                 .hasJardin(p.getHasJardin())
                 .hasVueMer(p.getHasVueMer())
                 .statutExploitation(p.getStatutExploitation())
+                .dateLivraisonPrevue(p.getDateLivraisonPrevue())
                 .revenuMensuelActuel(p.getRevenuMensuelActuel())
                 .sourceRevenu(p.getSourceRevenu())
                 .prixVenteTotal(p.getPrixVenteTotal())

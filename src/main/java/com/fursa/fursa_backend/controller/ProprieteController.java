@@ -234,14 +234,20 @@ public class ProprieteController {
                     Permet au proprietaire d'uploader les documents legaux (titre foncier,
                     contrat, etc.) en vue de la certification. Les fichiers sont stockes
                     comme documents PDFs separes des photos. Acceptable a tout moment,
-                    mais doit etre fait AVANT le clic 'Soumettre certification'.""")
+                    mais doit etre fait AVANT le clic 'Soumettre certification'.
+
+                    P8 (Hugh 22/05/2026) : chaque document peut etre type via le parametre
+                    `categories` (parallele a `documents`). Valeurs : TITRE_FONCIER,
+                    PERMIS_CONSTRUIRE, CONTRAT_GESTION, CONTRAT_BAIL, RELEVE_AIRBNB, AUTRE.""")
     @PostMapping(value = "/{id}/certification/documents",
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ProprieteResponse> uploadDocsCertif(
             @PathVariable Long id,
-            @RequestPart("documents") List<MultipartFile> documents) {
+            @RequestPart("documents") List<MultipartFile> documents,
+            @RequestPart(value = "categories", required = false)
+            List<com.fursa.fursa_backend.model.enumeration.CategorieDocument> categories) {
         Long userId = authInvestisseur.currentId();
-        Propriete p = proprieteService.uploadDocumentCertification(userId, id, documents);
+        Propriete p = proprieteService.uploadDocumentCertification(userId, id, documents, categories);
         return ResponseEntity.ok(proprieteMapper.toResponse(p));
     }
 

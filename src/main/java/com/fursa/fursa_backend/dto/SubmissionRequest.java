@@ -70,8 +70,14 @@ public class SubmissionRequest {
 
     // --- Etape 3 : Statut d'exploitation (NEUF | DEJA_RENTABLE) + preuves ---
 
-    @NotNull(message = "Indiquez si le bien est neuf ou deja rentable")
+    @NotNull(message = "Indiquez si le bien est en construction, neuf ou deja rentable")
     private StatutExploitation statutExploitation;
+
+    /**
+     * P8b (Hugh 25/05/2026) : obligatoire si statutExploitation = EN_CONSTRUCTION.
+     * Date a laquelle le bien sera livre / disponible a l'exploitation.
+     */
+    private java.time.LocalDate dateLivraisonPrevue;
 
     /** Obligatoire si statutExploitation = DEJA_RENTABLE. Valide cote service. */
     private BigDecimal revenuMensuelActuel;
