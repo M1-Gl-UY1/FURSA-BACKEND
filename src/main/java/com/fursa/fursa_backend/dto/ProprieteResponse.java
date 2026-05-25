@@ -75,4 +75,7 @@ public class ProprieteResponse {
     private BigDecimal bonusRentabiliteTotal;
     /** Bonus instantane de demande (fraction : 0.10 = +10%). */
     private BigDecimal bonusDemande;
+
+    // --- P9 (Hugh 22/05/2026) : gestionnaire locatif assigne ---
+    private PartenaireGestionResponse gestionnaire;
 }

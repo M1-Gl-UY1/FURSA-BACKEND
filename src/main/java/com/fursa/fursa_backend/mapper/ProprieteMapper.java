@@ -1,8 +1,10 @@
 package com.fursa.fursa_backend.mapper;
 
 import com.fursa.fursa_backend.dto.DocumentResponse;
+import com.fursa.fursa_backend.dto.PartenaireGestionResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.ProprieteResponse;
+import com.fursa.fursa_backend.model.PartenaireGestion;
 import com.fursa.fursa_backend.model.Propriete;
 import org.springframework.stereotype.Component;
 
@@ -91,6 +93,22 @@ public class ProprieteMapper {
                 .prixInitialPart(p.getPrixInitialPart())
                 .bonusRentabiliteTotal(p.getBonusRentabiliteTotal())
                 .bonusDemande(p.getBonusDemande())
+                // P9 (Hugh 22/05/2026) : gestionnaire locatif
+                .gestionnaire(toPartenaireResponse(p.getGestionnaire()))
                 .build();
+    }
+
+    private PartenaireGestionResponse toPartenaireResponse(PartenaireGestion g) {
+        if (g == null) return null;
+        return new PartenaireGestionResponse(
+                g.getId(),
+                g.getNom(),
+                g.getTypePartenaire(),
+                g.getDescription(),
+                g.getSiteWeb(),
+                g.getContactEmail(),
+                g.getLogoUrl(),
+                g.getActif()
+        );
     }
 }

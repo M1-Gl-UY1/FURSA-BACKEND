@@ -211,4 +211,12 @@ public class Propriete {
      */
     @Column(name = "bonus_demande", precision = 8, scale = 6, nullable = false)
     private BigDecimal bonusDemande = BigDecimal.ZERO;
+
+    // ========================================================================
+    // P9 (Hugh 22/05/2026) : partenaire de gestion locative assigne
+    // ========================================================================
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gestionnaire_id")
+    private PartenaireGestion gestionnaire;
 }
