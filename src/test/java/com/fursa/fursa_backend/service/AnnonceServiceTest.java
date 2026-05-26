@@ -46,6 +46,7 @@ class AnnonceServiceTest {
     @Mock private PaiementRepository paiementRepository;
     @Mock private TransactionRepository transactionRepository;
     @Mock private NotificationService notificationService;
+    @Mock private ListeAttenteService listeAttenteService;
 
     @InjectMocks private AnnonceService annonceService;
 

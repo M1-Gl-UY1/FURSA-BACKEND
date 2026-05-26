@@ -9,8 +9,12 @@ import com.fursa.fursa_backend.dto.ProprieteResponse;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
+import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
+import com.fursa.fursa_backend.service.BlockchainRpcClient;
 import com.fursa.fursa_backend.service.CustomUserService;
+import com.fursa.fursa_backend.service.PrixPartService;
 import com.fursa.fursa_backend.service.ProprieteService;
+import com.fursa.fursa_backend.service.TokenisationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +50,10 @@ class ProprieteControllerTest {
     @MockitoBean private ProprieteMapper proprieteMapper;
     @MockitoBean private CustomUserService customUserService;
     @MockitoBean private JwtUtils jwtUtils;
+    @MockitoBean private AuthenticatedInvestisseurService authInvestisseur;
+    @MockitoBean private BlockchainRpcClient blockchainRpcClient;
+    @MockitoBean private TokenisationService tokenisationService;
+    @MockitoBean private PrixPartService prixPartService;
 
     private Propriete propriete;
     private ProprieteResponse response;

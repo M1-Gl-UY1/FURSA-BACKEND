@@ -27,6 +27,13 @@ public class ProprieteResponse {
     private Double rentabilitePrevue;
     private LocalDate dateCreation;
     private List<DocumentResponse> documents;
+    /**
+     * URLs des photos uploadees pour ce bien (extraites des documents type IMAGE
+     * avec section photo non-null). Premiere photo = cover dans le catalogue.
+     * URL renvoyee en chemin relatif "/api/fichiers/xxx" — le frontend prefixe
+     * avec l'API base via resolveFileUrl().
+     */
+    private List<String> photos;
 
     // --- Phase 7 : workflow soumission propriétaire ---
     private Long proposeurId;

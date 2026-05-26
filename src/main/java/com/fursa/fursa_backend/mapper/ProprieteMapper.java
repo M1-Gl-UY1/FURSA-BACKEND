@@ -14,6 +14,19 @@ import java.util.List;
 @Component
 public class ProprieteMapper {
 
+    /**
+     * Fix 25/05/2026 : standardise l'URL d'un document.
+     * Le backend stocke "abc.jpg" en base (juste le nom), mais le frontend
+     * attend "/api/fichiers/abc.jpg" pour pouvoir telecharger. On normalise ici.
+     */
+    private String toFichierUrl(String url) {
+        if (url == null || url.isBlank()) return url;
+        if (url.startsWith("http://") || url.startsWith("https://")) return url;
+        if (url.startsWith("/api/fichiers/")) return url;
+        if (url.startsWith("/")) return url;
+        return "/api/fichiers/" + url;
+    }
+
     public Propriete toEntity(ProprieteRequest req) {
         Propriete p = new Propriete();
         p.setNom(req.getNom());
@@ -35,13 +48,24 @@ public class ProprieteMapper {
             : p.getDocuments().stream().map(d -> DocumentResponse.builder()
                 .id(d.getId())
                 .nom(d.getNom())
-                .url(d.getUrl())
+                .url(toFichierUrl(d.getUrl()))
                 .type(d.getType())
                 .dateUpload(d.getDateUpload())
                 .sectionPhoto(d.getSectionPhoto())
                 .categorieDocument(d.getCategorieDocument())
                 .build()
             ).toList();
+
+        // Fix 25/05/2026 : extraire la liste des URLs des photos pour les cards.
+        // On garde uniquement les documents de type IMAGE avec une sectionPhoto definie
+        // (= photos structurees uploadees via le wizard).
+        List<String> photos = p.getDocuments() == null
+            ? Collections.emptyList()
+            : p.getDocuments().stream()
+                .filter(d -> d.getType() == com.fursa.fursa_backend.model.enumeration.TypeDocument.IMAGE)
+                .filter(d -> d.getUrl() != null && !d.getUrl().isBlank())
+                .map(d -> toFichierUrl(d.getUrl()))
+                .toList();
 
         return ProprieteResponse.builder()
                 .id(p.getId())
@@ -55,6 +79,7 @@ public class ProprieteMapper {
                 .rentabilitePrevue(p.getRentabilitePrevue())
                 .dateCreation(p.getDateCreation())
                 .documents(docs)
+                .photos(photos)
                 // Phase 7
                 .proposeurId(p.getProposeurId())
                 .motifRefus(p.getMotifRefus())

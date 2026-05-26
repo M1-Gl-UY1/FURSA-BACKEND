@@ -45,10 +45,22 @@ public class TokenisationService {
                 .orElseThrow(() -> new RuntimeException("Propriété introuvable : " + id));
         log.info("Propriété trouvée : {}", propriete.getNom());
 
-        // 2. Vérifie le statut
-        if (propriete.getStatut() != StatutPropriete.EN_ATTENTE) {
+        // 2. Vérifie le statut (Hugh 22/05/2026 00:15:54 : tokeniser uniquement APRES
+        // la validation admin pour eviter d'avoir des biens non verifies on-chain).
+        // Statuts acceptes : ACCEPTEE (valide pret a publier) ou PUBLIEE (deja en ligne).
+        // Le legacy EN_ATTENTE reste accepte pour ne pas casser les anciens biens.
+        if (propriete.getStatut() != StatutPropriete.ACCEPTEE
+                && propriete.getStatut() != StatutPropriete.PUBLIEE
+                && propriete.getStatut() != StatutPropriete.EN_ATTENTE) {
             throw new RuntimeException(
-                "La propriété doit être EN_ATTENTE. Statut actuel : " + propriete.getStatut()
+                "La propriété doit etre ACCEPTEE ou PUBLIEE pour etre tokenisee. Statut actuel : "
+                    + propriete.getStatut()
+            );
+        }
+        // Idempotence : si deja tokenisee, on refuse.
+        if (propriete.getTransactionHash() != null && !propriete.getTransactionHash().isBlank()) {
+            throw new RuntimeException(
+                "Ce bien est deja tokenise (tx hash : " + propriete.getTransactionHash() + ")"
             );
         }
         log.info("Statut OK : {}", propriete.getStatut());
