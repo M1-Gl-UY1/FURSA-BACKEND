@@ -10,6 +10,6 @@ import lombok.Setter;
 public class RefusRequest {
 
     @NotBlank(message = "Le motif du refus est obligatoire")
-    @Size(min = 10, max = 1000, message = "Le motif doit faire entre 10 et 1000 caractères")
+    @Size(min = 3, max = 1000, message = "Le motif doit faire entre 3 et 1000 caractères")
     private String motif;
 }
