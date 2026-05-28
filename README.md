@@ -5,11 +5,11 @@ Backend Spring Boot couvrant authentification JWT, catalogue immobilier, marche
 primaire (achat de parts), marche secondaire (revente entre investisseurs),
 distribution de dividendes, notifications, dashboard et administration.
 
-**Production** : `https://api.fursa.seed-innov.com` (nouveau domaine principal)
-**Production legacy** : `https://api.fursa.seed-innov.com` (toujours actif, transition)
+**Production** : `https://api.fursa.seed-innov.com`
 **Swagger UI** : `https://api.fursa.seed-innov.com/swagger-ui`
 **Frontend** : `https://fursa.seed-innov.com`
-**Status** : 48 endpoints + endpoints Phase 7+8 (soumission propriétaire + déclaration revenu), 49 tests unitaires verts, 66/66 smoke tests.
+**Blockchain** : Sepolia testnet — contrat RevenueDistribution `0xdCefF1bd93996e1927E5998b8e0bB63a23A5b1Dd`
+**Status** : 55 endpoints (dont Phase 7+8 soumission propriétaire + déclaration revenu, et intégration blockchain), 49 tests unitaires verts, 66/66 smoke tests.
 
 ---
 
@@ -77,7 +77,7 @@ src/main/java/com/fursa/fursa_backend/
 ├── filter/
 │   ├── JwtFilter                   # extrait le Bearer, peuple SecurityContext
 │   └── RequestIdFilter             # MDC requestId pour correlation des logs
-├── controller/                     # 10 controllers, 48 endpoints
+├── controller/                     # 13 controllers, 55 endpoints (dont blockchain)
 ├── dto/                            # records Request/Response
 ├── exception/GlobalExceptionHandler # codes HTTP coherents (404, 400, 403, 409, 413, 415, 429)
 ├── mapper/ProprieteMapper
@@ -232,7 +232,7 @@ obligatoires, `nombreParts` strictement positif. Erreur 400 avec `fieldErrors` s
 
 ### Blockchain (on-chain via web3j)
 
-Contrat `RevenueDistribution` deploye sur Sepolia testnet : `0x5F24D4e615e60C2cfA959CfDFcf82c7937A969b9`.
+Contrat `RevenueDistribution` deploye sur Sepolia testnet : `0xdCefF1bd93996e1927E5998b8e0bB63a23A5b1Dd`.
 Voir [SMARTCONTRATS/README.md](../SMARTCONTRATS/README.md) pour le deploiement et la regeneration du wrapper.
 
 | Methode | Chemin                                                | Acces       |
