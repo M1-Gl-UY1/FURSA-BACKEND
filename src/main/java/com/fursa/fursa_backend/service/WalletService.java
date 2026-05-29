@@ -203,6 +203,18 @@ public class WalletService {
     }
 
     /**
+     * Recharge mock (mode demo) : credite directement le wallet sans PSP reel.
+     * A remplacer par une vraie integration (Yellow Card / Mobile Money) avant la prod.
+     * Le plafond par recharge est valide en amont par RechargeRequest (@DecimalMax).
+     */
+    @Transactional
+    public WalletTransaction rechargerMock(Long userId, BigDecimal montant, String methode) {
+        String suffixe = (methode == null || methode.isBlank()) ? "" : " via " + methode.trim();
+        return credit(userId, montant, TypeWalletTransaction.TOPUP,
+                "Recharge (demo)" + suffixe, null, null, null);
+    }
+
+    /**
      * Ajustement admin (peut etre positif ou negatif). Trace le motif obligatoire.
      */
     @Transactional
