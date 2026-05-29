@@ -95,6 +95,9 @@ public class ProprieteService {
         propriete.setStatut(StatutPropriete.PUBLIEE);
         Propriete saved = proprieteRepository.save(propriete);
 
+        String lienBien = "/opportunites/" + saved.getId();
+
+        // 1. Notif individuelle au proposeur (proprietaire du bien)
         if (saved.getProposeurId() != null) {
             userRepository.findById(saved.getProposeurId()).ifPresent(u -> {
                 if (u instanceof Investisseur inv) {
@@ -102,11 +105,22 @@ public class ProprieteService {
                             inv,
                             "Propriété publiée",
                             "Votre bien \"" + saved.getNom() + "\" est maintenant en vente sur la plateforme.",
-                            TypeMessage.ANNONCE
+                            TypeMessage.ANNONCE,
+                            lienBien
                     );
                 }
             });
         }
+
+        // 2. Broadcast a tous les investisseurs : nouvelle opportunite dispo !
+        notificationService.broadcastInvestisseurs(
+                "Nouvelle opportunité",
+                "« " + saved.getNom() + " » vient d'être mise en vente. Découvrez-la avant les autres.",
+                TypeMessage.ANNONCE,
+                lienBien,
+                saved.getProposeurId() // pas de doublon avec la notif individuelle
+        );
+
         return saved;
     }
 

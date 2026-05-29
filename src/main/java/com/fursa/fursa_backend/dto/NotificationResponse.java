@@ -10,5 +10,7 @@ public record NotificationResponse(
         String message,
         TypeMessage type,
         LocalDateTime date,
-        Boolean lu
+        Boolean lu,
+        /** Lien cliquable relatif (ex "/opportunites/12"). Null = pas de navigation. */
+        String lien
 ) {}

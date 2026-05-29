@@ -231,14 +231,28 @@ public class AnnonceService {
         annonceRepository.save(annonce);
 
         // Decision Hugh 22/05/2026 : USD comme devise de base sur la plateforme.
+        String lienBien = "/opportunites/" + propriete.getId();
+
         notificationService.envoyer(vendeur,
-                "Vente realisee",
+                "Vente realisée",
                 nbDemande + " part(s) de " + propriete.getNom() + " vendue(s) pour " + montantTotal + " USD",
-                TypeMessage.TRANSACTION);
+                TypeMessage.TRANSACTION,
+                "/portefeuille");
         notificationService.envoyer(acheteur,
-                "Achat realise",
-                nbDemande + " part(s) de " + propriete.getNom() + " achetee(s) pour " + montantTotal + " USD",
-                TypeMessage.TRANSACTION);
+                "Achat réalisé",
+                nbDemande + " part(s) de " + propriete.getNom() + " achetée(s) pour " + montantTotal + " USD",
+                TypeMessage.TRANSACTION,
+                lienBien);
+
+        // Broadcast : "Un investisseur vient d'acheter X parts de Y. Et vous ?"
+        notificationService.broadcastInvestisseurs(
+                "Un investisseur a saisi sa chance",
+                "Quelqu'un vient d'acheter " + nbDemande + " part(s) de « " + propriete.getNom()
+                        + " ». Et vous, qu'attendez-vous ?",
+                TypeMessage.ANNONCE,
+                lienBien,
+                acheteur.getId()
+        );
 
         return new AchatAnnonceResponse(
                 annonce.getId(),
