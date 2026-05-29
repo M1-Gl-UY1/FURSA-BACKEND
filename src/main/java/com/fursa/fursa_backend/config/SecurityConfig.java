@@ -5,6 +5,7 @@ import com.fursa.fursa_backend.service.CustomUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -57,6 +58,16 @@ public class SecurityConfig {
                                 "/api/fichiers/*",
                                 "/api/webhooks/**"
                         ).permitAll()
+                                // Catalogue public : un visiteur non connecte doit pouvoir
+                                // voir les biens sur la landing + le catalogue + une fiche.
+                                // Fix 29/05/2026 : ces endpoints renvoyaient 403 -> aucune
+                                // propriete affichee sur la landing pour les visiteurs.
+                                .requestMatchers(HttpMethod.GET,
+                                        "/api/proprietes/public",
+                                        "/api/proprietes/public/**",
+                                        "/api/proprietes/*/historique-prix",
+                                        "/api/partenaires-gestion"
+                                ).permitAll()
                                 .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtFilter(customUserService, jwtUtils), UsernamePasswordAuthenticationFilter.class)

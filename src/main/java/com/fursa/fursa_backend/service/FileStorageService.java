@@ -20,7 +20,10 @@ public class FileStorageService {
     private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
             "application/pdf", "image/jpeg", "image/png", "image/webp",
             "video/mp4", "video/quicktime", "video/webm");
-    private static final long MAX_FILE_SIZE_BYTES = 100L * 1024 * 1024; // 100 MB (videos)
+    // Limites differenciees par type (decisions Hugh 26/05/2026) :
+    private static final long MAX_VIDEO_SIZE_BYTES = 100L * 1024 * 1024;   // 100 Mo
+    private static final long MAX_IMAGE_SIZE_BYTES = 4L * 1024 * 1024;     //   4 Mo
+    private static final long MAX_PDF_SIZE_BYTES   = 10L * 1024 * 1024;    //  10 Mo (docs legaux)
 
     private final Path root = Paths.get("uploads");
 
@@ -36,9 +39,6 @@ public class FileStorageService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Fichier vide");
         }
-        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
-            throw new IllegalArgumentException("Fichier trop volumineux (max 10 MB)");
-        }
         String extension = getExtension(file.getOriginalFilename());
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
             throw new IllegalArgumentException(
@@ -48,6 +48,32 @@ public class FileStorageService {
         if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
             throw new IllegalArgumentException(
                     "Type MIME non autorise (autorises : " + ALLOWED_CONTENT_TYPES + ")");
+        }
+
+        // Limites de taille DIFFERENCIEES par type (Hugh 26/05/2026) :
+        //   - Images : 4 Mo max (rejet si > -> message explicite)
+        //   - Videos : 100 Mo max
+        //   - PDFs (docs legaux) : 10 Mo max
+        final long size = file.getSize();
+        final long mb = 1024L * 1024L;
+        final String ct = contentType.toLowerCase();
+        if (ct.startsWith("image/")) {
+            if (size > MAX_IMAGE_SIZE_BYTES) {
+                throw new IllegalArgumentException(
+                        "Photo trop lourde (" + (size / mb) + " Mo) : taille max autorisee = 4 Mo. "
+                                + "Compressez l'image (TinyPNG, Squoosh) avant l'upload.");
+            }
+        } else if (ct.startsWith("video/")) {
+            if (size > MAX_VIDEO_SIZE_BYTES) {
+                throw new IllegalArgumentException(
+                        "Video trop lourde (" + (size / mb) + " Mo) : taille max autorisee = 100 Mo. "
+                                + "Compressez la video (HandBrake, MP4 720p) avant l'upload.");
+            }
+        } else { // application/pdf
+            if (size > MAX_PDF_SIZE_BYTES) {
+                throw new IllegalArgumentException(
+                        "Document trop lourd (" + (size / mb) + " Mo) : taille max autorisee = 10 Mo.");
+            }
         }
         try {
             String fileName = UUID.randomUUID() + extension;

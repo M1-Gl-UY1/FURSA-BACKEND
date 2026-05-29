@@ -41,6 +41,12 @@ services:
       - BLOCKCHAIN_CHAIN_ID=${BLOCKCHAIN_CHAIN_ID:?required}
       - BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE:-2000000000}
       - BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT:-300000}
+    # Volume partage pour les fichiers uploades (photos, PDFs, videos).
+    # CRITIQUE : sans ce volume, chaque --force-recreate au deploiement effacait
+    # tous les fichiers, et les 2 instances blue-green avaient chacune leur
+    # /app/uploads isole -> 404 aleatoire selon l'instance qui repond (nginx).
+    volumes:
+      - fursa-uploads:/app/uploads
     depends_on:
       fursa-db:
         condition: service_healthy
@@ -73,6 +79,10 @@ services:
       - BLOCKCHAIN_CHAIN_ID=${BLOCKCHAIN_CHAIN_ID:?required}
       - BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE:-2000000000}
       - BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT:-300000}
+    # Meme volume partage que fursa-backend : les 2 instances doivent lire/ecrire
+    # les memes fichiers (sinon un upload sur l'une est invisible sur l'autre).
+    volumes:
+      - fursa-uploads:/app/uploads
     depends_on:
       fursa-backend:
         condition: service_started
@@ -88,3 +98,4 @@ services:
 
 volumes:
   fursa-db-data:
+  fursa-uploads:
