@@ -34,6 +34,7 @@ class ProprieteServiceTest {
     @Mock private com.fursa.fursa_backend.repository.PossessionRepository possessionRepository;
     @Mock private com.fursa.fursa_backend.repository.AnnonceRepository annonceRepository;
     @Mock private com.fursa.fursa_backend.repository.EscrowProprieteRepository escrowProprieteRepository;
+    @Mock private com.fursa.fursa_backend.repository.RevenusRepository revenusRepository;
 
     @InjectMocks private ProprieteService proprieteService;
 

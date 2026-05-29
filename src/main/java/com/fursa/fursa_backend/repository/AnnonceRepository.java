@@ -15,4 +15,5 @@ public interface AnnonceRepository extends JpaRepository<Annonce, Long> {
     Page<Annonce> findByStatut(StatutAnnonce statut, Pageable pageable);
     List<Annonce> findByInvestisseurId(Long investisseurId);
     List<Annonce> findByProprieteIdAndStatut(Long proprieteId, StatutAnnonce statut);
+    List<Annonce> findByProprieteId(Long proprieteId);
 }

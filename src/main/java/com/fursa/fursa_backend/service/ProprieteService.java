@@ -42,6 +42,7 @@ public class ProprieteService {
     private final com.fursa.fursa_backend.repository.PossessionRepository possessionRepository;
     private final com.fursa.fursa_backend.repository.AnnonceRepository annonceRepository;
     private final com.fursa.fursa_backend.repository.EscrowProprieteRepository escrowProprieteRepository;
+    private final com.fursa.fursa_backend.repository.RevenusRepository revenusRepository;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -178,13 +179,42 @@ public class ProprieteService {
                             + escrow.get().getSolde() + " USD. Annulez la collecte d'abord.");
         }
 
-        // OK : on peut supprimer. On nettoie les fichiers stockes.
+        // OK : le bien a passe les garde-fous (pas d'investisseur avec parts, pas
+        // d'annonce ouverte, escrow vide). On nettoie les dependances residuelles
+        // qui n'ont pas de ON DELETE CASCADE en base, pour eviter une
+        // DataIntegrityViolationException (FK) au moment du delete.
+
+        // 1. Annonces (toutes : COMPLETEE / ANNULEE residuelles)
+        java.util.List<com.fursa.fursa_backend.model.Annonce> toutesAnnonces =
+                annonceRepository.findByProprieteId(id);
+        if (toutesAnnonces != null && !toutesAnnonces.isEmpty()) {
+            annonceRepository.deleteAll(toutesAnnonces);
+        }
+
+        // 2. Revenus (+ dividendes en cascade JPA sur Revenus.dividendes)
+        java.util.List<com.fursa.fursa_backend.model.Revenus> revenus =
+                revenusRepository.findByProprieteId(id);
+        if (revenus != null && !revenus.isEmpty()) {
+            revenusRepository.deleteAll(revenus);
+        }
+
+        // 3. Possessions residuelles (0 part)
+        if (possessions != null && !possessions.isEmpty()) {
+            possessionRepository.deleteAll(possessions);
+        }
+
+        // 4. Escrow vide lie au bien
+        escrow.ifPresent(escrowProprieteRepository::delete);
+
+        // 5. Fichiers stockes sur disque
         if (propriete.getDocuments() != null) {
             propriete.getDocuments().forEach(doc ->
                 fileStorageService.delete(doc.getUrl())
             );
         }
 
+        // historique_prix_part et liste_attente ont ON DELETE CASCADE en base
+        // (migrations 015 et 016), donc supprimes automatiquement.
         proprieteRepository.deleteById(id);
     }
 

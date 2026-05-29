@@ -61,6 +61,20 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "Donnees modifiees en parallele. Reessayez.");
     }
 
+    /**
+     * Fix 25/05/2026 : une violation FK survenue au COMMIT de la transaction est
+     * wrappee en TransactionSystemException (pas DataIntegrityViolationException),
+     * ce qui produisait un 500 opaque. On la mappe en 409 CONFLICT.
+     */
+    @ExceptionHandler(org.springframework.transaction.TransactionSystemException.class)
+    public ResponseEntity<Map<String, Object>> handleTransactionSystem(
+            org.springframework.transaction.TransactionSystemException ex) {
+        log.warn("Echec au commit de transaction : {}", ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT,
+                "Operation impossible : cet element est encore reference par d'autres donnees "
+                        + "(transactions, revenus, paiements...). Annulez d'abord ces dependances.");
+    }
+
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, Object>> handleUploadSize(MaxUploadSizeExceededException ex) {
         return build(HttpStatus.PAYLOAD_TOO_LARGE, "Fichier trop volumineux");
