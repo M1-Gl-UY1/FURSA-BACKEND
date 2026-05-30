@@ -4,15 +4,21 @@ import com.fursa.fursa_backend.dto.DocumentResponse;
 import com.fursa.fursa_backend.dto.PartenaireGestionResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.ProprieteResponse;
+import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.PartenaireGestion;
 import com.fursa.fursa_backend.model.Propriete;
+import com.fursa.fursa_backend.repository.InvestisseurRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.List;
 
 @Component
+@RequiredArgsConstructor
 public class ProprieteMapper {
+
+    private final InvestisseurRepository investisseurRepository;
 
     /**
      * Fix 25/05/2026 : standardise l'URL d'un document.
@@ -67,6 +73,22 @@ public class ProprieteMapper {
                 .map(d -> toFichierUrl(d.getUrl()))
                 .toList();
 
+        // Resolution proposeur (nom anonymise + statut KYC) pour badge "verifie".
+        // N+1 accepte sur les listes (volume bas en MVP, pas de tri/filtre par proposeur).
+        String proposeurNomAnon = null;
+        Boolean proposeurVerifie = null;
+        if (p.getProposeurId() != null) {
+            Investisseur prop = investisseurRepository.findById(p.getProposeurId()).orElse(null);
+            if (prop != null) {
+                String prenom = prop.getPrenom() == null ? "" : prop.getPrenom().trim();
+                String nom = prop.getNom() == null ? "" : prop.getNom().trim();
+                String initiale = nom.isEmpty() ? "" : (" " + nom.substring(0, 1).toUpperCase() + ".");
+                proposeurNomAnon = (prenom + initiale).trim();
+                if (proposeurNomAnon.isEmpty()) proposeurNomAnon = null;
+                proposeurVerifie = prop.getIsVerified();
+            }
+        }
+
         return ProprieteResponse.builder()
                 .id(p.getId())
                 .nom(p.getNom())
@@ -82,6 +104,8 @@ public class ProprieteMapper {
                 .photos(photos)
                 // Phase 7
                 .proposeurId(p.getProposeurId())
+                .proposeurNom(proposeurNomAnon)
+                .proposeurIsVerified(proposeurVerifie)
                 .motifRefus(p.getMotifRefus())
                 .soumiseLe(p.getSoumiseLe())
                 // Blockchain

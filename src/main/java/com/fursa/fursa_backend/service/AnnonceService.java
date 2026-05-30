@@ -161,6 +161,13 @@ public class AnnonceService {
         Investisseur acheteur = investisseurRepository.findById(acheteurId)
                 .orElseThrow(() -> new EntityNotFoundException("Acheteur non trouve: id=" + acheteurId));
 
+        // Guard KYC : seuls les investisseurs verifies peuvent acheter sur le marche secondaire.
+        // Symetrique du guard MarchePrimaireService.
+        if (!Boolean.TRUE.equals(acheteur.getIsVerified())) {
+            throw new IllegalStateException(
+                    "Verification d'identite requise. Completez votre dossier KYC avant d'acheter sur le marche secondaire.");
+        }
+
         if (vendeur.getId().equals(acheteur.getId())) {
             throw new IllegalStateException("Un investisseur ne peut pas acheter sa propre annonce");
         }
@@ -280,6 +287,7 @@ public class AnnonceService {
                 a.getId(),
                 v == null ? null : v.getId(),
                 v == null ? null : v.getPrenom() + " " + v.getNom(),
+                v == null ? null : v.getIsVerified(),
                 p == null ? null : p.getId(),
                 p == null ? null : p.getNom(),
                 a.getNombreDePartsAVendre(),

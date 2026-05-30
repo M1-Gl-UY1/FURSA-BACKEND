@@ -8,6 +8,7 @@ public record AnnonceResponse(
         Long id,
         Long vendeurId,
         String vendeurNom,
+        Boolean vendeurIsVerified,
         Long proprieteId,
         String proprieteNom,
         Integer nombreDePartsAVendre,

@@ -61,6 +61,7 @@ public class MarchePrimaireService {
     private final ObjectMapper objectMapper;
     private final WalletService walletService;
     private final EscrowService escrowService;
+    private final NotificationService notificationService;
 
     public MarchePrimaireService(PaiementRepository paiementRepository,
                                   TransactionRepository transactionRepository,
@@ -74,7 +75,8 @@ public class MarchePrimaireService {
                                   BlockchainService blockchainService,
                                   ObjectMapper objectMapper,
                                   WalletService walletService,
-                                  EscrowService escrowService) {
+                                  EscrowService escrowService,
+                                  NotificationService notificationService) {
         this.paiementRepository = paiementRepository;
         this.transactionRepository = transactionRepository;
         this.possessionRepository = possessionRepository;
@@ -88,6 +90,7 @@ public class MarchePrimaireService {
         this.objectMapper = objectMapper;
         this.walletService = walletService;
         this.escrowService = escrowService;
+        this.notificationService = notificationService;
     }
 
     @Transactional
@@ -176,6 +179,8 @@ public class MarchePrimaireService {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             persistIdempotency(idempotencyKey, investisseurId, response);
         }
+
+        notifierAchat(investisseur, propriete, request.getNombreParts(), montantTotal);
 
         return response;
     }
@@ -337,7 +342,40 @@ public class MarchePrimaireService {
         log.info("Achat via wallet : inv={} prop={} parts={} montant={} EUR (statutPossession={})",
                 investisseurId, propriete.getId(), request.getNombreParts(), montantTotal, statutPoss);
 
+        notifierAchat(investisseur, propriete, request.getNombreParts(), montantTotal);
+
         return response;
+    }
+
+    /**
+     * Envoie 2 notifications a l'achat de parts sur le marche primaire :
+     *  1. Notif personnelle a l'acheteur (confirmation + lien fiche bien)
+     *  2. Broadcast a tous les autres investisseurs : "X a achete Y parts de Z,
+     *     et vous qu'attendez-vous ?" -> creation de social proof / urgence.
+     */
+    private void notifierAchat(com.fursa.fursa_backend.model.Investisseur acheteur,
+                                com.fursa.fursa_backend.model.Propriete propriete,
+                                int nbParts,
+                                java.math.BigDecimal montantTotal) {
+        String lienBien = "/opportunites/" + propriete.getId();
+
+        notificationService.envoyer(
+                acheteur,
+                "Achat confirmé",
+                nbParts + " part(s) de « " + propriete.getNom() + " » acquise(s) pour "
+                        + montantTotal + " USD.",
+                com.fursa.fursa_backend.model.enumeration.TypeMessage.TRANSACTION,
+                lienBien
+        );
+
+        notificationService.broadcastInvestisseurs(
+                "Un investisseur a saisi sa chance",
+                "Quelqu'un vient d'acheter " + nbParts + " part(s) de « " + propriete.getNom()
+                        + " ». Et vous, qu'attendez-vous ?",
+                com.fursa.fursa_backend.model.enumeration.TypeMessage.ANNONCE,
+                lienBien,
+                acheteur.getId()
+        );
     }
 
     private static final String ENDPOINT_ACHETER_WALLET = "POST /api/marche-primaire/acheter-via-wallet";

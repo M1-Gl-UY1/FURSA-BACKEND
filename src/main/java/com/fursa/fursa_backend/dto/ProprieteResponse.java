@@ -37,6 +37,10 @@ public class ProprieteResponse {
 
     // --- Phase 7 : workflow soumission propriétaire ---
     private Long proposeurId;
+    /** Prenom + initiale du nom du proposeur (ex "Marie D."). Pas exposer le nom complet pour RGPD. */
+    private String proposeurNom;
+    /** True si le proposeur a complete son KYC. Affiche un badge "verifie" cote frontend. */
+    private Boolean proposeurIsVerified;
     private String motifRefus;
     private LocalDateTime soumiseLe;
 

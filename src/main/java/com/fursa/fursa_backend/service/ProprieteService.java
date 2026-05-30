@@ -43,6 +43,7 @@ public class ProprieteService {
     private final com.fursa.fursa_backend.repository.AnnonceRepository annonceRepository;
     private final com.fursa.fursa_backend.repository.EscrowProprieteRepository escrowProprieteRepository;
     private final com.fursa.fursa_backend.repository.RevenusRepository revenusRepository;
+    private final com.fursa.fursa_backend.repository.InvestisseurRepository investisseurRepository;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -251,6 +252,16 @@ public class ProprieteService {
                                 List<MultipartFile> photos,
                                 List<String> photoSections,
                                 List<MultipartFile> documents) {
+        // Guard KYC : seuls les investisseurs verifies peuvent proposer un bien.
+        // Symetrique du guard achat dans MarchePrimaireService.acheterViaWallet.
+        com.fursa.fursa_backend.model.Investisseur proposeur = investisseurRepository.findById(proposeurId)
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException(
+                        "Investisseur non trouve avec l'id : " + proposeurId));
+        if (!Boolean.TRUE.equals(proposeur.getIsVerified())) {
+            throw new IllegalStateException(
+                    "Verification d'identite requise. Completez votre dossier KYC avant de proposer un bien.");
+        }
+
         // P1 (Hugh 22/05/2026) : validation cross-field pour les biens DEJA_RENTABLE.
         if (req.getStatutExploitation() == com.fursa.fursa_backend.model.enumeration.StatutExploitation.DEJA_RENTABLE) {
             if (req.getRevenuMensuelActuel() == null || req.getRevenuMensuelActuel().signum() <= 0) {
