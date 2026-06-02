@@ -82,14 +82,16 @@ class NotificationServiceTest {
         when(notificationRepository.findById(10L)).thenReturn(Optional.of(n));
         when(notificationRepository.save(any(Notification.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        NotificationResponse res = notificationService.marquerLue(10L);
+        // Signature 02/06/2026 : marquerLue(notifId, callerId) avec ownership check.
+        NotificationResponse res = notificationService.marquerLue(10L, alice.getId());
         assertTrue(res.lu());
     }
 
     @Test
     void marquerLue_inexistant_leveNotFound() {
         when(notificationRepository.findById(999L)).thenReturn(Optional.empty());
-        assertThrows(EntityNotFoundException.class, () -> notificationService.marquerLue(999L));
+        assertThrows(EntityNotFoundException.class,
+                () -> notificationService.marquerLue(999L, alice.getId()));
     }
 
     private Notification creerNotification(Long id, Boolean lu) {
