@@ -49,6 +49,17 @@ public class NotificationService {
         return notificationRepository.save(n);
     }
 
+    /**
+     * Broadcast a tous les comptes ADMIN. Pratique pour signaler une action qui
+     * necessite une revue (nouveau bien soumis, KYC a examiner, retrait demande...).
+     */
+    @Transactional
+    public void notifierAdmins(String titre, String message, TypeMessage type) {
+        userRepository.findAll().stream()
+                .filter(u -> u.getRole() == Role.ADMIN && u instanceof Investisseur)
+                .forEach(u -> envoyer((Investisseur) u, titre, message, type));
+    }
+
     // =========================================================================
     // Broadcasts : a TOUS les investisseurs (hors admins, hors expediteur)
     // =========================================================================
