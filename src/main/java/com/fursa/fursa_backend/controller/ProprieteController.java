@@ -3,6 +3,7 @@ package com.fursa.fursa_backend.controller;
 import com.fursa.fursa_backend.dto.HistoriquePrixPartResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.ProprieteResponse;
+import com.fursa.fursa_backend.dto.BrouillonPatchRequest;
 import com.fursa.fursa_backend.dto.RefusRequest;
 import com.fursa.fursa_backend.dto.SubmissionRequest;
 import com.fursa.fursa_backend.mapper.ProprieteMapper;
@@ -10,6 +11,7 @@ import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.service.AuthenticatedInvestisseurService;
 import com.fursa.fursa_backend.service.BlockchainRpcClient;
 import com.fursa.fursa_backend.service.PrixPartService;
+import com.fursa.fursa_backend.service.ProprieteBrouillonService;
 import com.fursa.fursa_backend.service.ProprieteService;
 import com.fursa.fursa_backend.service.TokenisationService;
 
@@ -43,6 +45,7 @@ public class ProprieteController {
     private final BlockchainRpcClient blockchainRpcClient;
     private final TokenisationService tokenisationService;
     private final PrixPartService prixPartService;
+    private final ProprieteBrouillonService brouillonService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -131,7 +134,116 @@ public class ProprieteController {
     }
 
     // =========================================================================
-    // PHASE 7 : workflow soumission propriétaire
+    // PHASE 9 (02/06/2026) : wizard auto-save brouillon
+    // L'investisseur cree un brouillon, le complete progressivement via PATCH +
+    // upload medias, puis finalise pour passer en EN_REVIEW. Reprise depuis tout
+    // appareil. Cf ProprieteBrouillonService pour le detail des validations.
+    // =========================================================================
+
+    @Operation(summary = "Creer un brouillon vide",
+            description = "Renvoie un id pour pouvoir PATCH les etapes suivantes du wizard.")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PostMapping("/brouillon")
+    public ResponseEntity<ProprieteResponse> creerBrouillon() {
+        Long userId = authInvestisseur.currentId();
+        Propriete brouillon = brouillonService.creerBrouillon(userId);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(proprieteMapper.toResponse(brouillon));
+    }
+
+    @Operation(summary = "Mettre a jour partiellement un brouillon",
+            description = "Tous les champs sont optionnels. Seuls les champs non-null sont appliques.")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PatchMapping("/brouillon/{id}")
+    public ResponseEntity<ProprieteResponse> patcherBrouillon(
+            @PathVariable Long id,
+            @RequestBody BrouillonPatchRequest req) {
+        Long userId = authInvestisseur.currentId();
+        Propriete updated = brouillonService.patcher(id, userId, req);
+        return ResponseEntity.ok(proprieteMapper.toResponse(updated));
+    }
+
+    @Operation(summary = "Ajouter des photos a un brouillon",
+            description = "Upload multipart. Chaque photo a sa section (FACADE, SALON, ...) en parallele.")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PostMapping(value = "/brouillon/{id}/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProprieteResponse> ajouterPhotosBrouillon(
+            @PathVariable Long id,
+            @RequestPart("photos") List<MultipartFile> photos,
+            @RequestParam(value = "sections", required = false) List<String> sections) {
+        Long userId = authInvestisseur.currentId();
+        Propriete updated = brouillonService.ajouterPhotos(id, userId, photos, sections);
+        return ResponseEntity.ok(proprieteMapper.toResponse(updated));
+    }
+
+    @Operation(summary = "Definir la video de visite d'un brouillon",
+            description = "Remplace l'eventuelle video precedente.")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PostMapping(value = "/brouillon/{id}/video", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProprieteResponse> setVideoBrouillon(
+            @PathVariable Long id,
+            @RequestPart("video") MultipartFile video) {
+        Long userId = authInvestisseur.currentId();
+        Propriete updated = brouillonService.setVideo(id, userId, video);
+        return ResponseEntity.ok(proprieteMapper.toResponse(updated));
+    }
+
+    @Operation(summary = "Ajouter des documents legaux a un brouillon",
+            description = "Upload multipart. Categories parallele en RequestParam : TITRE_FONCIER, PERMIS_CONSTRUIRE, ...")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PostMapping(value = "/brouillon/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProprieteResponse> ajouterDocsBrouillon(
+            @PathVariable Long id,
+            @RequestPart("documents") List<MultipartFile> documents,
+            @RequestParam(value = "categories", required = false) List<String> categories) {
+        Long userId = authInvestisseur.currentId();
+        Propriete updated = brouillonService.ajouterDocuments(id, userId, documents, categories);
+        return ResponseEntity.ok(proprieteMapper.toResponse(updated));
+    }
+
+    @Operation(summary = "Supprimer un media (photo, video ou document) d'un brouillon")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @DeleteMapping("/brouillon/{id}/medias/{mediaId}")
+    public ResponseEntity<Void> supprimerMediaBrouillon(
+            @PathVariable Long id,
+            @PathVariable Long mediaId) {
+        Long userId = authInvestisseur.currentId();
+        brouillonService.supprimerMedia(id, userId, mediaId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Finaliser le brouillon : bascule BROUILLON -> EN_REVIEW",
+            description = "Valide toutes les regles metier (champs obligatoires, photos requises, "
+                    + "documents legaux conditionnels). Si invalide, le brouillon reste BROUILLON.")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PostMapping("/brouillon/{id}/finaliser")
+    public ResponseEntity<ProprieteResponse> finaliserBrouillon(@PathVariable Long id) {
+        Long userId = authInvestisseur.currentId();
+        Propriete soumise = brouillonService.finaliser(id, userId);
+        return ResponseEntity.ok(proprieteMapper.toResponse(soumise));
+    }
+
+    @Operation(summary = "Supprimer un brouillon (ne fonctionne que tant qu'il est BROUILLON)")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @DeleteMapping("/brouillon/{id}")
+    public ResponseEntity<Void> supprimerBrouillon(@PathVariable Long id) {
+        Long userId = authInvestisseur.currentId();
+        brouillonService.supprimerBrouillon(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Lister mes brouillons en cours")
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @GetMapping("/brouillon/me")
+    public ResponseEntity<List<ProprieteResponse>> mesBrouillons() {
+        Long userId = authInvestisseur.currentId();
+        List<ProprieteResponse> brouillons = brouillonService.listerBrouillons(userId)
+                .stream().map(proprieteMapper::toResponse).toList();
+        return ResponseEntity.ok(brouillons);
+    }
+
+    // =========================================================================
+    // PHASE 7 : workflow soumission propriétaire (legacy en 1 requete multipart)
     // =========================================================================
 
     @Operation(
