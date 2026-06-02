@@ -35,6 +35,87 @@ public class TokenisationService {
         this.chainId = chainId;
     }
 
+    /**
+     * Lance la tokenisation en async : broadcast la transaction Ethereum, stocke
+     * txHash + statut EN_TOKENISATION puis renvoie immediatement. Un worker
+     * scheduled ({@link TokenisationWorker}) poll ensuite le receipt et bascule
+     * la propriete en PUBLIEE quand l'adresse du contrat est disponible.
+     *
+     * <p>Resout le bug "Adresse du contrat introuvable : result:null" qui survenait
+     * quand le receipt etait demande avant que la tx soit minee sur Sepolia
+     * (block time ~12s, parfois plusieurs minutes en cas de pic gas).
+     */
+    @Transactional
+    public Propriete lancerTokenisation(Long id) throws Exception {
+        log.info("=== LANCEMENT TOKENISATION ASYNC propriete {} ===", id);
+
+        Propriete propriete = proprieteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Propriete introuvable : " + id));
+
+        if (propriete.getStatut() != StatutPropriete.ACCEPTEE) {
+            throw new RuntimeException(
+                "La propriete doit etre ACCEPTEE pour lancer la tokenisation. Statut actuel : "
+                    + propriete.getStatut());
+        }
+        if (propriete.getTransactionHash() != null && !propriete.getTransactionHash().isBlank()) {
+            throw new RuntimeException(
+                "Ce bien est deja tokenise (tx hash : " + propriete.getTransactionHash() + ")");
+        }
+
+        String txHash = broadcastDeploiement(propriete);
+        log.info("Tx broadcast OK, hash={}", txHash);
+
+        propriete.setTransactionHash(txHash);
+        propriete.setStatut(StatutPropriete.EN_TOKENISATION);
+        Propriete saved = proprieteRepository.save(propriete);
+        log.info("Propriete {} passe en EN_TOKENISATION, le worker prendra le relais", id);
+        return saved;
+    }
+
+    /**
+     * Construit, signe et broadcast la transaction de deploiement du smart contract
+     * pour cette propriete. Renvoie le txHash. Ne touche pas a la BDD.
+     */
+    private String broadcastDeploiement(Propriete propriete) throws Exception {
+        String bytecode = lireBytecode();
+        String encodedParams = encodeConstructorParams(
+                propriete.getNom(),
+                propriete.getId(),
+                propriete.getNombreTotalPart(),
+                propriete.getPrixUnitairePart().toBigInteger()
+        );
+        String data = bytecode + encodedParams;
+
+        String nonceHex = blockchainRpcClient.getNonce(credentials.getAddress());
+        BigInteger nonce = Numeric.decodeQuantity(nonceHex);
+
+        RawTransaction rawTx = RawTransaction.createContractTransaction(
+                nonce,
+                BigInteger.valueOf(1_000_000_000L),
+                BigInteger.valueOf(3_000_000L),
+                BigInteger.ZERO,
+                data
+        );
+        byte[] signedTx = TransactionEncoder.signMessage(rawTx, chainId, credentials);
+        String hexTx = Numeric.toHexString(signedTx);
+
+        String sendBody = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_sendRawTransaction\","
+                + "\"params\":[\"" + hexTx + "\"],\"id\":1}";
+
+        var response = blockchainRpcClient.sendRpc(sendBody);
+        String responseBody = response.body();
+
+        if (!responseBody.contains("\"result\":\"")) {
+            throw new RuntimeException("Erreur broadcast tx : " + responseBody);
+        }
+        return responseBody.split("\"result\":\"")[1].split("\"")[0];
+    }
+
+    /**
+     * Methode historique : broadcast + attente synchrone du receipt + maj BDD.
+     * Garde pour compat retour mais ne devrait plus etre appelee par le workflow
+     * de validation admin (cf lancerTokenisation + worker).
+     */
     @Transactional
     public Propriete tokeniserPropriete(Long id) throws Exception {
 

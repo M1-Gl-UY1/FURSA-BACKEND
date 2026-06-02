@@ -78,23 +78,26 @@ public class ProprieteController {
         return ResponseEntity.ok(proprieteMapper.toResponse(updated));
     }
 
-    @Operation(summary = "Lister les proprietes", description = "Retourne toutes les proprietes du catalogue.")
+    @Operation(summary = "Lister les proprietes publiques",
+            description = "Retourne uniquement les proprietes PUBLIEE (validees + tokenisees). "
+                    + "Les biens EN_REVIEW, ACCEPTEE, EN_TOKENISATION, REFUSEE ne sont pas exposes.")
     @GetMapping("/public")
     public ResponseEntity<List<ProprieteResponse>> list() {
-        List<ProprieteResponse> result = proprieteService.listerTout()
+        List<ProprieteResponse> result = proprieteService.listerPubliees()
                 .stream().map(proprieteMapper::toResponse).toList();
         return ResponseEntity.ok(result);
     }
 
-    @Operation(summary = "Detail d'une propriete")
+    @Operation(summary = "Detail d'une propriete publique",
+            description = "Accessible uniquement si statut = PUBLIEE. Sinon 404.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Trouvee"),
-            @ApiResponse(responseCode = "404", description = "Propriete inconnue")
+            @ApiResponse(responseCode = "200", description = "Trouvee et publiee"),
+            @ApiResponse(responseCode = "404", description = "Propriete inconnue ou non publiee")
     })
     @GetMapping("/public/{id}")
     public ResponseEntity<ProprieteResponse> getOne(@PathVariable Long id) {
         return ResponseEntity.ok(
-                proprieteMapper.toResponse(proprieteService.detail(id))
+                proprieteMapper.toResponse(proprieteService.detailPublic(id))
         );
     }
 
@@ -152,12 +155,15 @@ public class ProprieteController {
             @RequestPart(value = "photos", required = false) List<MultipartFile> photos,
             // P1 : sections paralleles aux photos (meme ordre). Ex : ["FACADE", "SALON", "CHAMBRE"]
             @org.springframework.web.bind.annotation.RequestParam(value = "photoSections", required = false) List<String> photoSections,
-            // P1 : documents legaux (PDFs). Pour MVP gardes ensemble, certification separee plus tard.
-            @RequestPart(value = "documents", required = false) List<MultipartFile> documents) {
+            // P1 : documents legaux (PDFs). Categorisation introduite le 02/06/2026.
+            @RequestPart(value = "documents", required = false) List<MultipartFile> documents,
+            // 02/06/2026 : categorie pour chaque document (parallele a documents, meme ordre).
+            // Valeurs : TITRE_FONCIER, PERMIS_CONSTRUIRE, CONTRAT_GESTION, CONTRAT_BAIL, RELEVE_AIRBNB, AUTRE.
+            @org.springframework.web.bind.annotation.RequestParam(value = "documentCategories", required = false) List<String> documentCategories) {
 
         Long userId = authInvestisseur.currentId();
         Propriete created = proprieteService.soumettre(
-                userId, request, files, video, photos, photoSections, documents);
+                userId, request, files, video, photos, photoSections, documents, documentCategories);
         return ResponseEntity.status(HttpStatus.CREATED).body(proprieteMapper.toResponse(created));
     }
 
@@ -188,6 +194,26 @@ public class ProprieteController {
     @PostMapping("/admin/{id}/approuver")
     public ResponseEntity<ProprieteResponse> approuver(@PathVariable Long id) {
         return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.approuver(id)));
+    }
+
+    @Operation(
+            summary = "Valider une propriete : approuve + tokenise + publie",
+            description = "Endpoint unifie cree le 02/06/2026. En 1 clic admin : approuve, "
+                    + "broadcast la tx blockchain, et passe le bien en EN_TOKENISATION. "
+                    + "Le worker TokenisationWorker bascule ensuite automatiquement en "
+                    + "PUBLIEE quand la tx est minee sur Sepolia (~15-60s).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "202", description = "Validation acceptee, tokenisation en cours"),
+            @ApiResponse(responseCode = "400", description = "Statut incompatible"),
+            @ApiResponse(responseCode = "404", description = "Propriete inconnue"),
+            @ApiResponse(responseCode = "500", description = "Erreur RPC blockchain")
+    })
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/admin/{id}/valider")
+    public ResponseEntity<ProprieteResponse> valider(@PathVariable Long id) throws Exception {
+        Propriete validee = proprieteService.validerEtTokeniser(id, tokenisationService);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(proprieteMapper.toResponse(validee));
     }
 
     @Operation(summary = "Refuser une propriété (admin)", description = "Passe le statut à REFUSEE avec motif. Notifie le proposeur.")

@@ -81,9 +81,31 @@ public class ProprieteService {
         return proprieteRepository.findAll();
     }
 
+    /**
+     * Liste publique : uniquement les biens PUBLIEE (donc valides ET tokenises).
+     * Fix 02/06/2026 : avant ce filtre, les biens EN_REVIEW etaient visibles
+     * publiquement. Le frontend filtrait cote client uniquement -> exposition de biens
+     * non valides via /public/{id} en acces direct.
+     */
+    public List<Propriete> listerPubliees() {
+        return proprieteRepository.findByStatut(StatutPropriete.PUBLIEE);
+    }
+
     public Propriete detail(Long id) {
         return proprieteRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
+    }
+
+    /**
+     * Detail public : 404 si la propriete n'est pas PUBLIEE (memes raisons que listerPubliees).
+     */
+    public Propriete detailPublic(Long id) {
+        Propriete p = proprieteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
+        if (p.getStatut() != StatutPropriete.PUBLIEE) {
+            throw new EntityNotFoundException("Propriete introuvable : " + id);
+        }
+        return p;
     }
 
     @Transactional
@@ -245,6 +267,10 @@ public class ProprieteService {
         return soumettre(proposeurId, req, fichiers, null, null, null, null);
     }
 
+    /**
+     * Overload sans categories de documents (legacy / appels sans wizard refondu).
+     * A retirer une fois tout le frontend migre.
+     */
     @Transactional
     public Propriete soumettre(Long proposeurId, SubmissionRequest req,
                                 List<MultipartFile> filesLegacy,
@@ -252,6 +278,17 @@ public class ProprieteService {
                                 List<MultipartFile> photos,
                                 List<String> photoSections,
                                 List<MultipartFile> documents) {
+        return soumettre(proposeurId, req, filesLegacy, video, photos, photoSections, documents, null);
+    }
+
+    @Transactional
+    public Propriete soumettre(Long proposeurId, SubmissionRequest req,
+                                List<MultipartFile> filesLegacy,
+                                MultipartFile video,
+                                List<MultipartFile> photos,
+                                List<String> photoSections,
+                                List<MultipartFile> documents,
+                                List<String> documentCategories) {
         // Guard KYC : seuls les investisseurs verifies peuvent proposer un bien.
         // Symetrique du guard achat dans MarchePrimaireService.acheterViaWallet.
         com.fursa.fursa_backend.model.Investisseur proposeur = investisseurRepository.findById(proposeurId)
@@ -271,6 +308,31 @@ public class ProprieteService {
             if (req.getSourceRevenu() == null) {
                 throw new IllegalArgumentException(
                         "Un bien deja rentable doit indiquer la source des revenus (BAIL / AIRBNB / AUTRE).");
+            }
+        }
+
+        // Validation documents minimum conditionnels (02/06/2026) :
+        //   - Tous : TITRE_FONCIER obligatoire.
+        //   - DEJA_RENTABLE : + CONTRAT_GESTION ou CONTRAT_BAIL.
+        //   - EN_CONSTRUCTION / NEUF : + PERMIS_CONSTRUIRE.
+        if (documentCategories != null && !documentCategories.isEmpty()) {
+            java.util.Set<String> cats = new java.util.HashSet<>(documentCategories);
+            if (!cats.contains("TITRE_FONCIER")) {
+                throw new IllegalArgumentException(
+                        "Document obligatoire manquant : titre foncier (categorie TITRE_FONCIER).");
+            }
+            com.fursa.fursa_backend.model.enumeration.StatutExploitation se = req.getStatutExploitation();
+            if (se == com.fursa.fursa_backend.model.enumeration.StatutExploitation.DEJA_RENTABLE) {
+                if (!cats.contains("CONTRAT_GESTION") && !cats.contains("CONTRAT_BAIL")) {
+                    throw new IllegalArgumentException(
+                            "Un bien deja rentable doit avoir un contrat de gestion (CONTRAT_GESTION) ou de bail (CONTRAT_BAIL).");
+                }
+            } else if (se == com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION
+                    || se == com.fursa.fursa_backend.model.enumeration.StatutExploitation.NEUF) {
+                if (!cats.contains("PERMIS_CONSTRUIRE")) {
+                    throw new IllegalArgumentException(
+                            "Un bien neuf ou en construction doit avoir un permis de construire (PERMIS_CONSTRUIRE).");
+                }
             }
         }
 
@@ -353,9 +415,23 @@ public class ProprieteService {
         sauvegarderPhotos(photos, saved, photoSections);
         // 3. Video de visite guidee (Hugh exige).
         sauvegarderVideo(video, saved);
+        // Note : si documentCategories fourni, on appelle la variante categorisee.
+        // Sinon fallback sur l'overload existant qui mettra categorie=null.
         // 4. Documents legaux (PDFs). Stockes mais NON marques certifies a la creation
         //    (la certification est une etape separee Phase 7-bis demandee par Hugh).
-        sauvegarderDocuments(documents, saved);
+        if (documentCategories != null && !documentCategories.isEmpty()) {
+            List<com.fursa.fursa_backend.model.enumeration.CategorieDocument> cats =
+                documentCategories.stream().map(c -> {
+                    try {
+                        return com.fursa.fursa_backend.model.enumeration.CategorieDocument.valueOf(c);
+                    } catch (Exception e) {
+                        return com.fursa.fursa_backend.model.enumeration.CategorieDocument.AUTRE;
+                    }
+                }).toList();
+            sauvegarderDocuments(documents, saved, cats);
+        } else {
+            sauvegarderDocuments(documents, saved);
+        }
 
         notifierAdmins(
                 "Nouvelle soumission de bien",
@@ -368,6 +444,44 @@ public class ProprieteService {
 
     public List<Propriete> listerProposeesPar(Long proposeurId) {
         return proprieteRepository.findByProposeurIdOrderByIdDesc(proposeurId);
+    }
+
+    /**
+     * Workflow unifie 02/06/2026 : "Valider la propriete" cote admin = approuver +
+     * lancer la tokenisation en async. Le worker {@link TokenisationWorker} se
+     * chargera ensuite de basculer le bien en PUBLIEE quand la tx Sepolia sera
+     * minee. Retourne immediatement avec statut EN_TOKENISATION.
+     */
+    @Transactional
+    public Propriete validerEtTokeniser(Long id, TokenisationService tokenisationService) throws Exception {
+        Propriete p = proprieteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
+        if (p.getStatut() != StatutPropriete.EN_REVIEW) {
+            throw new IllegalStateException(
+                "Seules les proprietes en EN_REVIEW peuvent etre validees (statut actuel : "
+                    + p.getStatut() + ")");
+        }
+        // 1. Approuver : statut → ACCEPTEE
+        p.setStatut(StatutPropriete.ACCEPTEE);
+        p.setMotifRefus(null);
+        proprieteRepository.save(p);
+
+        // 2. Notifier le proposeur
+        if (p.getProposeurId() != null) {
+            userRepository.findById(p.getProposeurId()).ifPresent(u -> {
+                if (u instanceof Investisseur inv) {
+                    notificationService.envoyer(
+                        inv,
+                        "Propriete validee, tokenisation en cours",
+                        "Votre bien \"" + p.getNom() + "\" est en cours de tokenisation sur la blockchain. Il sera publie automatiquement.",
+                        TypeMessage.ANNONCE
+                    );
+                }
+            });
+        }
+
+        // 3. Lancer la tokenisation async (broadcast tx + statut EN_TOKENISATION)
+        return tokenisationService.lancerTokenisation(id);
     }
 
     @Transactional

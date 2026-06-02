@@ -131,4 +131,41 @@ public class BlockchainRpcClient {
 
         throw new RuntimeException("Adresse du contrat introuvable : " + responseBody);
     }
+
+    /**
+     * Variante non bloquante du receipt : renvoie un Optional vide si la transaction
+     * n'est pas encore minee, l'adresse du contrat sinon. Utilise par
+     * TokenisationWorker qui poll periodiquement (async, donc pas de Thread.sleep).
+     *
+     * <p>Cas geres :
+     * <ul>
+     *   <li>result null/absent  → tx en mempool, pas encore minee → Optional.empty()</li>
+     *   <li>contractAddress null → tx minee mais a echoue → throw (le worker passera la propriete en REJETEE)</li>
+     *   <li>contractAddress OK  → Optional.of(adresse)</li>
+     * </ul>
+     */
+    public java.util.Optional<String> getContractAddressIfMined(String txHash) throws Exception {
+        String body = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getTransactionReceipt\","
+                + "\"params\":[\"" + txHash + "\"],\"id\":1}";
+        HttpResponse<String> response = sendRpc(body);
+        String responseBody = response.body();
+
+        // Cas 1 : receipt non encore disponible (transaction toujours en mempool)
+        if (responseBody.contains("\"result\":null")) {
+            return java.util.Optional.empty();
+        }
+
+        // Cas 2 : receipt arrive avec une adresse de contrat
+        if (responseBody.contains("\"contractAddress\":\"")) {
+            String addr = responseBody.split("\"contractAddress\":\"")[1].split("\"")[0];
+            return java.util.Optional.of(addr);
+        }
+
+        // Cas 3 : receipt avec contractAddress=null → la tx a echoue (deploiement KO)
+        if (responseBody.contains("\"contractAddress\":null")) {
+            throw new RuntimeException("Transaction minee mais deploiement contrat echoue (contractAddress null)");
+        }
+
+        throw new RuntimeException("Reponse RPC inattendue : " + responseBody);
+    }
 }
