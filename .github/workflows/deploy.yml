@@ -8,7 +8,7 @@ on:
 
 jobs:
   deploy:
-    name: Deploy via SSH (zero-downtime blue-green)
+    name: Deploy via SSH (single backend instance)
     runs-on: ubuntu-latest
 
     steps:
@@ -22,7 +22,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Deploy to VPS (rolling restart of 2 backend instances)
+      - name: Deploy to VPS (recreate fursa-backend)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -46,8 +46,6 @@ jobs:
             git clean -fd
 
             echo "=== Syncing BLOCKCHAIN_* secrets dans .env (sans toucher au reste) ==="
-            # Atomic update : on retire toutes les anciennes lignes BLOCKCHAIN_* puis on append les valeurs des secrets.
-            # Les \${BLOCKCHAIN_*} sont substitues cote GH Actions runner avant l'envoi SSH.
             grep -v '^BLOCKCHAIN_' .env > .env.tmp 2>/dev/null || cp .env .env.tmp
             echo "BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}" >> .env.tmp
             echo "BLOCKCHAIN_CONTRACT_ADDRESS=${BLOCKCHAIN_CONTRACT_ADDRESS}" >> .env.tmp
@@ -58,6 +56,21 @@ jobs:
             mv .env.tmp .env
             chmod 600 .env
             echo "Vars BLOCKCHAIN_* injectees (\$(grep -c '^BLOCKCHAIN_' .env) lignes)"
+
+            echo "=== Sauvegarde des uploads avant migration ==="
+            # Securite : si fursa-backend-2 existait encore, on rapatrie ses fichiers
+            # vers le volume partage AVANT de le supprimer.
+            if docker ps -a --format '{{.Names}}' | grep -q '^fursa-backend-2\$'; then
+              echo "Detection ancien fursa-backend-2, sauvegarde de /app/uploads"
+              docker cp fursa-backend-2:/app/uploads/. /tmp/uploads-rescue/ 2>/dev/null || true
+              if docker ps --format '{{.Names}}' | grep -q '^fursa-backend\$'; then
+                docker cp /tmp/uploads-rescue/. fursa-backend:/app/uploads/ 2>/dev/null || true
+              fi
+            fi
+
+            echo "=== Stop & remove old fursa-backend-2 (si present) ==="
+            docker stop fursa-backend-2 2>/dev/null || true
+            docker rm fursa-backend-2 2>/dev/null || true
 
             echo "=== Applying DB migrations (idempotent) ==="
             for sql_file in scripts/migrations/*.sql; do
@@ -80,7 +93,6 @@ jobs:
                   echo "\$container is healthy after \$((i * 5))s"
                   return 0
                 fi
-                # Output keepalive toutes les 30s (6 iterations * 5s) pour eviter SSH idle timeout
                 if [ \$((i % 6)) -eq 0 ]; then
                   echo "  ... still waiting (\$((i * 5))s elapsed, status=\$status)"
                 fi
@@ -91,11 +103,7 @@ jobs:
               return 1
             }
 
-            echo "=== Step 1/2 : recreate fursa-backend-2 (8082), nginx routera sur 8081 pendant ce temps ==="
-            docker compose up -d --force-recreate --no-deps fursa-backend-2
-            wait_healthy fursa-backend-2 600
-
-            echo "=== Step 2/2 : recreate fursa-backend (8081), nginx routera sur 8082 pendant ce temps ==="
+            echo "=== Recreate fursa-backend (single instance) ==="
             docker compose up -d --force-recreate --no-deps fursa-backend
             wait_healthy fursa-backend 600
 
@@ -108,17 +116,17 @@ jobs:
 
       - name: Verify API is up via public URL
         run: |
-          # Health check final côté public : doit déjà être OK puisque le rolling
-          # garantit qu'au moins une instance répond à tout moment.
-          for i in $(seq 1 12); do
+          # Health check final côté public. Avec une seule instance, on tolere
+          # une petite fenetre d'indispo pendant le recreate (Spring start ~5min).
+          for i in $(seq 1 24); do
             code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 10 \
               https://api.fursa.seed-innov.com/api/health || echo "000")
             if [ "$code" = "200" ]; then
               echo "API public is up (HTTP 200 after ${i} attempt(s))"
               exit 0
             fi
-            echo "Attempt $i/12: HTTP $code, retrying in 5s..."
-            sleep 5
+            echo "Attempt $i/24: HTTP $code, retrying in 10s..."
+            sleep 10
           done
-          echo "Public API did not become healthy within 1 minute"
+          echo "Public API did not become healthy within 4 minutes"
           exit 1
