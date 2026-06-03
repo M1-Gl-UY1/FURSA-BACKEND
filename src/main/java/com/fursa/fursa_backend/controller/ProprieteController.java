@@ -91,6 +91,27 @@ public class ProprieteController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Lister toutes les proprietes (admin)",
+            description = "Retourne TOUS les statuts sauf BROUILLON (en cours de soumission par "
+                    + "l'investisseur). Inclut EN_REVIEW, ACCEPTEE, EN_TOKENISATION, PUBLIEE, REFUSEE.")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<ProprieteResponse>> listAdmin() {
+        List<ProprieteResponse> result = proprieteService.listerTout().stream()
+                .filter(p -> p.getStatut() != com.fursa.fursa_backend.model.enumeration.StatutPropriete.BROUILLON)
+                .map(proprieteMapper::toResponse)
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "Detail d'une propriete (admin)",
+            description = "Accessible quelque soit le statut (sauf BROUILLON appartenant a un autre user).")
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/admin/{id}")
+    public ResponseEntity<ProprieteResponse> detailAdmin(@PathVariable Long id) {
+        return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.detail(id)));
+    }
+
     @Operation(summary = "Detail d'une propriete publique",
             description = "Accessible uniquement si statut = PUBLIEE. Sinon 404.")
     @ApiResponses({
