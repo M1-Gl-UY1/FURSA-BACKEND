@@ -44,10 +44,22 @@ public class FileStorageService {
             throw new IllegalArgumentException(
                     "Extension non autorisee (autorises : " + ALLOWED_EXTENSIONS + ")");
         }
+        // 03/06/2026 : fallback sur l'extension si le browser n'envoie pas un
+        // content-type connu (ex Safari iOS ne devine pas video/mp4 pour les .mp4
+        // partages depuis WhatsApp -> envoie application/octet-stream et donc rejet).
+        // Vu que l'extension est deja whitelisted dans ALLOWED_EXTENSIONS, c'est sur.
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new IllegalArgumentException(
-                    "Type MIME non autorise (autorises : " + ALLOWED_CONTENT_TYPES + ")");
+        boolean mimeUnknown = contentType == null
+                || contentType.isBlank()
+                || contentType.equalsIgnoreCase("application/octet-stream")
+                || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase());
+        if (mimeUnknown) {
+            String inferred = inferMimeFromExtension(extension);
+            if (inferred == null) {
+                throw new IllegalArgumentException(
+                        "Type MIME non autorise (autorises : " + ALLOWED_CONTENT_TYPES + ")");
+            }
+            contentType = inferred;
         }
 
         // Limites de taille DIFFERENCIEES par type (Hugh 26/05/2026) :
@@ -111,9 +123,29 @@ public class FileStorageService {
         }
     }
 
-    // ── Utilitaire privé 
+    // ── Utilitaires prives ──
     private String getExtension(String originalFilename) {
         if (originalFilename == null || !originalFilename.contains(".")) return "";
         return originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+    }
+
+    /**
+     * Map une extension whitelisted vers son content-type canonique.
+     * Renvoie null si l'extension n'est pas supportee (ne devrait pas arriver
+     * apres le check ALLOWED_EXTENSIONS, mais defensif).
+     */
+    private String inferMimeFromExtension(String extension) {
+        if (extension == null) return null;
+        switch (extension.toLowerCase()) {
+            case ".pdf":  return "application/pdf";
+            case ".jpg":
+            case ".jpeg": return "image/jpeg";
+            case ".png":  return "image/png";
+            case ".webp": return "image/webp";
+            case ".mp4":  return "video/mp4";
+            case ".mov":  return "video/quicktime";
+            case ".webm": return "video/webm";
+            default:      return null;
+        }
     }
 }
