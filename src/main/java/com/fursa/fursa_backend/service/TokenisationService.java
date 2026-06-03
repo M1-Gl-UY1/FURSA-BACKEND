@@ -23,16 +23,26 @@ public class TokenisationService {
     private final BlockchainRpcClient blockchainRpcClient;
     private final Credentials credentials;
     private final long chainId;
+    private final long gasPrice;
+    private final long gasLimit;
 
     public TokenisationService(
             ProprieteRepository proprieteRepository,
             BlockchainRpcClient blockchainRpcClient,
             Credentials credentials,
-            @Value("${blockchain.chain-id}") long chainId) {
+            @Value("${blockchain.chain-id}") long chainId,
+            // Gas params injectes depuis .env (avant : hardcode 1 Gwei + 3M gas).
+            // Defaut 20 Gwei pour fiabilite sur Sepolia (block time ~12s, mempool souvent congestionne).
+            @Value("${blockchain.gas-price:20000000000}") long gasPrice,
+            @Value("${blockchain.gas-limit:3000000}") long gasLimit) {
         this.proprieteRepository = proprieteRepository;
         this.blockchainRpcClient = blockchainRpcClient;
         this.credentials = credentials;
         this.chainId = chainId;
+        this.gasPrice = gasPrice;
+        this.gasLimit = gasLimit;
+        log.info("TokenisationService initialise : chainId={} gasPrice={} Gwei gasLimit={}",
+                chainId, gasPrice / 1_000_000_000L, gasLimit);
     }
 
     /**
@@ -91,8 +101,8 @@ public class TokenisationService {
 
         RawTransaction rawTx = RawTransaction.createContractTransaction(
                 nonce,
-                BigInteger.valueOf(1_000_000_000L),
-                BigInteger.valueOf(3_000_000L),
+                BigInteger.valueOf(gasPrice),
+                BigInteger.valueOf(gasLimit),
                 BigInteger.ZERO,
                 data
         );
@@ -177,8 +187,8 @@ public class TokenisationService {
 
         RawTransaction rawTx = RawTransaction.createContractTransaction(
                 nonce,
-                BigInteger.valueOf(1_000_000_000L),
-                BigInteger.valueOf(3_000_000L),
+                BigInteger.valueOf(gasPrice),
+                BigInteger.valueOf(gasLimit),
                 BigInteger.ZERO,
                 data
         );
