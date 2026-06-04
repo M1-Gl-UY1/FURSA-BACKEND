@@ -52,4 +52,15 @@ public class Document {
     @Enumerated(EnumType.STRING)
     @Column(name = "categorie_document", length = 30)
     private CategorieDocument categorieDocument;
+
+    /**
+     * V2 G.2 (04/06/2026) : code de categorie admin-configurable (source de
+     * verite). Pour les 6 codes historiques, contient la meme valeur que
+     * {@code categorieDocument.name()}. Pour les codes custom crees par
+     * l'admin (ASSURANCE_HABITATION, DIAGNOSTIC_DPE, ...), {@code
+     * categorieDocument} fallback sur AUTRE et seul ce champ porte la
+     * valeur reelle.
+     */
+    @Column(name = "categorie_document_code", length = 50)
+    private String categorieDocumentCode;
 }

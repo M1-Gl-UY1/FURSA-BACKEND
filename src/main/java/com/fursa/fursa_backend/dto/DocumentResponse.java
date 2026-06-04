@@ -20,4 +20,11 @@ public class DocumentResponse {
     private SectionPhoto sectionPhoto;
     /** P8 (Hugh 22/05/2026) : categorie precise pour les documents legaux. */
     private CategorieDocument categorieDocument;
+    /**
+     * V2 G.2 (04/06/2026) : code de categorie admin-configurable (peut etre
+     * un code custom hors enum). Source de verite pour le frontend.
+     */
+    private String categorieDocumentCode;
+    /** V2 G.2 : libelle resolu cote backend (ex "Titre foncier", "Assurance habitation"). */
+    private String categorieDocumentLabel;
 }

@@ -8,6 +8,7 @@ import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.PartenaireGestion;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.repository.InvestisseurRepository;
+import com.fursa.fursa_backend.service.CategorieDocumentRefService;
 import com.fursa.fursa_backend.service.TypeBienRefService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ public class ProprieteMapper {
 
     private final InvestisseurRepository investisseurRepository;
     private final TypeBienRefService typeBienRefService;
+    private final CategorieDocumentRefService categorieDocumentRefService;
 
     /**
      * Fix 25/05/2026 : standardise l'URL d'un document.
@@ -56,16 +58,25 @@ public class ProprieteMapper {
     public ProprieteResponse toResponse(Propriete p) {
         List<DocumentResponse> docs = p.getDocuments() == null
             ? Collections.emptyList()
-            : p.getDocuments().stream().map(d -> DocumentResponse.builder()
-                .id(d.getId())
-                .nom(d.getNom())
-                .url(toFichierUrl(d.getUrl()))
-                .type(d.getType())
-                .dateUpload(d.getDateUpload())
-                .sectionPhoto(d.getSectionPhoto())
-                .categorieDocument(d.getCategorieDocument())
-                .build()
-            ).toList();
+            : p.getDocuments().stream().map(d -> {
+                // V2 G.2 : code admin-configurable. Fallback sur l'enum si pas
+                // encore backfille (docs crees avant la migration 027).
+                String catCode = d.getCategorieDocumentCode() != null
+                        ? d.getCategorieDocumentCode()
+                        : (d.getCategorieDocument() != null
+                            ? d.getCategorieDocument().name() : null);
+                return DocumentResponse.builder()
+                    .id(d.getId())
+                    .nom(d.getNom())
+                    .url(toFichierUrl(d.getUrl()))
+                    .type(d.getType())
+                    .dateUpload(d.getDateUpload())
+                    .sectionPhoto(d.getSectionPhoto())
+                    .categorieDocument(d.getCategorieDocument())
+                    .categorieDocumentCode(catCode)
+                    .categorieDocumentLabel(categorieDocumentRefService.resoudreLabel(catCode))
+                    .build();
+            }).toList();
 
         // Fix 25/05/2026 : extraire la liste des URLs des photos pour les cards.
         // On garde uniquement les documents de type IMAGE avec une sectionPhoto definie

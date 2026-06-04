@@ -47,6 +47,7 @@ public class ProprieteService {
     private final com.fursa.fursa_backend.repository.InvestisseurRepository investisseurRepository;
     private final EquipementService equipementService;
     private final TypeBienRefService typeBienRefService;
+    private final CategorieDocumentRefService categorieDocumentRefService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -529,16 +530,11 @@ public class ProprieteService {
         // Sinon fallback sur l'overload existant qui mettra categorie=null.
         // 4. Documents legaux (PDFs). Stockes mais NON marques certifies a la creation
         //    (la certification est une etape separee Phase 7-bis demandee par Hugh).
+        // V2 G.2 : passe directement les codes string pour supporter les
+        // codes custom admin-configurables (ASSURANCE_HABITATION, ...). La
+        // resolution enum/custom est faite par CategorieDocumentRefService.
         if (documentCategories != null && !documentCategories.isEmpty()) {
-            List<com.fursa.fursa_backend.model.enumeration.CategorieDocument> cats =
-                documentCategories.stream().map(c -> {
-                    try {
-                        return com.fursa.fursa_backend.model.enumeration.CategorieDocument.valueOf(c);
-                    } catch (Exception e) {
-                        return com.fursa.fursa_backend.model.enumeration.CategorieDocument.AUTRE;
-                    }
-                }).toList();
-            sauvegarderDocuments(documents, saved, cats);
+            sauvegarderDocumentsAvecCodes(documents, saved, documentCategories);
         } else {
             sauvegarderDocuments(documents, saved);
         }
@@ -672,7 +668,13 @@ public class ProprieteService {
         if (documents == null || documents.isEmpty()) {
             throw new IllegalArgumentException("Au moins un document est requis.");
         }
-        sauvegarderDocuments(documents, p, categories);
+        // V2 G.2 : conversion enum -> codes string pour passer par le nouveau
+        // chemin qui supporte les categories admin-configurables.
+        List<String> codes = categories == null ? null
+                : categories.stream()
+                    .map(c -> c == null ? null : c.name())
+                    .toList();
+        sauvegarderDocumentsAvecCodes(documents, p, codes);
         return proprieteRepository.findById(p.getId()).orElseThrow();
     }
 
@@ -882,18 +884,23 @@ public class ProprieteService {
      * Sauvegarde les documents legaux (PDFs titre foncier, contrats, etc.).
      * Phase 7-bis : ces documents serviront a la certification du bien (validation
      * admin separee). Ils sont stockes mais propriete.certifie reste false.
+     *
+     * V2 G.2 : delegate vers le nouveau chemin string-based (codes = null
+     * -> tous les documents auront categorie AUTRE via applyToDocument).
      */
     private void sauvegarderDocuments(List<MultipartFile> documents, Propriete propriete) {
-        sauvegarderDocuments(documents, propriete, null);
+        sauvegarderDocumentsAvecCodes(documents, propriete, null);
     }
 
     /**
-     * P8 (Hugh 22/05/2026) : variante avec categories parallles pour les documents legaux.
-     * Si `categories` est null ou trop court, les documents restants sont sauvegardes
-     * avec categorie=AUTRE.
+     * V2 G.2 (04/06/2026) : variante avec codes string pour supporter les
+     * categories admin-configurables (au-dela de l'enum historique).
+     * Si {@code codes} est null ou trop court, les documents restants sont
+     * sauvegardes avec categorie=AUTRE (via applyToDocument).
      */
-    private void sauvegarderDocuments(List<MultipartFile> documents, Propriete propriete,
-                                       List<com.fursa.fursa_backend.model.enumeration.CategorieDocument> categories) {
+    private void sauvegarderDocumentsAvecCodes(List<MultipartFile> documents,
+                                                Propriete propriete,
+                                                List<String> codes) {
         if (documents == null || documents.isEmpty()) return;
         int i = 0;
         for (MultipartFile f : documents) {
@@ -910,12 +917,9 @@ public class ProprieteService {
                     ? TypeDocument.PDF
                     : TypeDocument.IMAGE
             );
-            // sectionPhoto null = ce n'est pas une photo, c'est un document legal
-            if (categories != null && i < categories.size() && categories.get(i) != null) {
-                doc.setCategorieDocument(categories.get(i));
-            } else {
-                doc.setCategorieDocument(com.fursa.fursa_backend.model.enumeration.CategorieDocument.AUTRE);
-            }
+            // V2 G.2 : sync enum + code via le helper. Accepte les codes custom.
+            String code = (codes != null && i < codes.size()) ? codes.get(i) : null;
+            categorieDocumentRefService.applyToDocument(doc, code);
             documentRepository.save(doc);
             i++;
         }

@@ -55,6 +55,7 @@ public class ProprieteBrouillonService {
     private final DeviseRateService deviseRateService;
     private final EquipementService equipementService;
     private final TypeBienRefService typeBienRefService;
+    private final CategorieDocumentRefService categorieDocumentRefService;
 
     /**
      * Cree un brouillon vide pour l'investisseur. Renvoie l'id pour que le frontend
@@ -215,11 +216,9 @@ public class ProprieteBrouillonService {
             doc.setPropriete(p);
             doc.setType(f.getContentType() != null && f.getContentType().contains("pdf")
                     ? TypeDocument.PDF : TypeDocument.IMAGE);
-            try {
-                doc.setCategorieDocument(CategorieDocument.valueOf(cat));
-            } catch (IllegalArgumentException ignored) {
-                doc.setCategorieDocument(CategorieDocument.AUTRE);
-            }
+            // V2 G.2 : synchronise enum (retro-compat) + code string
+            // (admin-configurable). Accepte les codes custom hors enum.
+            categorieDocumentRefService.applyToDocument(doc, cat);
             documentRepository.save(doc);
         }
         return proprieteRepository.save(p);
