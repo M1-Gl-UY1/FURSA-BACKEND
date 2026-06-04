@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.service;
 
 
+import com.fursa.fursa_backend.dto.BrouillonPatchRequest;
 import com.fursa.fursa_backend.dto.ProgressionResponse;
 import com.fursa.fursa_backend.dto.ProprieteRequest;
 import com.fursa.fursa_backend.dto.SubmissionRequest;
@@ -79,6 +80,100 @@ public class ProprieteService {
 
     public List<Propriete> listerTout() {
         return proprieteRepository.findAll();
+    }
+
+    /**
+     * Modification d'une propriete par son proposeur (Phase 04/06/2026).
+     * Les champs autorises dependent du statut courant :
+     *
+     * <ul>
+     *   <li>BROUILLON : utiliser plutot l'endpoint /brouillon/{id} (toujours autorise)</li>
+     *   <li>EN_REVIEW + ACCEPTEE : tous les champs sauf prix/parts/fractionVenduePct
+     *       (l'admin a un dossier fige a valider, on ne change pas l'economie du deal)</li>
+     *   <li>EN_TOKENISATION + PUBLIEE + FINANCEE : uniquement description + medias (apres
+     *       tokenisation, le contrat on-chain est immuable, on touche que le contenu editorial)</li>
+     *   <li>REFUSEE : pas modifiable, le proposeur doit re-soumettre (creer un nouveau brouillon)</li>
+     * </ul>
+     *
+     * @throws AccessDeniedException si l'user n'est pas le proposeur
+     * @throws IllegalStateException si le statut bloque toute modification
+     * @throws IllegalArgumentException si un champ non autorise est envoye
+     */
+    @Transactional
+    public Propriete modifierParProposeur(Long id, Long callerId, BrouillonPatchRequest req) {
+        Propriete p = proprieteRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + id));
+
+        if (p.getProposeurId() == null || !p.getProposeurId().equals(callerId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                "Vous n'etes pas le proposeur de ce bien.");
+        }
+
+        StatutPropriete s = p.getStatut();
+        if (s == StatutPropriete.REFUSEE) {
+            throw new IllegalStateException(
+                "Bien refuse : creez un nouveau brouillon pour re-soumettre apres correction.");
+        }
+        if (s == StatutPropriete.BROUILLON) {
+            throw new IllegalStateException(
+                "Utilisez l'endpoint /brouillon/{id} pour modifier un brouillon.");
+        }
+
+        // FINANCEE / CLOTUREE n'existent pas (encore) cote backend, seulement frontend.
+        // EN_ATTENTE est un statut legacy assimile a "deja publie".
+        boolean isAfterTokenisation = s == StatutPropriete.EN_TOKENISATION
+                || s == StatutPropriete.PUBLIEE
+                || s == StatutPropriete.EN_ATTENTE;
+
+        // === Champs financiers : interdits dans tous les cas apres BROUILLON ===
+        if (req.getPrixVenteTotal() != null || req.getPrixUnitairePart() != null
+                || req.getNombreTotalPart() != null || req.getFractionVenduePct() != null
+                || req.getDeviseLocale() != null) {
+            throw new IllegalArgumentException(
+                "Le prix, le nombre de parts et la devise sont fixes apres la soumission. "
+                    + "Annulez et resoumettez si vous voulez changer l'economie du deal.");
+        }
+
+        // === Champs structurels (type, caracteristiques) : interdits apres tokenisation ===
+        if (isAfterTokenisation) {
+            if (req.getTypeBien() != null || req.getNombrePieces() != null
+                    || req.getNombreChambres() != null || req.getSuperficieM2() != null
+                    || req.getHasPiscine() != null || req.getHasClimatisation() != null
+                    || req.getHasParking() != null || req.getHasAscenseur() != null
+                    || req.getHasJardin() != null || req.getHasVueMer() != null
+                    || req.getStatutExploitation() != null || req.getDateLivraisonPrevue() != null
+                    || req.getRevenuMensuelActuel() != null || req.getSourceRevenu() != null
+                    || req.getPays() != null || req.getVille() != null
+                    || req.getAdressePrecise() != null || req.getNom() != null) {
+                throw new IllegalArgumentException(
+                    "Apres tokenisation, seules la description et les medias sont modifiables.");
+            }
+        }
+
+        // === Applique les changements autorises ===
+        if (req.getNom() != null && !req.getNom().isBlank()) p.setNom(req.getNom());
+        if (req.getDescription() != null) p.setDescription(req.getDescription());
+        // Etape 1 (sauf nom et description) : autorise uniquement EN_REVIEW / ACCEPTEE
+        if (!isAfterTokenisation) {
+            if (req.getPays() != null) p.setPays(req.getPays());
+            if (req.getVille() != null) p.setVille(req.getVille());
+            if (req.getAdressePrecise() != null) p.setAdressePrecise(req.getAdressePrecise());
+            if (req.getTypeBien() != null) p.setTypeBien(req.getTypeBien());
+            if (req.getNombrePieces() != null) p.setNombrePieces(req.getNombrePieces());
+            if (req.getNombreChambres() != null) p.setNombreChambres(req.getNombreChambres());
+            if (req.getSuperficieM2() != null) p.setSuperficieM2(req.getSuperficieM2());
+            if (req.getHasPiscine() != null) p.setHasPiscine(req.getHasPiscine());
+            if (req.getHasClimatisation() != null) p.setHasClimatisation(req.getHasClimatisation());
+            if (req.getHasParking() != null) p.setHasParking(req.getHasParking());
+            if (req.getHasAscenseur() != null) p.setHasAscenseur(req.getHasAscenseur());
+            if (req.getHasJardin() != null) p.setHasJardin(req.getHasJardin());
+            if (req.getHasVueMer() != null) p.setHasVueMer(req.getHasVueMer());
+            if (req.getStatutExploitation() != null) p.setStatutExploitation(req.getStatutExploitation());
+            if (req.getDateLivraisonPrevue() != null) p.setDateLivraisonPrevue(req.getDateLivraisonPrevue());
+            if (req.getRevenuMensuelActuel() != null) p.setRevenuMensuelActuel(req.getRevenuMensuelActuel());
+            if (req.getSourceRevenu() != null) p.setSourceRevenu(req.getSourceRevenu());
+        }
+        return proprieteRepository.save(p);
     }
 
     /**

@@ -317,6 +317,29 @@ public class ProprieteController {
         return ResponseEntity.ok(proprieteMapper.toResponse(proprieteService.detail(id)));
     }
 
+    @Operation(summary = "Modifier ma propriete (proposeur)",
+            description = "Modification partielle (PATCH) avec controle d'acces selon le statut : "
+                    + "EN_REVIEW/ACCEPTEE -> tous champs sauf prix/parts/devise ; "
+                    + "EN_TOKENISATION/PUBLIEE -> uniquement nom + description ; "
+                    + "REFUSEE -> bloque (faut re-soumettre) ; "
+                    + "BROUILLON -> utiliser /brouillon/{id}.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Modifie"),
+            @ApiResponse(responseCode = "400", description = "Champ non autorise pour ce statut"),
+            @ApiResponse(responseCode = "403", description = "Vous n'etes pas le proposeur"),
+            @ApiResponse(responseCode = "404", description = "Propriete inconnue"),
+            @ApiResponse(responseCode = "409", description = "Statut bloque la modification (REFUSEE)")
+    })
+    @PreAuthorize("hasRole('INVESTISSEUR')")
+    @PatchMapping("/me/{id}")
+    public ResponseEntity<ProprieteResponse> modifierMaPropriete(
+            @PathVariable Long id,
+            @RequestBody BrouillonPatchRequest req) {
+        Long userId = authInvestisseur.currentId();
+        Propriete updated = proprieteService.modifierParProposeur(id, userId, req);
+        return ResponseEntity.ok(proprieteMapper.toResponse(updated));
+    }
+
     @Operation(summary = "Approuver une propriété (admin)", description = "Passe le statut de EN_REVIEW à ACCEPTEE. Notifie le proposeur.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Approuvée"),

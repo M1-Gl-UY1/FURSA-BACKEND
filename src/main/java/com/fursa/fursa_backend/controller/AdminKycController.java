@@ -90,4 +90,20 @@ public class AdminKycController {
                                                     @AuthenticationPrincipal User admin) {
         return ResponseEntity.ok(kycService.reject(id, admin.getId(), body.motif()));
     }
+
+    @Operation(summary = "Revoquer une verification deja approuvee",
+            description = "Passe APPROVED -> REJECTED avec motif. L'investisseur perd "
+                    + "isVerified=true et ne peut plus investir tant qu'il n'a pas "
+                    + "re-soumis une verification valide.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Revoquee"),
+            @ApiResponse(responseCode = "400", description = "Statut actuel != APPROVED, ou motif vide"),
+            @ApiResponse(responseCode = "404", description = "Dossier introuvable")
+    })
+    @PostMapping("/{id}/revoke")
+    public ResponseEntity<KycAdminResponse> revoke(@PathVariable Long id,
+                                                    @Valid @RequestBody KycRejectRequest body,
+                                                    @AuthenticationPrincipal User admin) {
+        return ResponseEntity.ok(kycService.revoke(id, admin.getId(), body.motif()));
+    }
 }

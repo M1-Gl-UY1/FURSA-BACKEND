@@ -201,6 +201,45 @@ public class KycService {
         return toAdminResponse(ks);
     }
 
+    /**
+     * Revocation d'une verification deja approuvee (Phase 04/06/2026).
+     * Passe le KYC APPROVED en REJECTED avec un motif, et remet l'investisseur
+     * en isVerified=false. L'investisseur ne peut plus investir / proposer un
+     * bien tant qu'il n'a pas re-soumis et fait re-valider sa verification.
+     *
+     * <p>Cas d'usage : fraude detectee, document expire, contrainte legale
+     * (sanction internationale, PEP nouvellement ajoute), etc.
+     */
+    @Transactional
+    public KycAdminResponse revoke(Long kycId, Long adminId, String motif) {
+        KycSubmission ks = kycRepository.findById(kycId)
+                .orElseThrow(() -> new EntityNotFoundException("Verification introuvable : " + kycId));
+
+        if (ks.getStatut() != StatutKyc.APPROVED) {
+            throw new IllegalStateException(
+                "Seule une verification approuvee peut etre revoquee (statut actuel : "
+                    + ks.getStatut() + ")");
+        }
+        if (motif == null || motif.isBlank()) {
+            throw new IllegalArgumentException("Motif de revocation obligatoire");
+        }
+
+        ks.setStatut(StatutKyc.REJECTED);
+        ks.setMotifRefus(motif);
+        ks.setReviewedAt(LocalDateTime.now());
+        ks.setReviewedByAdminId(adminId);
+        kycRepository.save(ks);
+
+        // Retire la verification de l'investisseur
+        Investisseur inv = ks.getInvestisseur();
+        inv.setIsVerified(false);
+        investisseurRepository.save(inv);
+
+        log.warn("KYC REVOKED : kycId={} investisseur={} par admin={} motif={}",
+                kycId, inv.getId(), adminId, motif);
+        return toAdminResponse(ks);
+    }
+
     @Transactional
     public KycAdminResponse markInReview(Long kycId, Long adminId) {
         KycSubmission ks = kycRepository.findById(kycId)
