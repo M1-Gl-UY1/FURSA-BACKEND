@@ -92,6 +92,15 @@ public class Propriete {
     @Column(name = "type_bien", length = 20)
     private TypeBien typeBien;
 
+    /**
+     * V2 G.3 (04/06/2026) : type de bien admin-configurable (source de verite).
+     * Pour les 7 codes historiques, contient la meme valeur que {@code typeBien}.
+     * Pour les codes custom crees par l'admin (LOFT, MAISON_DE_VILLE, ...),
+     * {@code typeBien} reste null et seul ce champ porte la valeur.
+     */
+    @Column(name = "type_bien_code", length = 50)
+    private String typeBienCode;
+
     @Column(name = "nombre_pieces")
     private Integer nombrePieces;
 

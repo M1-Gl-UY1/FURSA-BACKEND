@@ -8,6 +8,7 @@ import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.PartenaireGestion;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.repository.InvestisseurRepository;
+import com.fursa.fursa_backend.service.TypeBienRefService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +23,7 @@ import java.util.Set;
 public class ProprieteMapper {
 
     private final InvestisseurRepository investisseurRepository;
+    private final TypeBienRefService typeBienRefService;
 
     /**
      * Fix 25/05/2026 : standardise l'URL d'un document.
@@ -137,6 +139,18 @@ public class ProprieteMapper {
                 .ville(p.getVille())
                 .adressePrecise(p.getAdressePrecise())
                 .typeBien(p.getTypeBien())
+                // V2 G.3 : code admin-configurable. Fallback sur l'enum si pas
+                // encore backfille (biens crees avant la migration 026).
+                .typeBienCode(
+                    p.getTypeBienCode() != null
+                        ? p.getTypeBienCode()
+                        : (p.getTypeBien() != null ? p.getTypeBien().name() : null)
+                )
+                .typeBienLabel(typeBienRefService.resoudreLabel(
+                    p.getTypeBienCode() != null
+                        ? p.getTypeBienCode()
+                        : (p.getTypeBien() != null ? p.getTypeBien().name() : null)
+                ))
                 .nombrePieces(p.getNombrePieces())
                 .nombreChambres(p.getNombreChambres())
                 .superficieM2(p.getSuperficieM2())

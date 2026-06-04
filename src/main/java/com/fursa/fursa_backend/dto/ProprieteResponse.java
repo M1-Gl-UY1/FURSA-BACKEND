@@ -53,6 +53,15 @@ public class ProprieteResponse {
     private String ville;
     private String adressePrecise;
     private TypeBien typeBien;
+    /**
+     * V2 G.3 (04/06/2026) : code du type de bien (admin-configurable).
+     * Source de verite pour le frontend. Pour les 7 codes historiques,
+     * meme valeur que {@code typeBien.name()}. Pour les codes custom,
+     * seul ce champ porte la valeur (typeBien reste null).
+     */
+    private String typeBienCode;
+    /** V2 G.3 : libelle affichable resolu cote backend (ex "Villa", "Loft"). */
+    private String typeBienLabel;
     private Integer nombrePieces;
     private Integer nombreChambres;
     private Integer superficieM2;
