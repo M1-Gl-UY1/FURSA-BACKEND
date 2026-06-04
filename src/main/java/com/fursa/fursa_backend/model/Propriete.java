@@ -14,7 +14,9 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -116,6 +118,21 @@ public class Propriete {
 
     @Column(name = "has_vue_mer", nullable = false)
     private Boolean hasVueMer = false;
+
+    /**
+     * V2 G.1 (04/06/2026) : equipements admin-configurables.
+     * Source de verite pour les NOUVEAUX biens (le wizard ecrit ici).
+     * Pour les biens anciens, la migration 025 a backfille les booleens has_xxx
+     * vers cette table. Le mapper expose une union des deux sources via
+     * equipementsCodes pour la lecture (zero regression frontend).
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "propriete_equipement",
+            joinColumns = @JoinColumn(name = "id_prop"),
+            inverseJoinColumns = @JoinColumn(name = "id_equipement")
+    )
+    private Set<Equipement> equipements = new HashSet<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "statut_exploitation", length = 20, nullable = false)

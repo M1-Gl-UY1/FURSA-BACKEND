@@ -11,8 +11,11 @@ import com.fursa.fursa_backend.repository.InvestisseurRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -73,6 +76,24 @@ public class ProprieteMapper {
                 .map(d -> toFichierUrl(d.getUrl()))
                 .toList();
 
+        // V2 G.1 (04/06/2026) : union des equipements (booleens + entites)
+        // pour exposer une liste unique de codes au frontend. On garde l'ordre
+        // d'insertion (booleens d'abord, puis entites custom) pour un affichage
+        // stable.
+        Set<String> codes = new LinkedHashSet<>();
+        if (Boolean.TRUE.equals(p.getHasPiscine())) codes.add("PISCINE");
+        if (Boolean.TRUE.equals(p.getHasClimatisation())) codes.add("CLIMATISATION");
+        if (Boolean.TRUE.equals(p.getHasParking())) codes.add("PARKING");
+        if (Boolean.TRUE.equals(p.getHasAscenseur())) codes.add("ASCENSEUR");
+        if (Boolean.TRUE.equals(p.getHasJardin())) codes.add("JARDIN");
+        if (Boolean.TRUE.equals(p.getHasVueMer())) codes.add("VUE_MER");
+        if (p.getEquipements() != null) {
+            p.getEquipements().stream()
+                    .filter(e -> e != null && e.getCode() != null)
+                    .forEach(e -> codes.add(e.getCode()));
+        }
+        List<String> equipementsCodes = new ArrayList<>(codes);
+
         // Resolution proposeur (nom anonymise + statut KYC) pour badge "verifie".
         // N+1 accepte sur les listes (volume bas en MVP, pas de tri/filtre par proposeur).
         String proposeurNomAnon = null;
@@ -125,6 +146,7 @@ public class ProprieteMapper {
                 .hasAscenseur(p.getHasAscenseur())
                 .hasJardin(p.getHasJardin())
                 .hasVueMer(p.getHasVueMer())
+                .equipementsCodes(equipementsCodes)
                 .statutExploitation(p.getStatutExploitation())
                 .dateLivraisonPrevue(p.getDateLivraisonPrevue())
                 .revenuMensuelActuel(p.getRevenuMensuelActuel())

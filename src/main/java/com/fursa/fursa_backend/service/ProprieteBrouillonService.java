@@ -53,6 +53,7 @@ public class ProprieteBrouillonService {
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
     private final DeviseRateService deviseRateService;
+    private final EquipementService equipementService;
 
     /**
      * Cree un brouillon vide pour l'investisseur. Renvoie l'id pour que le frontend
@@ -113,12 +114,19 @@ public class ProprieteBrouillonService {
         if (req.getNombrePieces() != null) p.setNombrePieces(req.getNombrePieces());
         if (req.getNombreChambres() != null) p.setNombreChambres(req.getNombreChambres());
         if (req.getSuperficieM2() != null) p.setSuperficieM2(req.getSuperficieM2());
-        if (req.getHasPiscine() != null) p.setHasPiscine(req.getHasPiscine());
-        if (req.getHasClimatisation() != null) p.setHasClimatisation(req.getHasClimatisation());
-        if (req.getHasParking() != null) p.setHasParking(req.getHasParking());
-        if (req.getHasAscenseur() != null) p.setHasAscenseur(req.getHasAscenseur());
-        if (req.getHasJardin() != null) p.setHasJardin(req.getHasJardin());
-        if (req.getHasVueMer() != null) p.setHasVueMer(req.getHasVueMer());
+        // V2 G.1 (04/06/2026) : la source de verite est equipementsCodes si
+        // present (nouveau wizard). Sinon, fallback sur les booleens hasXxx
+        // pour ne pas casser les clients qui les enverraient encore.
+        if (req.getEquipementsCodes() != null) {
+            equipementService.applyCodesToPropriete(p, req.getEquipementsCodes());
+        } else {
+            if (req.getHasPiscine() != null) p.setHasPiscine(req.getHasPiscine());
+            if (req.getHasClimatisation() != null) p.setHasClimatisation(req.getHasClimatisation());
+            if (req.getHasParking() != null) p.setHasParking(req.getHasParking());
+            if (req.getHasAscenseur() != null) p.setHasAscenseur(req.getHasAscenseur());
+            if (req.getHasJardin() != null) p.setHasJardin(req.getHasJardin());
+            if (req.getHasVueMer() != null) p.setHasVueMer(req.getHasVueMer());
+        }
 
         if (req.getStatutExploitation() != null) p.setStatutExploitation(req.getStatutExploitation());
         if (req.getDateLivraisonPrevue() != null) p.setDateLivraisonPrevue(req.getDateLivraisonPrevue());

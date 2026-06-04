@@ -45,6 +45,7 @@ public class ProprieteService {
     private final com.fursa.fursa_backend.repository.EscrowProprieteRepository escrowProprieteRepository;
     private final com.fursa.fursa_backend.repository.RevenusRepository revenusRepository;
     private final com.fursa.fursa_backend.repository.InvestisseurRepository investisseurRepository;
+    private final EquipementService equipementService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -162,12 +163,17 @@ public class ProprieteService {
             if (req.getNombrePieces() != null) p.setNombrePieces(req.getNombrePieces());
             if (req.getNombreChambres() != null) p.setNombreChambres(req.getNombreChambres());
             if (req.getSuperficieM2() != null) p.setSuperficieM2(req.getSuperficieM2());
-            if (req.getHasPiscine() != null) p.setHasPiscine(req.getHasPiscine());
-            if (req.getHasClimatisation() != null) p.setHasClimatisation(req.getHasClimatisation());
-            if (req.getHasParking() != null) p.setHasParking(req.getHasParking());
-            if (req.getHasAscenseur() != null) p.setHasAscenseur(req.getHasAscenseur());
-            if (req.getHasJardin() != null) p.setHasJardin(req.getHasJardin());
-            if (req.getHasVueMer() != null) p.setHasVueMer(req.getHasVueMer());
+            // V2 G.1 : equipementsCodes prime sur les booleens si fourni.
+            if (req.getEquipementsCodes() != null) {
+                equipementService.applyCodesToPropriete(p, req.getEquipementsCodes());
+            } else {
+                if (req.getHasPiscine() != null) p.setHasPiscine(req.getHasPiscine());
+                if (req.getHasClimatisation() != null) p.setHasClimatisation(req.getHasClimatisation());
+                if (req.getHasParking() != null) p.setHasParking(req.getHasParking());
+                if (req.getHasAscenseur() != null) p.setHasAscenseur(req.getHasAscenseur());
+                if (req.getHasJardin() != null) p.setHasJardin(req.getHasJardin());
+                if (req.getHasVueMer() != null) p.setHasVueMer(req.getHasVueMer());
+            }
             if (req.getStatutExploitation() != null) p.setStatutExploitation(req.getStatutExploitation());
             if (req.getDateLivraisonPrevue() != null) p.setDateLivraisonPrevue(req.getDateLivraisonPrevue());
             if (req.getRevenuMensuelActuel() != null) p.setRevenuMensuelActuel(req.getRevenuMensuelActuel());
@@ -483,12 +489,17 @@ public class ProprieteService {
         p.setNombrePieces(req.getNombrePieces());
         p.setNombreChambres(req.getNombreChambres());
         p.setSuperficieM2(req.getSuperficieM2());
-        p.setHasPiscine(Boolean.TRUE.equals(req.getHasPiscine()));
-        p.setHasClimatisation(Boolean.TRUE.equals(req.getHasClimatisation()));
-        p.setHasParking(Boolean.TRUE.equals(req.getHasParking()));
-        p.setHasAscenseur(Boolean.TRUE.equals(req.getHasAscenseur()));
-        p.setHasJardin(Boolean.TRUE.equals(req.getHasJardin()));
-        p.setHasVueMer(Boolean.TRUE.equals(req.getHasVueMer()));
+        // V2 G.1 (04/06/2026) : equipementsCodes prime sur les booleens si fourni.
+        if (req.getEquipementsCodes() != null) {
+            equipementService.applyCodesToPropriete(p, req.getEquipementsCodes());
+        } else {
+            p.setHasPiscine(Boolean.TRUE.equals(req.getHasPiscine()));
+            p.setHasClimatisation(Boolean.TRUE.equals(req.getHasClimatisation()));
+            p.setHasParking(Boolean.TRUE.equals(req.getHasParking()));
+            p.setHasAscenseur(Boolean.TRUE.equals(req.getHasAscenseur()));
+            p.setHasJardin(Boolean.TRUE.equals(req.getHasJardin()));
+            p.setHasVueMer(Boolean.TRUE.equals(req.getHasVueMer()));
+        }
         p.setStatutExploitation(req.getStatutExploitation());
         p.setDateLivraisonPrevue(req.getDateLivraisonPrevue());
         p.setRevenuMensuelActuel(req.getRevenuMensuelActuel());

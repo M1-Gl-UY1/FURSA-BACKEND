@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * Soumission d'un bien immobilier par un investisseur.
@@ -67,6 +68,14 @@ public class SubmissionRequest {
     private Boolean hasAscenseur = false;
     private Boolean hasJardin = false;
     private Boolean hasVueMer = false;
+
+    /**
+     * V2 G.1 (04/06/2026) : codes des equipements admin-configurables choisis
+     * dans le wizard. Si non-null, le service synchronise les booleens hasXxx
+     * connus + les liens vers la table Equipement.
+     * Format : ["PISCINE", "PARKING", "SALLE_DE_SPORT"]
+     */
+    private List<String> equipementsCodes;
 
     // --- Etape 3 : Statut d'exploitation (NEUF | DEJA_RENTABLE) + preuves ---
 

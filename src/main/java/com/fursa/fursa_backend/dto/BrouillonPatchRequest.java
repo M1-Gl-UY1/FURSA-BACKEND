@@ -8,6 +8,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Update partiel d'un brouillon de propriete (wizard auto-save).
@@ -43,6 +44,12 @@ public class BrouillonPatchRequest {
     private Boolean hasAscenseur;
     private Boolean hasJardin;
     private Boolean hasVueMer;
+
+    /**
+     * V2 G.1 (04/06/2026) : codes des equipements admin-configurables.
+     * Optionnel. Si fourni (meme vide), remplace la selection courante du brouillon.
+     */
+    private List<String> equipementsCodes;
 
     // Etape 3 : exploitation
     private StatutExploitation statutExploitation;

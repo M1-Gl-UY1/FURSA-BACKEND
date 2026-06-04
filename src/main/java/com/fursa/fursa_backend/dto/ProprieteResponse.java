@@ -62,6 +62,13 @@ public class ProprieteResponse {
     private Boolean hasAscenseur;
     private Boolean hasJardin;
     private Boolean hasVueMer;
+    /**
+     * V2 G.1 (04/06/2026) : codes des equipements (admin-configurables).
+     * Union des booleens hasXxx et des entites Equipement liees au bien.
+     * Source de verite pour les NOUVEAUX clients ; les booleens hasXxx restent
+     * exposes pour la retro-compat.
+     */
+    private List<String> equipementsCodes;
     private StatutExploitation statutExploitation;
     /** P8b (Hugh 25/05/2026) : date prevue de livraison si EN_CONSTRUCTION. */
     private LocalDate dateLivraisonPrevue;
