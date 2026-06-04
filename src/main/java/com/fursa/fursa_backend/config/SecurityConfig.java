@@ -66,7 +66,12 @@ public class SecurityConfig {
                                         "/api/proprietes/public",
                                         "/api/proprietes/public/**",
                                         "/api/proprietes/*/historique-prix",
-                                        "/api/partenaires-gestion"
+                                        "/api/partenaires-gestion",
+                                        // V2 G.1 (04/06/2026) : liste des
+                                        // equipements lisible publiquement
+                                        // (wizard non-auth + catalogue). Le
+                                        // CRUD /admin reste protege.
+                                        "/api/equipements"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 )
