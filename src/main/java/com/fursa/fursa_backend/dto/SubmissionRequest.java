@@ -55,8 +55,19 @@ public class SubmissionRequest {
 
     // --- Etape 2 : Type & equipements ---
 
-    @NotNull(message = "Le type de bien est obligatoire")
+    /**
+     * V2 G.3 (04/06/2026) : l'enum n'est plus obligatoire. Le frontend peut
+     * envoyer soit cet enum (compat) soit typeBienCode (source de verite v2,
+     * accepte les codes custom crees par l'admin). La validation "au moins
+     * un des deux" est faite cote service.
+     */
     private TypeBien typeBien;
+
+    /**
+     * V2 G.3 : code du type de bien admin-configurable. Prime sur typeBien
+     * si fourni. Ex "VILLA", "LOFT", "MAISON_DE_VILLE".
+     */
+    private String typeBienCode;
 
     private Integer nombrePieces;
     private Integer nombreChambres;

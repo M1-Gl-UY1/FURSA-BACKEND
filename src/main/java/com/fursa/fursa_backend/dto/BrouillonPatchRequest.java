@@ -35,6 +35,8 @@ public class BrouillonPatchRequest {
 
     // Etape 2 : type & equipements
     private TypeBien typeBien;
+    /** V2 G.3 (04/06/2026) : code admin-configurable. Prime sur typeBien si fourni. */
+    private String typeBienCode;
     private Integer nombrePieces;
     private Integer nombreChambres;
     private Integer superficieM2;

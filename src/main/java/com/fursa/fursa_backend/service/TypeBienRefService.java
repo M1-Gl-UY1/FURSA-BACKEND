@@ -2,7 +2,9 @@ package com.fursa.fursa_backend.service;
 
 import com.fursa.fursa_backend.dto.TypeBienRequest;
 import com.fursa.fursa_backend.dto.TypeBienResponse;
+import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.TypeBienRef;
+import com.fursa.fursa_backend.model.enumeration.TypeBien;
 import com.fursa.fursa_backend.repository.TypeBienRefRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -84,6 +86,39 @@ public class TypeBienRefService {
                 .orElseThrow(() -> new EntityNotFoundException("Type de bien introuvable : " + id));
         repository.delete(t);
         log.warn("TypeBien {} ({}) supprime", id, t.getCode());
+    }
+
+    /**
+     * V2 G.3 (04/06/2026) : applique le type de bien sur une propriete en
+     * synchronisant les deux representations :
+     *  - {@code typeBienCode} (string, source de verite admin-configurable)
+     *  - {@code typeBien} (enum, conserve pour retro-compat lecture des
+     *    anciens clients)
+     *
+     * <p>Si {@code codeFromReq} est fourni il prime ; sinon on retombe sur
+     * {@code enumFromReq}. Si les deux sont null, la propriete n'est pas
+     * modifiee (no-op, utile pour les PATCH partiels).
+     *
+     * <p>Pour les 7 codes historiques, l'enum est aussi rempli (compat).
+     * Pour les codes custom crees par l'admin, l'enum est laisse a null
+     * (TypeBien.valueOf throws IllegalArgumentException et on l'ignore).
+     */
+    public void applyToPropriete(Propriete p, String codeFromReq, TypeBien enumFromReq) {
+        String code = (codeFromReq != null && !codeFromReq.isBlank())
+                ? codeFromReq
+                : (enumFromReq != null ? enumFromReq.name() : null);
+        if (code == null) return;
+
+        p.setTypeBienCode(code);
+        try {
+            p.setTypeBien(TypeBien.valueOf(code));
+        } catch (IllegalArgumentException ex) {
+            // Code custom : l'enum n'en a pas connaissance. On laisse null
+            // pour ne pas inventer une valeur. Le frontend lira typeBienCode/
+            // typeBienLabel exposes par le mapper.
+            p.setTypeBien(null);
+            log.debug("Code type bien custom (hors enum) : {}", code);
+        }
     }
 
     /**

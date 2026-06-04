@@ -46,6 +46,7 @@ public class ProprieteService {
     private final com.fursa.fursa_backend.repository.RevenusRepository revenusRepository;
     private final com.fursa.fursa_backend.repository.InvestisseurRepository investisseurRepository;
     private final EquipementService equipementService;
+    private final TypeBienRefService typeBienRefService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -137,7 +138,8 @@ public class ProprieteService {
 
         // === Champs structurels (type, caracteristiques) : interdits apres tokenisation ===
         if (isAfterTokenisation) {
-            if (req.getTypeBien() != null || req.getNombrePieces() != null
+            if (req.getTypeBien() != null || req.getTypeBienCode() != null
+                    || req.getNombrePieces() != null
                     || req.getNombreChambres() != null || req.getSuperficieM2() != null
                     || req.getHasPiscine() != null || req.getHasClimatisation() != null
                     || req.getHasParking() != null || req.getHasAscenseur() != null
@@ -159,7 +161,8 @@ public class ProprieteService {
             if (req.getPays() != null) p.setPays(req.getPays());
             if (req.getVille() != null) p.setVille(req.getVille());
             if (req.getAdressePrecise() != null) p.setAdressePrecise(req.getAdressePrecise());
-            if (req.getTypeBien() != null) p.setTypeBien(req.getTypeBien());
+            // V2 G.3 : sync typeBien + typeBienCode (no-op si les deux null).
+            typeBienRefService.applyToPropriete(p, req.getTypeBienCode(), req.getTypeBien());
             if (req.getNombrePieces() != null) p.setNombrePieces(req.getNombrePieces());
             if (req.getNombreChambres() != null) p.setNombreChambres(req.getNombreChambres());
             if (req.getSuperficieM2() != null) p.setSuperficieM2(req.getSuperficieM2());
@@ -485,7 +488,8 @@ public class ProprieteService {
         p.setPays(req.getPays());
         p.setVille(req.getVille());
         p.setAdressePrecise(req.getAdressePrecise());
-        p.setTypeBien(req.getTypeBien());
+        // V2 G.3 : sync typeBien + typeBienCode.
+        typeBienRefService.applyToPropriete(p, req.getTypeBienCode(), req.getTypeBien());
         p.setNombrePieces(req.getNombrePieces());
         p.setNombreChambres(req.getNombreChambres());
         p.setSuperficieM2(req.getSuperficieM2());

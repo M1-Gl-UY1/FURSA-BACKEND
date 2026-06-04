@@ -54,6 +54,7 @@ public class ProprieteBrouillonService {
     private final NotificationService notificationService;
     private final DeviseRateService deviseRateService;
     private final EquipementService equipementService;
+    private final TypeBienRefService typeBienRefService;
 
     /**
      * Cree un brouillon vide pour l'investisseur. Renvoie l'id pour que le frontend
@@ -110,7 +111,9 @@ public class ProprieteBrouillonService {
             p.setLocalisation(loc);
         }
 
-        if (req.getTypeBien() != null) p.setTypeBien(req.getTypeBien());
+        // V2 G.3 : sync typeBien + typeBienCode via le helper centralise.
+        // No-op si les deux sont null (PATCH partiel respecte).
+        typeBienRefService.applyToPropriete(p, req.getTypeBienCode(), req.getTypeBien());
         if (req.getNombrePieces() != null) p.setNombrePieces(req.getNombrePieces());
         if (req.getNombreChambres() != null) p.setNombreChambres(req.getNombreChambres());
         if (req.getSuperficieM2() != null) p.setSuperficieM2(req.getSuperficieM2());
@@ -256,7 +259,10 @@ public class ProprieteBrouillonService {
         if (p.getVille() == null || p.getVille().isBlank()) {
             throw new IllegalStateException("La ville est obligatoire.");
         }
-        if (p.getTypeBien() == null) {
+        // V2 G.3 : accepter typeBienCode seul (code custom) OU l'enum
+        // typeBien (codes historiques). Au moins un des deux est requis.
+        if ((p.getTypeBienCode() == null || p.getTypeBienCode().isBlank())
+                && p.getTypeBien() == null) {
             throw new IllegalStateException("Le type de bien est obligatoire.");
         }
         if (p.getStatutExploitation() == null) {
