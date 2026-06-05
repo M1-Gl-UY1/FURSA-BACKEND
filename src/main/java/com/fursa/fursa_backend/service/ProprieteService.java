@@ -49,6 +49,7 @@ public class ProprieteService {
     private final TypeBienRefService typeBienRefService;
     private final CategorieDocumentRefService categorieDocumentRefService;
     private final SectionPhotoRefService sectionPhotoRefService;
+    private final EmailService emailService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -573,7 +574,7 @@ public class ProprieteService {
         p.setMotifRefus(null);
         proprieteRepository.save(p);
 
-        // 2. Notifier le proposeur
+        // 2. Notifier le proposeur (in-app + email)
         if (p.getProposeurId() != null) {
             userRepository.findById(p.getProposeurId()).ifPresent(u -> {
                 if (u instanceof Investisseur inv) {
@@ -583,6 +584,10 @@ public class ProprieteService {
                         "Votre bien \"" + p.getNom() + "\" est en cours de tokenisation sur la blockchain. Il sera publie automatiquement.",
                         TypeMessage.ANNONCE
                     );
+                    // V2 G.6 : email transactionnel via Postal (async, log-only si non config).
+                    if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
+                        emailService.envoyerProprieteAcceptee(inv.getEmail(), inv.getPrenom(), p.getNom());
+                    }
                 }
             });
         }
@@ -611,6 +616,10 @@ public class ProprieteService {
                             "Votre bien \"" + saved.getNom() + "\" a été validé. Il sera publié prochainement.",
                             TypeMessage.ANNONCE
                     );
+                    // V2 G.6 : email transactionnel via Postal.
+                    if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
+                        emailService.envoyerProprieteAcceptee(inv.getEmail(), inv.getPrenom(), saved.getNom());
+                    }
                 }
             });
         }
@@ -637,10 +646,58 @@ public class ProprieteService {
                             "Votre bien \"" + saved.getNom() + "\" a été refusé. Motif : " + motif,
                             TypeMessage.AVERTISSEMENT
                     );
+                    // V2 G.6 : email transactionnel via Postal.
+                    if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
+                        emailService.envoyerProprieteRefusee(inv.getEmail(), inv.getPrenom(), saved.getNom(), motif);
+                    }
                 }
             });
         }
         return saved;
+    }
+
+    // =========================================================================
+    // V2 G.7 (05/06/2026) : Phase E medias post-tokenisation
+    // =========================================================================
+
+    /**
+     * Permet au proposeur d'ajouter des photos a son bien apres la
+     * tokenisation. Utile pour enrichir la fiche avec des photos de saison,
+     * apres travaux, etc.
+     *
+     * <p>Autorise uniquement si le bien est ACCEPTEE, EN_TOKENISATION ou
+     * PUBLIEE. Refuse si EN_REVIEW (utiliser le wizard brouillon) ou REFUSEE.
+     *
+     * @param proposeurId user qui tente l'ajout (doit etre le proposeur du bien)
+     * @param proprieteId id du bien
+     * @param photos      liste de fichiers IMAGE
+     * @param sections    codes de section parallel aux photos (FACADE, SALON,
+     *                    TERRASSE custom, ...). Memes contraintes que dans le wizard.
+     */
+    @Transactional
+    public Propriete ajouterPhotosPostTokenisation(Long proposeurId, Long proprieteId,
+                                                    List<MultipartFile> photos,
+                                                    List<String> sections) {
+        Propriete p = proprieteRepository.findById(proprieteId)
+                .orElseThrow(() -> new EntityNotFoundException("Propriete introuvable : " + proprieteId));
+        if (p.getProposeurId() == null || !p.getProposeurId().equals(proposeurId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Vous ne pouvez ajouter des photos qu'a vos propres biens.");
+        }
+        StatutPropriete s = p.getStatut();
+        boolean ok = s == StatutPropriete.ACCEPTEE
+                  || s == StatutPropriete.EN_TOKENISATION
+                  || s == StatutPropriete.PUBLIEE;
+        if (!ok) {
+            throw new IllegalStateException(
+                "Impossible d'ajouter des photos avec le statut " + s
+                + " : utiliser le wizard pour les brouillons et attendre la validation pour les biens en review.");
+        }
+        if (photos == null || photos.isEmpty()) {
+            throw new IllegalArgumentException("Au moins une photo est requise.");
+        }
+        sauvegarderPhotos(photos, p, sections);
+        return proprieteRepository.findById(p.getId()).orElseThrow();
     }
 
     // =========================================================================

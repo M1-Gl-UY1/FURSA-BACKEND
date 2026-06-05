@@ -32,6 +32,15 @@ jobs:
           BLOCKCHAIN_CHAIN_ID: ${{ secrets.BLOCKCHAIN_CHAIN_ID }}
           BLOCKCHAIN_GAS_PRICE: ${{ secrets.BLOCKCHAIN_GAS_PRICE }}
           BLOCKCHAIN_GAS_LIMIT: ${{ secrets.BLOCKCHAIN_GAS_LIMIT }}
+          # V2 G.6 (05/06/2026) : credentials SMTP Postal pour les emails
+          # transactionnels. Si non definis, le service tombe en log-only.
+          MAIL_HOST: ${{ secrets.MAIL_HOST }}
+          MAIL_PORT: ${{ secrets.MAIL_PORT }}
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_FROM_NAME: ${{ secrets.MAIL_FROM_NAME }}
+          MAIL_ENABLED: ${{ secrets.MAIL_ENABLED }}
         run: |
           # ServerAliveInterval=30s + Count=240 = keepalive jusqu'a 2h d'idle, evite "Broken pipe"
           # quand wait_healthy reste silencieux pendant Spring Boot startup (~5min)
@@ -45,17 +54,26 @@ jobs:
             git reset --hard FETCH_HEAD
             git clean -fd
 
-            echo "=== Syncing BLOCKCHAIN_* secrets dans .env (sans toucher au reste) ==="
-            grep -v '^BLOCKCHAIN_' .env > .env.tmp 2>/dev/null || cp .env .env.tmp
+            echo "=== Syncing BLOCKCHAIN_* + MAIL_* secrets dans .env (sans toucher au reste) ==="
+            grep -v -E '^(BLOCKCHAIN_|MAIL_)' .env > .env.tmp 2>/dev/null || cp .env .env.tmp
             echo "BLOCKCHAIN_RPC_URL=${BLOCKCHAIN_RPC_URL}" >> .env.tmp
             echo "BLOCKCHAIN_CONTRACT_ADDRESS=${BLOCKCHAIN_CONTRACT_ADDRESS}" >> .env.tmp
             echo "BLOCKCHAIN_OWNER_PRIVATE_KEY=${BLOCKCHAIN_OWNER_PRIVATE_KEY}" >> .env.tmp
             echo "BLOCKCHAIN_CHAIN_ID=${BLOCKCHAIN_CHAIN_ID}" >> .env.tmp
             echo "BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE}" >> .env.tmp
             echo "BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT}" >> .env.tmp
+            # V2 G.6 (05/06/2026) : Postal SMTP pour les emails transactionnels.
+            # Si MAIL_HOST est vide, le backend tombe en log-only sans crasher.
+            [ -n "${MAIL_HOST}" ] && echo "MAIL_HOST=${MAIL_HOST}" >> .env.tmp
+            [ -n "${MAIL_PORT}" ] && echo "MAIL_PORT=${MAIL_PORT}" >> .env.tmp
+            [ -n "${MAIL_USERNAME}" ] && echo "MAIL_USERNAME=${MAIL_USERNAME}" >> .env.tmp
+            [ -n "${MAIL_PASSWORD}" ] && echo "MAIL_PASSWORD=${MAIL_PASSWORD}" >> .env.tmp
+            [ -n "${MAIL_FROM}" ] && echo "MAIL_FROM=${MAIL_FROM}" >> .env.tmp
+            [ -n "${MAIL_FROM_NAME}" ] && echo "MAIL_FROM_NAME=${MAIL_FROM_NAME}" >> .env.tmp
+            [ -n "${MAIL_ENABLED}" ] && echo "MAIL_ENABLED=${MAIL_ENABLED}" >> .env.tmp
             mv .env.tmp .env
             chmod 600 .env
-            echo "Vars BLOCKCHAIN_* injectees (\$(grep -c '^BLOCKCHAIN_' .env) lignes)"
+            echo "Vars BLOCKCHAIN_* + MAIL_* injectees (\$(grep -c -E '^(BLOCKCHAIN_|MAIL_)' .env) lignes)"
 
             echo "=== Sauvegarde des uploads avant migration ==="
             # Securite : si fursa-backend-2 existait encore, on rapatrie ses fichiers

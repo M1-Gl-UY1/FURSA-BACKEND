@@ -39,13 +39,16 @@ public class KycService {
     private final KycSubmissionRepository kycRepository;
     private final InvestisseurRepository investisseurRepository;
     private final FileStorageService fileStorageService;
+    private final EmailService emailService;
 
     public KycService(KycSubmissionRepository kycRepository,
                       InvestisseurRepository investisseurRepository,
-                      FileStorageService fileStorageService) {
+                      FileStorageService fileStorageService,
+                      EmailService emailService) {
         this.kycRepository = kycRepository;
         this.investisseurRepository = investisseurRepository;
         this.fileStorageService = fileStorageService;
+        this.emailService = emailService;
     }
 
     // =========================================================================
@@ -171,7 +174,12 @@ public class KycService {
         investisseurRepository.save(inv);
 
         log.info("KYC APPROVED : kycId={} investisseur={} par admin={}", kycId, inv.getId(), adminId);
-        // TODO Phase 2 : envoyer Notification investisseur "Votre identite est verifiee"
+        // V2 G.6 (05/06/2026) : email transactionnel via Postal SMTP (async,
+        // log-only si Postal non configure). La notif in-app est creee par
+        // ailleurs si necessaire (AdminKycController -> NotificationService).
+        if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
+            emailService.envoyerKycValide(inv.getEmail(), inv.getPrenom());
+        }
 
         return toAdminResponse(ks);
     }
@@ -196,7 +204,11 @@ public class KycService {
 
         log.info("KYC REJECTED : kycId={} investisseur={} par admin={} motif={}",
                 kycId, ks.getInvestisseur().getId(), adminId, motif);
-        // TODO Phase 2 : envoyer Notification investisseur avec motif
+        // V2 G.6 (05/06/2026) : email transactionnel via Postal SMTP.
+        Investisseur inv = ks.getInvestisseur();
+        if (inv != null && inv.getEmail() != null && !inv.getEmail().isBlank()) {
+            emailService.envoyerKycRefuse(inv.getEmail(), inv.getPrenom(), motif);
+        }
 
         return toAdminResponse(ks);
     }

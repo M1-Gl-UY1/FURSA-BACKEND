@@ -1,5 +1,7 @@
 package com.fursa.fursa_backend.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Service;
@@ -20,19 +22,45 @@ public class FileStorageService {
     private static final java.util.Set<String> ALLOWED_CONTENT_TYPES = java.util.Set.of(
             "application/pdf", "image/jpeg", "image/png", "image/webp",
             "video/mp4", "video/quicktime", "video/webm");
-    // Limites differenciees par type (decisions Hugh 26/05/2026) :
-    private static final long MAX_VIDEO_SIZE_BYTES = 100L * 1024 * 1024;   // 100 Mo
-    private static final long MAX_IMAGE_SIZE_BYTES = 4L * 1024 * 1024;     //   4 Mo
-    private static final long MAX_PDF_SIZE_BYTES   = 10L * 1024 * 1024;    //  10 Mo (docs legaux)
+
+    // V2 G.5 (05/06/2026) : valeurs par defaut hardcodees, utilisees en
+    // fallback si la cle n'existe pas en BDD (migration 029 pas encore
+    // appliquee ou setting supprime). Les vraies limites sont lues dans
+    // app_setting via AppSettingsService.
+    private static final long MAX_VIDEO_SIZE_DEFAULT_MO = 100L;
+    private static final long MAX_IMAGE_SIZE_DEFAULT_MO = 4L;
+    private static final long MAX_PDF_SIZE_DEFAULT_MO   = 10L;
+
+    /**
+     * V2 G.5 : lecture dynamique des limites via le service de settings.
+     * {@code @Lazy} pour eviter une dependance circulaire au demarrage du
+     * contexte Spring (AppSettingsService depend de JPA qui est initialise
+     * apres FileStorageService).
+     */
+    private final AppSettingsService appSettingsService;
 
     private final Path root = Paths.get("uploads");
 
-    public FileStorageService() {
+    @Autowired
+    public FileStorageService(@Lazy AppSettingsService appSettingsService) {
+        this.appSettingsService = appSettingsService;
         try {
             if (!Files.exists(root)) Files.createDirectories(root);
         } catch (IOException e) {
             throw new RuntimeException("Impossible de créer le dossier de stockage");
         }
+    }
+
+    private long maxPdfBytes() {
+        return appSettingsService.getLong("file.max_size_pdf_mo", MAX_PDF_SIZE_DEFAULT_MO) * 1024L * 1024L;
+    }
+
+    private long maxImageBytes() {
+        return appSettingsService.getLong("file.max_size_image_mo", MAX_IMAGE_SIZE_DEFAULT_MO) * 1024L * 1024L;
+    }
+
+    private long maxVideoBytes() {
+        return appSettingsService.getLong("file.max_size_video_mo", MAX_VIDEO_SIZE_DEFAULT_MO) * 1024L * 1024L;
     }
 
     public String save(MultipartFile file) {
@@ -69,22 +97,29 @@ public class FileStorageService {
         final long size = file.getSize();
         final long mb = 1024L * 1024L;
         final String ct = contentType.toLowerCase();
+        // V2 G.5 : limites dynamiques via AppSettingsService (cache local).
         if (ct.startsWith("image/")) {
-            if (size > MAX_IMAGE_SIZE_BYTES) {
+            long limit = maxImageBytes();
+            if (size > limit) {
                 throw new IllegalArgumentException(
-                        "Photo trop lourde (" + (size / mb) + " Mo) : taille max autorisee = 4 Mo. "
+                        "Photo trop lourde (" + (size / mb) + " Mo) : taille max autorisee = "
+                                + (limit / mb) + " Mo. "
                                 + "Compressez l'image (TinyPNG, Squoosh) avant l'upload.");
             }
         } else if (ct.startsWith("video/")) {
-            if (size > MAX_VIDEO_SIZE_BYTES) {
+            long limit = maxVideoBytes();
+            if (size > limit) {
                 throw new IllegalArgumentException(
-                        "Video trop lourde (" + (size / mb) + " Mo) : taille max autorisee = 100 Mo. "
+                        "Video trop lourde (" + (size / mb) + " Mo) : taille max autorisee = "
+                                + (limit / mb) + " Mo. "
                                 + "Compressez la video (HandBrake, MP4 720p) avant l'upload.");
             }
         } else { // application/pdf
-            if (size > MAX_PDF_SIZE_BYTES) {
+            long limit = maxPdfBytes();
+            if (size > limit) {
                 throw new IllegalArgumentException(
-                        "Document trop lourd (" + (size / mb) + " Mo) : taille max autorisee = 10 Mo.");
+                        "Document trop lourd (" + (size / mb) + " Mo) : taille max autorisee = "
+                                + (limit / mb) + " Mo.");
             }
         }
         try {

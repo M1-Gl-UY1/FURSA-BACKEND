@@ -408,6 +408,28 @@ public class ProprieteController {
     }
 
     // =========================================================================
+    // V2 G.7 (05/06/2026) : Phase E medias post-tokenisation
+    // =========================================================================
+
+    @Operation(summary = "Ajouter des photos a un bien deja accepte / tokenise / publie (proprio)",
+            description = """
+                    Permet au proposeur d'enrichir son bien apres la validation initiale.
+                    Autorise uniquement si le bien est ACCEPTEE, EN_TOKENISATION ou PUBLIEE.
+                    Refuse pour EN_REVIEW (utiliser le wizard brouillon) et REFUSEE.
+
+                    Chaque photo est associee a une section (FACADE, SALON, TERRASSE, ...).
+                    Les codes admin-configurables sont supportes (V2 G.4).""")
+    @PostMapping(value = "/{id}/medias/photos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProprieteResponse> ajouterPhotosPostTokenisation(
+            @PathVariable Long id,
+            @RequestPart("photos") List<MultipartFile> photos,
+            @RequestPart(value = "sections", required = false) List<String> sections) {
+        Long userId = authInvestisseur.currentId();
+        Propriete p = proprieteService.ajouterPhotosPostTokenisation(userId, id, photos, sections);
+        return ResponseEntity.ok(proprieteMapper.toResponse(p));
+    }
+
+    // =========================================================================
     // Phase Certification (Hugh 22/05/2026) : etape post-creation separee
     // =========================================================================
 

@@ -44,6 +44,15 @@ services:
       - BLOCKCHAIN_CHAIN_ID=${BLOCKCHAIN_CHAIN_ID:?required}
       - BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE:-2000000000}
       - BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT:-300000}
+      # V2 G.6 (05/06/2026) : Postal SMTP. Tous optionnels : si MAIL_HOST
+      # est vide, le service tombe en log-only sans casser le backend.
+      - MAIL_HOST=${MAIL_HOST:-}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_FROM=${MAIL_FROM:-noreply@fursa.seed-innov.com}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-FURSA}
+      - MAIL_ENABLED=${MAIL_ENABLED:-true}
     # Volume persistant pour les fichiers uploades (photos, PDFs, videos).
     # CRITIQUE : sans ce volume, chaque --force-recreate au deploiement effacerait
     # tous les fichiers (anciennement /app/uploads etait dans la couche image,
