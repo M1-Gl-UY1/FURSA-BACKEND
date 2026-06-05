@@ -9,6 +9,7 @@ import com.fursa.fursa_backend.model.PartenaireGestion;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.repository.InvestisseurRepository;
 import com.fursa.fursa_backend.service.CategorieDocumentRefService;
+import com.fursa.fursa_backend.service.SectionPhotoRefService;
 import com.fursa.fursa_backend.service.TypeBienRefService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -26,6 +27,7 @@ public class ProprieteMapper {
     private final InvestisseurRepository investisseurRepository;
     private final TypeBienRefService typeBienRefService;
     private final CategorieDocumentRefService categorieDocumentRefService;
+    private final SectionPhotoRefService sectionPhotoRefService;
 
     /**
      * Fix 25/05/2026 : standardise l'URL d'un document.
@@ -65,6 +67,11 @@ public class ProprieteMapper {
                         ? d.getCategorieDocumentCode()
                         : (d.getCategorieDocument() != null
                             ? d.getCategorieDocument().name() : null);
+                // V2 G.4 : pareil pour la section photo.
+                String secCode = d.getSectionPhotoCode() != null
+                        ? d.getSectionPhotoCode()
+                        : (d.getSectionPhoto() != null
+                            ? d.getSectionPhoto().name() : null);
                 return DocumentResponse.builder()
                     .id(d.getId())
                     .nom(d.getNom())
@@ -72,6 +79,8 @@ public class ProprieteMapper {
                     .type(d.getType())
                     .dateUpload(d.getDateUpload())
                     .sectionPhoto(d.getSectionPhoto())
+                    .sectionPhotoCode(secCode)
+                    .sectionPhotoLabel(sectionPhotoRefService.resoudreLabel(secCode))
                     .categorieDocument(d.getCategorieDocument())
                     .categorieDocumentCode(catCode)
                     .categorieDocumentLabel(categorieDocumentRefService.resoudreLabel(catCode))

@@ -48,6 +48,7 @@ public class ProprieteService {
     private final EquipementService equipementService;
     private final TypeBienRefService typeBienRefService;
     private final CategorieDocumentRefService categorieDocumentRefService;
+    private final SectionPhotoRefService sectionPhotoRefService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -842,13 +843,7 @@ public class ProprieteService {
             if (f == null || f.isEmpty()) continue;
             String nomFichier = fileStorageService.save(f);
 
-            com.fursa.fursa_backend.model.enumeration.SectionPhoto section;
-            try {
-                String code = sections != null && i < sections.size() ? sections.get(i) : "AUTRE";
-                section = com.fursa.fursa_backend.model.enumeration.SectionPhoto.valueOf(code);
-            } catch (IllegalArgumentException ex) {
-                section = com.fursa.fursa_backend.model.enumeration.SectionPhoto.AUTRE;
-            }
+            String code = sections != null && i < sections.size() ? sections.get(i) : "AUTRE";
 
             Document doc = new Document();
             doc.setNom(f.getOriginalFilename());
@@ -856,7 +851,9 @@ public class ProprieteService {
             doc.setDateUpload(LocalDateTime.now());
             doc.setPropriete(propriete);
             doc.setType(TypeDocument.IMAGE);
-            doc.setSectionPhoto(section);
+            // V2 G.4 : sync enum + code via le helper. Accepte les codes custom
+            // (TERRASSE, GARAGE, BALCON, ...) crees par l'admin.
+            sectionPhotoRefService.applyToDocument(doc, code);
             documentRepository.save(doc);
         }
     }

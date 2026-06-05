@@ -18,6 +18,13 @@ public class DocumentResponse {
     private LocalDateTime dateUpload;
     /** P1 (Hugh 22/05/2026) : section structuree pour les photos. Null pour PDFs/contrats. */
     private SectionPhoto sectionPhoto;
+    /**
+     * V2 G.4 (05/06/2026) : code de section admin-configurable (peut etre
+     * un code custom hors enum, ex TERRASSE). Source de verite frontend.
+     */
+    private String sectionPhotoCode;
+    /** V2 G.4 : libelle resolu cote backend (ex "Façade avant", "Terrasse"). */
+    private String sectionPhotoLabel;
     /** P8 (Hugh 22/05/2026) : categorie precise pour les documents legaux. */
     private CategorieDocument categorieDocument;
     /**

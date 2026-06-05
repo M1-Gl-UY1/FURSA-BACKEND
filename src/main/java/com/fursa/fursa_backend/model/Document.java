@@ -44,6 +44,16 @@ public class Document {
     private SectionPhoto sectionPhoto;
 
     /**
+     * V2 G.4 (05/06/2026) : code de section photo admin-configurable (source
+     * de verite). Pour les 9 codes historiques, contient la meme valeur que
+     * {@code sectionPhoto.name()}. Pour les codes custom crees par l'admin
+     * (TERRASSE, GARAGE, BALCON, ...), {@code sectionPhoto} fallback sur
+     * AUTRE et seul ce champ porte la valeur reelle.
+     */
+    @Column(name = "section_photo_code", length = 50)
+    private String sectionPhotoCode;
+
+    /**
      * P8 (Hugh 22/05/2026) : categorie precise d'un document legal
      * (TITRE_FONCIER, CONTRAT_BAIL, RELEVE_AIRBNB, etc.). Permet a l'admin
      * de voir le type de preuve fournie au lieu d'un PDF generique.

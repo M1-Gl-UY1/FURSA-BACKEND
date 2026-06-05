@@ -56,6 +56,7 @@ public class ProprieteBrouillonService {
     private final EquipementService equipementService;
     private final TypeBienRefService typeBienRefService;
     private final CategorieDocumentRefService categorieDocumentRefService;
+    private final SectionPhotoRefService sectionPhotoRefService;
 
     /**
      * Cree un brouillon vide pour l'investisseur. Renvoie l'id pour que le frontend
@@ -171,10 +172,10 @@ public class ProprieteBrouillonService {
             doc.setDateUpload(LocalDateTime.now());
             doc.setPropriete(p);
             doc.setType(TypeDocument.IMAGE);
+            // V2 G.4 : synchronise enum (retro-compat) + code string
+            // (admin-configurable). Accepte les codes custom hors enum.
             if (section != null) {
-                try {
-                    doc.setSectionPhoto(SectionPhoto.valueOf(section));
-                } catch (IllegalArgumentException ignored) { /* section libre */ }
+                sectionPhotoRefService.applyToDocument(doc, section);
             }
             documentRepository.save(doc);
         }
