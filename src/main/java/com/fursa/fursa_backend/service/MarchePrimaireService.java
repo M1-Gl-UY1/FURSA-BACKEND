@@ -232,13 +232,10 @@ public class MarchePrimaireService {
             throw new IllegalStateException("Cette propriete n'est pas disponible a l'achat.");
         }
 
-        // GUARD Phase Certification (Hugh 22/05/2026) : bien doit etre CERTIFIE pour etre achete.
-        // Sans certification, le bien est visible (preview) mais l'investissement est bloque.
-        if (propriete.getStatutCertif() != com.fursa.fursa_backend.model.enumeration.StatutCertification.CERTIFIE) {
-            throw new IllegalStateException(
-                    "Achat impossible : cette propriete n'a pas encore ete certifiee. "
-                            + "Les documents legaux doivent etre verifies par l'admin avant que les investisseurs puissent acheter.");
-        }
+        // V2 I (06/06/2026) : phase Certification supprimee. L'admin valide deja
+        // le dossier (avec docs legaux) lorsqu'il passe le bien en ACCEPTEE.
+        // Le double tour de validation faisait redondance et bloquait l'achat
+        // sans valeur ajoutee. PUBLIEE = achetable.
 
         if (request.getNombreParts() == null || request.getNombreParts() <= 0) {
             throw new IllegalArgumentException("Le nombre de parts doit etre strictement positif.");
@@ -438,6 +435,7 @@ public class MarchePrimaireService {
     public List<PossessionResponse> getAllPossessions() {
         return possessionRepository.findAll().stream().map(p -> new PossessionResponse(
                 p.getId(),
+                p.getPropriete().getId(),
                 p.getPropriete().getNom(),
                 p.getPropriete().getLocalisation(),
                 p.getNombreDeParts(),
@@ -517,6 +515,7 @@ public class MarchePrimaireService {
 
         return possessions.stream().map(p -> new PossessionResponse(
                 p.getId(),
+                p.getPropriete().getId(),
                 p.getPropriete().getNom(),
                 p.getPropriete().getLocalisation(),
                 p.getNombreDeParts(),
