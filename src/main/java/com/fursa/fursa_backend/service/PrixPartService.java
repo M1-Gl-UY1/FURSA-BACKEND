@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.service;
 
 import com.fursa.fursa_backend.dto.HistoriquePrixPartResponse;
+import com.fursa.fursa_backend.dto.PrixPartDiagnosticResponse;
 import com.fursa.fursa_backend.model.HistoriquePrixPart;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.Revenus;
@@ -248,6 +249,70 @@ public class PrixPartService {
     public List<HistoriquePrixPartResponse> historique(Long proprieteId) {
         return historiqueRepository.findByProprieteIdOrderByCreatedAtAsc(proprieteId)
                 .stream().map(this::toResponse).toList();
+    }
+
+    /**
+     * V2 M (07/06/2026) : assemble la vue diagnostic complete (formule,
+     * valeurs courantes, bornes, constantes, historique) pour la page admin.
+     */
+    public PrixPartDiagnosticResponse diagnostic(Long proprieteId) {
+        Propriete p = proprieteRepository.findById(proprieteId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Propriete non trouvee: id=" + proprieteId));
+
+        BigDecimal prixInitial = p.getPrixInitialPart() != null && p.getPrixInitialPart().signum() > 0
+                ? p.getPrixInitialPart()
+                : (p.getPrixUnitairePart() == null ? BigDecimal.ZERO : p.getPrixUnitairePart());
+        BigDecimal prixCourant = p.getPrixUnitairePart() == null ? BigDecimal.ZERO : p.getPrixUnitairePart();
+
+        BigDecimal variationPct = BigDecimal.ZERO;
+        if (prixInitial.signum() > 0) {
+            variationPct = prixCourant.subtract(prixInitial)
+                    .multiply(new BigDecimal("100"))
+                    .divide(prixInitial, 4, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal plancher = prixInitial.multiply(PLANCHER_PRIX).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal plafond = prixInitial.multiply(PLAFOND_PRIX).setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal valeurMisEnVente = BigDecimal.ZERO;
+        if (p.getPrixVenteTotal() != null && p.getFractionVenduePct() != null
+                && p.getFractionVenduePct() > 0) {
+            valeurMisEnVente = p.getPrixVenteTotal()
+                    .multiply(BigDecimal.valueOf(p.getFractionVenduePct()))
+                    .divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP);
+        }
+
+        return new PrixPartDiagnosticResponse(
+                p.getId(),
+                p.getNom(),
+                prixInitial,
+                prixCourant,
+                variationPct,
+                nonNull(p.getBonusRentabiliteTotal()),
+                nonNull(p.getBonusDemande()),
+                plancher,
+                plafond,
+                p.getRentabilitePrevue(),
+                p.getPrixVenteTotal(),
+                p.getFractionVenduePct(),
+                valeurMisEnVente,
+                getConstantes(),
+                historique(proprieteId)
+        );
+    }
+
+    /** Expose les constantes du modele (source unique pour l'UI). */
+    public static PrixPartDiagnosticResponse.ConstantesFormule getConstantes() {
+        return new PrixPartDiagnosticResponse.ConstantesFormule(
+                LISSAGE_RENTABILITE,
+                CAP_CONTRIBUTION_TRIMESTRIELLE,
+                CAP_BONUS_RENTABILITE_TOTAL,
+                COEF_DEMANDE,
+                CAP_BONUS_DEMANDE,
+                PLANCHER_PRIX,
+                PLAFOND_PRIX
+        );
     }
 
     // ========================================================================
