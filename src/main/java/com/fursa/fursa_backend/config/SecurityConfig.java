@@ -67,11 +67,16 @@ public class SecurityConfig {
                                         "/api/proprietes/public/**",
                                         "/api/proprietes/*/historique-prix",
                                         "/api/partenaires-gestion",
-                                        // V2 G.1 (04/06/2026) : liste des
-                                        // equipements lisible publiquement
-                                        // (wizard non-auth + catalogue). Le
-                                        // CRUD /admin reste protege.
+                                        // V2 G.1 / G.2 / G.3 / G.4 (06/06/2026) :
+                                        // listes admin-configurables lisibles
+                                        // publiquement (wizard non-auth +
+                                        // affichages catalogue). Les CRUD
+                                        // /admin restent proteges par
+                                        // @PreAuthorize("hasRole('ADMIN')").
                                         "/api/equipements",
+                                        "/api/types-bien",
+                                        "/api/categories-document",
+                                        "/api/sections-photo",
                                         // V2 H.4 (06/06/2026) : settings
                                         // publics whitelistes (limites
                                         // fichiers, age KYC) pour rendre la
