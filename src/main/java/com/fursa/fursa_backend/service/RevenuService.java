@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.service;
 
+import com.fursa.fursa_backend.dto.PeriodeTrimestrielleResponse;
 import com.fursa.fursa_backend.dto.RevenuRequest;
 import com.fursa.fursa_backend.dto.RevenuResponse;
 import com.fursa.fursa_backend.dto.StatutDeclarationResponse;
@@ -97,8 +98,33 @@ public class RevenuService {
                             + "qu'a partir du moment ou au moins une part a ete vendue.");
         }
 
-        // Phase 10b : penalite forfaitaire si declaration apres le 5 du mois.
+        // V2 L (06/06/2026) : le proprio doit choisir un trimestre clos. On
+        // resout le trimestre cible depuis periodeDebut (ou today si non fourni)
+        // et on (a) rejette les trimestres pas encore termines, (b) rejette les
+        // doublons EN_REVIEW / VALIDE. Un revenu REFUSE pour le meme trimestre
+        // ne bloque pas : on autorise la re-soumission.
         LocalDate today = LocalDate.now();
+        LocalDate ancrageTrimestre = req.periodeDebut() != null ? req.periodeDebut() : today;
+        YearQuarter trimestreCible = YearQuarter.from(ancrageTrimestre);
+        LocalDate trimestreDebut = trimestreCible.premierJour();
+        LocalDate trimestreFin = trimestreCible.dernierJour();
+
+        if (trimestreFin.isAfter(today)) {
+            throw new IllegalStateException(
+                    "Le trimestre " + trimestreCible + " n'est pas encore termine. "
+                            + "La declaration sera possible a partir du " + trimestreFin.plusDays(1) + ".");
+        }
+
+        boolean dejaActif = revenusRepository.findByProprieteAndPeriode(
+                        propriete.getId(), trimestreDebut, trimestreFin).stream()
+                .anyMatch(r -> r.getStatut() == StatutRevenu.EN_REVIEW
+                            || r.getStatut() == StatutRevenu.VALIDE);
+        if (dejaActif) {
+            throw new IllegalStateException(
+                    "Une declaration est deja en cours ou validee pour le trimestre "
+                            + trimestreCible + ". Vous ne pouvez pas en soumettre une deuxieme.");
+        }
+
         java.math.BigDecimal penalite = DeclarationWindowRules.penaliteApplicable(
                 today, req.montantTotal());
 
@@ -108,8 +134,9 @@ public class RevenuService {
         revenu.setDate(today);
         revenu.setProposeurId(proposeurId);
         revenu.setStatut(StatutRevenu.EN_REVIEW);
-        revenu.setPeriodeDebut(req.periodeDebut());
-        revenu.setPeriodeFin(req.periodeFin());
+        // V2 L : on force les bornes du trimestre canonique (jour 1 -> dernier jour).
+        revenu.setPeriodeDebut(trimestreDebut);
+        revenu.setPeriodeFin(trimestreFin);
         revenu.setPenaliteRetard(penalite);
 
         Revenus saved = revenusRepository.save(revenu);
@@ -269,6 +296,97 @@ public class RevenuService {
                 .filter(this::aAuMoinsUnInvestisseur)
                 .map(p -> statutDeclarationCourant(p.getId()))
                 .toList();
+    }
+
+    // =========================================================================
+    // V2 L (06/06/2026) : catalogue des trimestres declarables
+    // =========================================================================
+
+    /**
+     * Liste les trimestres ouverts a declaration pour une propriete donnee,
+     * du Q4 de l'annee precedente jusqu'au Q4 de l'annee courante. Chaque
+     * entree porte son statut : DECLARABLE, DEJA_DECLARE ou A_VENIR.
+     *
+     * Securite : l'appelant doit etre le proposeur du bien OU un admin.
+     */
+    public List<PeriodeTrimestrielleResponse> listerPeriodesTrimestres(
+            Long proprieteId, Long userId) {
+        Propriete propriete = proprieteRepository.findById(proprieteId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Propriete non trouvee: id=" + proprieteId));
+
+        boolean estAdmin = userRepository.findById(userId)
+                .map(u -> u.getRole() == Role.ADMIN)
+                .orElse(false);
+        boolean estProposeur = propriete.getProposeurId() != null
+                && propriete.getProposeurId().equals(userId);
+        if (!estAdmin && !estProposeur) {
+            throw new AccessDeniedException(
+                    "Vous ne pouvez consulter les periodes declarables que pour vos propres biens.");
+        }
+
+        LocalDate today = LocalDate.now();
+        YearQuarter trimestreCourant = YearQuarter.from(today);
+
+        // Genere Q4 N-1, Q1 N, Q2 N, Q3 N, Q4 N -> couvre l'annee fiscale + le
+        // trimestre adjacent de l'annee precedente (pour les declarations de janvier).
+        java.util.List<YearQuarter> trimestres = new java.util.ArrayList<>(5);
+        trimestres.add(YearQuarter.of(today.getYear() - 1, 4));
+        for (int q = 1; q <= 4; q++) {
+            trimestres.add(YearQuarter.of(today.getYear(), q));
+        }
+
+        return trimestres.stream()
+                .map(t -> mapTrimestre(propriete.getId(), t, today, trimestreCourant))
+                .toList();
+    }
+
+    private PeriodeTrimestrielleResponse mapTrimestre(
+            Long proprieteId, YearQuarter t, LocalDate today, YearQuarter trimestreCourant) {
+        LocalDate debut = t.premierJour();
+        LocalDate fin = t.dernierJour();
+
+        // A_VENIR : trimestre pas encore termine.
+        if (fin.isAfter(today)) {
+            return new PeriodeTrimestrielleResponse(
+                    t.toString(), libelleTrimestre(t), debut, fin,
+                    PeriodeTrimestrielleResponse.Statut.A_VENIR,
+                    null, null, null, null);
+        }
+
+        // On cherche un revenu actif (EN_REVIEW ou VALIDE). Les REFUSE ne
+        // bloquent pas : le proprio peut re-declarer.
+        List<Revenus> revenusPeriode = revenusRepository.findByProprieteAndPeriode(
+                proprieteId, debut, fin);
+        Revenus actif = revenusPeriode.stream()
+                .filter(r -> r.getStatut() == StatutRevenu.EN_REVIEW
+                          || r.getStatut() == StatutRevenu.VALIDE)
+                .reduce((a, b) -> b)  // dernier dans l'ordre d'insertion
+                .orElse(null);
+
+        if (actif != null) {
+            return new PeriodeTrimestrielleResponse(
+                    t.toString(), libelleTrimestre(t), debut, fin,
+                    PeriodeTrimestrielleResponse.Statut.DEJA_DECLARE,
+                    actif.getId(), actif.getStatut(),
+                    actif.getMontantTotal(), actif.getDate());
+        }
+
+        return new PeriodeTrimestrielleResponse(
+                t.toString(), libelleTrimestre(t), debut, fin,
+                PeriodeTrimestrielleResponse.Statut.DECLARABLE,
+                null, null, null, null);
+    }
+
+    private static String libelleTrimestre(YearQuarter t) {
+        String suffixe = switch (t.quarter()) {
+            case 1 -> "1er trimestre " + t.year() + " (jan-fev-mar)";
+            case 2 -> "2e trimestre " + t.year() + " (avr-mai-jun)";
+            case 3 -> "3e trimestre " + t.year() + " (jui-aou-sep)";
+            case 4 -> "4e trimestre " + t.year() + " (oct-nov-dec)";
+            default -> t.toString();
+        };
+        return suffixe;
     }
 
     // =========================================================================

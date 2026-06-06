@@ -1,5 +1,6 @@
 package com.fursa.fursa_backend.controller;
 
+import com.fursa.fursa_backend.dto.PeriodeTrimestrielleResponse;
 import com.fursa.fursa_backend.dto.RefusRevenuRequest;
 import com.fursa.fursa_backend.dto.RevenuRequest;
 import com.fursa.fursa_backend.dto.RevenuResponse;
@@ -152,6 +153,19 @@ public class RevenuController {
     @GetMapping("/propriete/{proprieteId}/statut-mois-courant")
     public ResponseEntity<StatutDeclarationResponse> statutCourant(@PathVariable Long proprieteId) {
         return ResponseEntity.ok(revenuService.statutDeclarationCourant(proprieteId));
+    }
+
+    @Operation(summary = "Catalogue des trimestres declarables (V2 L)",
+            description = """
+                    Retourne la liste des trimestres pour la propriete : Q4 N-1 + Q1..Q4 N.
+                    Chaque entree porte son statut metier (DECLARABLE / DEJA_DECLARE / A_VENIR).
+                    Le wizard de declaration utilise cette liste comme selecteur de periode :
+                    l'utilisateur ne saisit plus de dates libres, il choisit un trimestre.""")
+    @GetMapping("/propriete/{proprieteId}/periodes-trimestres")
+    public ResponseEntity<List<PeriodeTrimestrielleResponse>> periodesTrimestres(
+            @PathVariable Long proprieteId) {
+        Long userId = authInvestisseur.currentId();
+        return ResponseEntity.ok(revenuService.listerPeriodesTrimestres(proprieteId, userId));
     }
 
     @Operation(summary = "Statuts de declaration de mes proprietes",
