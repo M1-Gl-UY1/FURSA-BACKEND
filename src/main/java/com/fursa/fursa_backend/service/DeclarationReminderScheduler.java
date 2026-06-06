@@ -71,8 +71,8 @@ public class DeclarationReminderScheduler {
                     propriOpt.get(),
                     "Periode de declaration trimestrielle ouverte (" + trimestre + ")",
                     "La fenetre de declaration pour le trimestre " + trimestre
-                            + " est ouverte du 1er au 15. Declarez vos revenus pour "
-                            + nbBiens + " bien(s) avant le 15 pour eviter la penalite de 300 USD.",
+                            + " est ouverte du 1er au 15. Pensez a declarer les revenus de vos "
+                            + nbBiens + " bien(s) dans les delais.",
                     TypeMessage.ANNONCE
             );
         }
@@ -99,9 +99,9 @@ public class DeclarationReminderScheduler {
 
                 notificationService.envoyer(
                         propriOpt.get(),
-                        "Derniere chance : declaration trimestrielle avant minuit",
-                        "Le bien \"" + s.proprieteNom() + "\" n'a toujours pas ete declare pour "
-                                + s.moisADeclarer() + ". Apres minuit, une penalite de 300 USD sera appliquee.",
+                        "Rappel : declaration trimestrielle a faire",
+                        "Le bien \"" + s.proprieteNom() + "\" n'a pas encore ete declare pour "
+                                + s.moisADeclarer() + ". Vous pouvez encore declarer apres la fermeture de la fenetre normale.",
                         TypeMessage.AVERTISSEMENT
                 );
                 retardCount++;

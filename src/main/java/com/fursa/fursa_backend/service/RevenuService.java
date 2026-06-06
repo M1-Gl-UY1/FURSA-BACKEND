@@ -114,12 +114,10 @@ public class RevenuService {
 
         Revenus saved = revenusRepository.save(revenu);
 
-        String suffixe = penalite.signum() > 0
-                ? " (penalite retard appliquee : " + penalite + " EUR)"
-                : "";
+        // V2 K (06/06/2026) : suffixe penalite retire (penalite supprimee).
         notifierAdmins(
                 "Nouvelle déclaration de revenu",
-                "Le bien \"" + propriete.getNom() + "\" a une nouvelle déclaration de revenu en attente." + suffixe,
+                "Le bien \"" + propriete.getNom() + "\" a une nouvelle déclaration de revenu en attente.",
                 TypeMessage.INFO
         );
 

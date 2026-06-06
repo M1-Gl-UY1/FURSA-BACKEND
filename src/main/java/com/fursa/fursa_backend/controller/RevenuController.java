@@ -139,14 +139,16 @@ public class RevenuController {
     }
 
     // =========================================================================
-    // PHASE 10b : statut de declaration (window 1-5 + penalite retard)
+    // PHASE 10b + V2 K (06/06/2026) : statut de declaration trimestriel.
+    // Penalite de retard supprimee : la declaration hors fenetre reste autorisee
+    // sans retenue.
     // =========================================================================
 
-    @Operation(summary = "Statut de declaration mensuel d'une propriete",
+    @Operation(summary = "Statut de declaration trimestriel d'une propriete",
             description = """
-                    Indique si la propriete a deja ete declaree pour le mois N-1,
-                    si on est dans la fenetre normale (1-5) ou en retard, et la penalite
-                    applicable si declaration tardive.""")
+                    Indique si la propriete a deja ete declaree pour le trimestre precedent,
+                    si on est dans la fenetre normale (1-15 du 1er mois du trimestre suivant)
+                    ou apres. Aucune penalite n'est appliquee, la declaration reste libre.""")
     @GetMapping("/propriete/{proprieteId}/statut-mois-courant")
     public ResponseEntity<StatutDeclarationResponse> statutCourant(@PathVariable Long proprieteId) {
         return ResponseEntity.ok(revenuService.statutDeclarationCourant(proprieteId));
