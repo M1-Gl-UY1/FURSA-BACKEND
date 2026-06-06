@@ -40,15 +40,18 @@ public class KycService {
     private final InvestisseurRepository investisseurRepository;
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
+    private final AppSettingsService appSettingsService;
 
     public KycService(KycSubmissionRepository kycRepository,
                       InvestisseurRepository investisseurRepository,
                       FileStorageService fileStorageService,
-                      EmailService emailService) {
+                      EmailService emailService,
+                      AppSettingsService appSettingsService) {
         this.kycRepository = kycRepository;
         this.investisseurRepository = investisseurRepository;
         this.fileStorageService = fileStorageService;
         this.emailService = emailService;
+        this.appSettingsService = appSettingsService;
     }
 
     // =========================================================================
@@ -79,6 +82,24 @@ public class KycService {
             if (s == StatutKyc.APPROVED) {
                 throw new IllegalStateException("Votre identite est deja verifiee. Aucune nouvelle soumission necessaire.");
             }
+        }
+
+        // V2 H.3 (06/06/2026) : validation de l'age cote backend (defense en
+        // profondeur, en plus du check frontend). Lit kyc.age_minimum et
+        // kyc.age_maximum depuis app_setting (defaut 18/100 si non configures).
+        if (req.dateNaissance() == null) {
+            throw new IllegalArgumentException("La date de naissance est obligatoire");
+        }
+        int ageMin = appSettingsService.getInt("kyc.age_minimum", 18);
+        int ageMax = appSettingsService.getInt("kyc.age_maximum", 100);
+        int age = java.time.Period.between(req.dateNaissance(), java.time.LocalDate.now()).getYears();
+        if (age < ageMin) {
+            throw new IllegalArgumentException(
+                "Vous devez avoir au moins " + ageMin + " ans pour creer un compte verifie (age calcule : " + age + ").");
+        }
+        if (age > ageMax) {
+            throw new IllegalArgumentException(
+                "L'age (" + age + ") depasse la limite autorisee (" + ageMax + "). Verifiez votre date de naissance.");
         }
 
         // Stockage des fichiers (validation extension + MIME deleguee a FileStorageService)
@@ -249,6 +270,10 @@ public class KycService {
 
         log.warn("KYC REVOKED : kycId={} investisseur={} par admin={} motif={}",
                 kycId, inv.getId(), adminId, motif);
+        // V2 H.1 (06/06/2026) : email transactionnel via Postal.
+        if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
+            emailService.envoyerKycRevoque(inv.getEmail(), inv.getPrenom(), motif);
+        }
         return toAdminResponse(ks);
     }
 

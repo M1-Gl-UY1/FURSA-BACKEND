@@ -20,21 +20,24 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   # V2 G.6 (05/06/2026) : SMTP Postal pour les emails transactionnels.
-  # Postal est deja installe sur le VPS. Les credentials passent via variables
-  # d'environnement (jamais en clair dans le repo). Si MAIL_HOST est vide, le
-  # service tombera en log-only (les emails sont logges mais non envoyes).
+  # Postal est deja installe sur le VPS (port 2525, plain SMTP avec AUTH PLAIN).
+  # Les credentials passent via variables d'environnement (jamais en clair dans
+  # le repo). Si MAIL_HOST est vide, le service tombera en log-only.
+  #
+  # Postal sur 2525 = plain SMTP sans STARTTLS. MAIL_STARTTLS_ENABLE permet
+  # de basculer en STARTTLS pour un autre fournisseur (Gmail/Sendgrid/etc).
   mail:
     host: ${MAIL_HOST:}
-    port: ${MAIL_PORT:587}
+    port: ${MAIL_PORT:2525}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
-            required: true
+            enable: ${MAIL_STARTTLS_ENABLE:false}
+            required: ${MAIL_STARTTLS_REQUIRED:false}
           # Timeout courts pour ne pas bloquer un thread de requete si Postal est down.
           connectiontimeout: 5000
           timeout: 5000

@@ -40,6 +40,12 @@ public class AppSettingsController {
         return ResponseEntity.ok(service.listerTous());
     }
 
+    @Operation(summary = "Lister les settings publics (whitelist : limites fichiers, age KYC)")
+    @GetMapping("/public")
+    public ResponseEntity<List<AppSettingResponse>> listPublic() {
+        return ResponseEntity.ok(service.listerPublics());
+    }
+
     @Operation(summary = "Modifier la valeur d'un setting (admin)")
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/admin/{cle}")

@@ -59,12 +59,12 @@ INSERT INTO app_setting (cle, valeur, type, label, description, groupe, unite, o
     ('kyc.age_minimum',            '18',  'INTEGER',
         'Age minimum pour la verification d''identite',
         'Un investisseur doit avoir au moins cet age pour creer un compte et investir.',
-        'KYC', 'ans', 10),
+        'Verification d''identite', 'ans', 10),
 
     ('kyc.age_maximum',            '100', 'INTEGER',
         'Age maximum pour la verification d''identite',
-        'Plafond raisonnable au-dela duquel le KYC est refuse (sanity check).',
-        'KYC', 'ans', 20),
+        'Plafond raisonnable au-dela duquel la verification est refusee (sanity check).',
+        'Verification d''identite', 'ans', 20),
 
     ('declaration.fenetre_jours',  '5',   'INTEGER',
         'Fenetre de declaration revenu',

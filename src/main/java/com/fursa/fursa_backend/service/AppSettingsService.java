@@ -53,6 +53,27 @@ public class AppSettingsService {
                 .map(this::toResponse).toList();
     }
 
+    /**
+     * V2 H.4 (06/06/2026) : settings exposes a l'investisseur (lecture publique).
+     * Whitelist stricte : uniquement les valeurs UI-impact que le wizard
+     * frontend a besoin de connaitre dynamiquement (limites tailles fichiers,
+     * age KYC). PAS de secrets ni de parametres internes (commission, seuils
+     * blockchain, etc.).
+     */
+    private static final java.util.Set<String> PUBLIC_KEYS = java.util.Set.of(
+            "file.max_size_pdf_mo",
+            "file.max_size_image_mo",
+            "file.max_size_video_mo",
+            "kyc.age_minimum",
+            "kyc.age_maximum"
+    );
+
+    public List<AppSettingResponse> listerPublics() {
+        return repository.findAllByOrderByGroupeAscOrdreAsc().stream()
+                .filter(s -> PUBLIC_KEYS.contains(s.getCle()))
+                .map(this::toResponse).toList();
+    }
+
     @Transactional
     public AppSettingResponse modifier(String cle, AppSettingUpdateRequest req) {
         AppSetting s = repository.findById(cle)

@@ -62,6 +62,7 @@ public class MarchePrimaireService {
     private final WalletService walletService;
     private final EscrowService escrowService;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     public MarchePrimaireService(PaiementRepository paiementRepository,
                                   TransactionRepository transactionRepository,
@@ -76,7 +77,8 @@ public class MarchePrimaireService {
                                   ObjectMapper objectMapper,
                                   WalletService walletService,
                                   EscrowService escrowService,
-                                  NotificationService notificationService) {
+                                  NotificationService notificationService,
+                                  EmailService emailService) {
         this.paiementRepository = paiementRepository;
         this.transactionRepository = transactionRepository;
         this.possessionRepository = possessionRepository;
@@ -91,6 +93,7 @@ public class MarchePrimaireService {
         this.walletService = walletService;
         this.escrowService = escrowService;
         this.notificationService = notificationService;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -376,6 +379,13 @@ public class MarchePrimaireService {
                 lienBien,
                 acheteur.getId()
         );
+
+        // V2 H.2 (06/06/2026) : email transactionnel via Postal.
+        if (acheteur.getEmail() != null && !acheteur.getEmail().isBlank()) {
+            emailService.envoyerPaiementRecu(
+                    acheteur.getEmail(), acheteur.getPrenom(),
+                    propriete.getNom(), nbParts, montantTotal);
+        }
     }
 
     private static final String ENDPOINT_ACHETER_WALLET = "POST /api/marche-primaire/acheter-via-wallet";

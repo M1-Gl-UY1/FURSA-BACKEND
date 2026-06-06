@@ -6,6 +6,7 @@ import com.fursa.fursa_backend.model.CategorieDocumentRef;
 import com.fursa.fursa_backend.model.Document;
 import com.fursa.fursa_backend.model.enumeration.CategorieDocument;
 import com.fursa.fursa_backend.model.enumeration.RegleObligationDoc;
+import com.fursa.fursa_backend.model.enumeration.StatutExploitation;
 import com.fursa.fursa_backend.repository.CategorieDocumentRefRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -133,6 +134,68 @@ public class CategorieDocumentRefService {
             doc.setCategorieDocument(CategorieDocument.AUTRE);
             log.debug("Code categorie document custom (hors enum) : {}", code);
         }
+    }
+
+    /**
+     * V2 H.5 (06/06/2026) : valide dynamiquement que les obligations
+     * documentaires sont satisfaites pour un statut d'exploitation donne.
+     *
+     * <p>Regle metier :
+     * <ul>
+     *   <li>TOUJOURS : au moins 1 doc de cette categorie est requis (titre foncier)</li>
+     *   <li>SI_NEUF_OU_CONSTRUCTION : requis si statut NEUF ou EN_CONSTRUCTION
+     *       (permis de construire)</li>
+     *   <li>SI_DEJA_RENTABLE : requis si statut DEJA_RENTABLE (groupe : au moins
+     *       UN doc parmi toutes les categories ayant cette regle)</li>
+     *   <li>OPTIONNEL : jamais bloquant</li>
+     * </ul>
+     *
+     * @param statut          statut d'exploitation du bien
+     * @param codesPresentDocs codes des categories des documents deja uploades
+     * @return liste de labels manquants (vide = ok pour finaliser)
+     */
+    public java.util.List<String> validerObligations(StatutExploitation statut,
+                                                      java.util.Set<String> codesPresentDocs) {
+        java.util.List<CategorieDocumentRef> categories = repository.findAll();
+        java.util.List<String> manquants = new java.util.ArrayList<>();
+
+        // 1. TOUJOURS obligatoire
+        for (CategorieDocumentRef c : categories) {
+            if (c.getRegleObligation() == RegleObligationDoc.TOUJOURS
+                    && Boolean.TRUE.equals(c.getActif())
+                    && !codesPresentDocs.contains(c.getCode())) {
+                manquants.add(c.getLabel());
+            }
+        }
+
+        // 2. SI_NEUF_OU_CONSTRUCTION
+        if (statut == StatutExploitation.NEUF || statut == StatutExploitation.EN_CONSTRUCTION) {
+            for (CategorieDocumentRef c : categories) {
+                if (c.getRegleObligation() == RegleObligationDoc.SI_NEUF_OU_CONSTRUCTION
+                        && Boolean.TRUE.equals(c.getActif())
+                        && !codesPresentDocs.contains(c.getCode())) {
+                    manquants.add(c.getLabel());
+                }
+            }
+        }
+
+        // 3. SI_DEJA_RENTABLE : groupe, au moins UN suffit
+        if (statut == StatutExploitation.DEJA_RENTABLE) {
+            java.util.List<CategorieDocumentRef> groupe = categories.stream()
+                    .filter(c -> c.getRegleObligation() == RegleObligationDoc.SI_DEJA_RENTABLE)
+                    .filter(c -> Boolean.TRUE.equals(c.getActif()))
+                    .toList();
+            boolean aucunFourni = groupe.stream()
+                    .noneMatch(c -> codesPresentDocs.contains(c.getCode()));
+            if (!groupe.isEmpty() && aucunFourni) {
+                String labels = groupe.stream()
+                        .map(CategorieDocumentRef::getLabel)
+                        .collect(java.util.stream.Collectors.joining(" OU "));
+                manquants.add(labels + " (au moins un)");
+            }
+        }
+
+        return manquants;
     }
 
     private CategorieDocumentResponse toResponse(CategorieDocumentRef c) {

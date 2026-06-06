@@ -4,7 +4,6 @@ import com.fursa.fursa_backend.dto.BrouillonPatchRequest;
 import com.fursa.fursa_backend.model.Document;
 import com.fursa.fursa_backend.model.Investisseur;
 import com.fursa.fursa_backend.model.Propriete;
-import com.fursa.fursa_backend.model.enumeration.CategorieDocument;
 import com.fursa.fursa_backend.model.enumeration.SectionPhoto;
 import com.fursa.fursa_backend.model.enumeration.StatutCertification;
 import com.fursa.fursa_backend.model.enumeration.StatutExploitation;
@@ -317,29 +316,24 @@ public class ProprieteBrouillonService {
             throw new IllegalStateException("La video de visite guidee est obligatoire.");
         }
 
-        // Documents legaux : titre foncier obligatoire + conditionnel
-        boolean hasTitre = docs.stream()
-                .anyMatch(d -> d.getCategorieDocument() == CategorieDocument.TITRE_FONCIER);
-        if (!hasTitre) {
+        // V2 H.5 (06/06/2026) : validation des obligations documentaires DYNAMIQUE
+        // via CategorieDocumentRefService.validerObligations. Les categories
+        // historiques utilisent leur regleObligation seedee (TOUJOURS,
+        // SI_NEUF_OU_CONSTRUCTION, SI_DEJA_RENTABLE). Les categories custom
+        // (OPTIONNEL par defaut) ne sont pas bloquantes sauf si l'admin a
+        // explicitement defini une regle.
+        java.util.Set<String> codesPresentDocs = docs.stream()
+                .map(d -> d.getCategorieDocumentCode() != null
+                        ? d.getCategorieDocumentCode()
+                        : (d.getCategorieDocument() != null ? d.getCategorieDocument().name() : null))
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        java.util.List<String> manquants =
+                categorieDocumentRefService.validerObligations(
+                        p.getStatutExploitation(), codesPresentDocs);
+        if (!manquants.isEmpty()) {
             throw new IllegalStateException(
-                "Document obligatoire manquant : titre foncier.");
-        }
-        if (p.getStatutExploitation() == StatutExploitation.DEJA_RENTABLE) {
-            boolean hasContrat = docs.stream().anyMatch(d ->
-                    d.getCategorieDocument() == CategorieDocument.CONTRAT_GESTION
-                            || d.getCategorieDocument() == CategorieDocument.CONTRAT_BAIL);
-            if (!hasContrat) {
-                throw new IllegalStateException(
-                    "Un bien deja rentable doit avoir un contrat de gestion ou de bail.");
-            }
-        } else if (p.getStatutExploitation() == StatutExploitation.EN_CONSTRUCTION
-                || p.getStatutExploitation() == StatutExploitation.NEUF) {
-            boolean hasPermis = docs.stream()
-                    .anyMatch(d -> d.getCategorieDocument() == CategorieDocument.PERMIS_CONSTRUIRE);
-            if (!hasPermis) {
-                throw new IllegalStateException(
-                    "Un bien neuf ou en construction doit avoir un permis de construire.");
-            }
+                "Document(s) obligatoire(s) manquant(s) : " + String.join(" ; ", manquants) + ".");
         }
 
         // --- Conversion devise -> USD ---

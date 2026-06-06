@@ -71,7 +71,12 @@ public class SecurityConfig {
                                         // equipements lisible publiquement
                                         // (wizard non-auth + catalogue). Le
                                         // CRUD /admin reste protege.
-                                        "/api/equipements"
+                                        "/api/equipements",
+                                        // V2 H.4 (06/06/2026) : settings
+                                        // publics whitelistes (limites
+                                        // fichiers, age KYC) pour rendre la
+                                        // validation frontend dynamique.
+                                        "/api/app-settings/public"
                                 ).permitAll()
                                 .anyRequest().authenticated()
                 )

@@ -20,7 +20,14 @@ class FileStorageServiceTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        fileStorageService = new FileStorageService();
+        // V2 H.3 (06/06/2026) : FileStorageService injecte AppSettingsService
+        // pour lire les limites de taille dynamiquement (fallback hardcodes
+        // 4/100/10 Mo si pas de setting). Mock le service en mode "fallback".
+        AppSettingsService appSettings = org.mockito.Mockito.mock(AppSettingsService.class);
+        org.mockito.Mockito.when(appSettings.getLong(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyLong()))
+                .thenAnswer(inv -> inv.getArgument(1));  // toujours retourner le default
+        fileStorageService = new FileStorageService(appSettings);
         // Redirige le dossier "uploads" vers le dossier temporaire du test
         Field rootField = FileStorageService.class.getDeclaredField("root");
         rootField.setAccessible(true);

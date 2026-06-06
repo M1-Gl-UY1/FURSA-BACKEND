@@ -109,6 +109,22 @@ public class EmailService {
         envoyer(email, "[FURSA] Votre identite est verifiee", html);
     }
 
+    public void envoyerKycRevoque(String email, String prenom, String motif) {
+        String html = layout("Votre verification d'identite a ete revoquee",
+                "<p>Bonjour " + escape(prenom) + ",</p>"
+                + "<p>Apres examen, votre verification d'identite a ete <strong>"
+                + "revoquee</strong>. Votre compte n'est plus marque comme verifie : "
+                + "vous ne pouvez plus investir ni proposer de bien tant que vous "
+                + "n'aurez pas resoumis et fait revalider votre dossier.</p>"
+                + (motif != null && !motif.isBlank()
+                    ? "<p><strong>Motif :</strong> " + escape(motif) + "</p>" : "")
+                + "<p><a href=\"" + frontBaseUrl + "/kyc\" "
+                + "style=\"display:inline-block;padding:12px 24px;background:#c0633b;"
+                + "color:#fff;text-decoration:none;border-radius:6px;font-weight:600\">"
+                + "Resoumettre mon dossier</a></p>");
+        envoyer(email, "[FURSA] Verification d'identite revoquee", html);
+    }
+
     public void envoyerKycRefuse(String email, String prenom, String motif) {
         String html = layout("Votre verification d'identite a ete refusee",
                 "<p>Bonjour " + escape(prenom) + ",</p>"

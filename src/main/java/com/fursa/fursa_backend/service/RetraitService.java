@@ -57,6 +57,7 @@ public class RetraitService {
     private final ProprieteRepository proprieteRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
 
     // =========================================================================
     // User : creer une demande
@@ -206,6 +207,13 @@ public class RetraitService {
         DemandeRetrait saved = retraitRepository.save(d);
         log.info("Demande #{} validee par admin {}. Commission {} USD, net {} USD",
                 demandeId, adminId, commission, net);
+
+        // V2 H.2 (06/06/2026) : email transactionnel via Postal pour le user.
+        if (d.getUser() != null && d.getUser() instanceof Investisseur inv
+                && inv.getEmail() != null && !inv.getEmail().isBlank()) {
+            emailService.envoyerRetraitValide(inv.getEmail(), inv.getPrenom(), net);
+        }
+
         return toResponse(saved);
     }
 

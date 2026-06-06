@@ -58,6 +58,7 @@ public class DistributionServiceImpl implements DistributionService {
     private final DistributionStrategy distributionStrategy;
     private final DividendeFactory dividendeFactory;
     private final BlockchainService blockchainService;
+    private final EmailService emailService;
 
     /**
      * Phase 1 : calcule et persiste les dividendes (statut VALIDE) pour un revenu.
@@ -124,6 +125,12 @@ public class DistributionServiceImpl implements DistributionService {
                         "Vous avez recu " + eurFormat.format(montant) + " de dividende pour \"" + propriete.getNom() + "\".",
                         TypeMessage.TRANSACTION
                 );
+                // V2 H.2 (06/06/2026) : email transactionnel via Postal.
+                if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
+                    emailService.envoyerDividendeDistribue(
+                            inv.getEmail(), inv.getPrenom(),
+                            propriete.getNom(), montant);
+                }
             }
         }
 
