@@ -41,11 +41,15 @@ public final class DeclarationWindowRules {
         return moisOuverture && date.getDayOfMonth() <= JOUR_FERMETURE_FENETRE;
     }
 
-    /** Penalite a appliquer pour une declaration soumise a {date}. */
+    /**
+     * V2 K (06/06/2026) : penalite de retard supprimee a la demande du PO.
+     * La declaration hors fenetre reste autorisee mais aucune retenue n'est
+     * appliquee. Methode conservee (toujours retourne ZERO) pour ne pas casser
+     * les callers existants. Les colonnes BD penalite_retard restent pour
+     * preserver les revenus historiques.
+     */
     public static BigDecimal penaliteApplicable(LocalDate dateSoumission, BigDecimal montantDeclare) {
-        if (estDansFenetre(dateSoumission)) return BigDecimal.ZERO;
-        if (montantDeclare == null || montantDeclare.signum() <= 0) return BigDecimal.ZERO;
-        return PENALITE_RETARD_USD.min(montantDeclare);
+        return BigDecimal.ZERO;
     }
 
     /**

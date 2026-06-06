@@ -86,6 +86,17 @@ public class RevenuService {
                             + "). Aucune declaration de revenu n'est possible tant que le bien n'a pas ete livre.");
         }
 
+        // V2 K (06/06/2026) : un bien sans investisseur n'a personne a qui
+        // distribuer le dividende. La declaration est inutile et bloquee.
+        Integer total = propriete.getNombreTotalPart();
+        Integer dispo = propriete.getPartsDisponibles();
+        int vendues = (total != null && dispo != null) ? (total - dispo) : 0;
+        if (vendues <= 0) {
+            throw new IllegalStateException(
+                    "Ce bien n'a encore aucun investisseur. La declaration de revenu n'est possible "
+                            + "qu'a partir du moment ou au moins une part a ete vendue.");
+        }
+
         // Phase 10b : penalite forfaitaire si declaration apres le 5 du mois.
         LocalDate today = LocalDate.now();
         java.math.BigDecimal penalite = DeclarationWindowRules.penaliteApplicable(
@@ -186,8 +197,10 @@ public class RevenuService {
         LocalDate trimestreFin = trimestreADeclarer.dernierJour();
         boolean dansFenetre = DeclarationWindowRules.estDansFenetre(today);
         int joursRestants = DeclarationWindowRules.joursRestantsAvantFermeture(today);
-        java.math.BigDecimal penaliteSi = dansFenetre ? java.math.BigDecimal.ZERO
-                : DeclarationWindowRules.PENALITE_RETARD_USD;
+        // V2 K (06/06/2026) : penalite retard supprimee. La valeur retournee
+        // dans StatutDeclarationResponse reste a 0 pour preserver le contrat
+        // API mais n'a plus d'impact metier.
+        java.math.BigDecimal penaliteSi = java.math.BigDecimal.ZERO;
 
         // Recherche d'une declaration deja faite pour le trimestre precedent
         List<Revenus> existantes = revenusRepository.findByProprieteAndPeriode(
@@ -218,13 +231,27 @@ public class RevenuService {
     }
 
     /**
-     * Statuts pour toutes les proprietes proposees par un proprietaire (sa "to-do liste mensuelle").
+     * V2 K (06/06/2026) : un bien est eligible a declaration uniquement s'il
+     * a deja au moins un investisseur (parts vendues > 0). Sans investisseur,
+     * il n'y a personne a qui distribuer le dividende -> declarer est inutile.
+     */
+    private boolean aAuMoinsUnInvestisseur(com.fursa.fursa_backend.model.Propriete p) {
+        Integer total = p.getNombreTotalPart();
+        Integer dispo = p.getPartsDisponibles();
+        if (total == null || dispo == null) return false;
+        return (total - dispo) > 0;
+    }
+
+    /**
+     * Statuts pour toutes les proprietes proposees par un proprietaire (sa "to-do liste").
      * P8b : ignore les biens EN_CONSTRUCTION (pas de revenus possibles).
+     * V2 K : ignore aussi les biens sans investisseur (declaration inutile).
      */
     public List<StatutDeclarationResponse> statutsPourProposeur(Long proposeurId) {
         return proprieteRepository.findAll().stream()
                 .filter(p -> proposeurId.equals(p.getProposeurId()))
                 .filter(p -> p.getStatutExploitation() != com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION)
+                .filter(this::aAuMoinsUnInvestisseur)
                 .map(p -> statutDeclarationCourant(p.getId()))
                 .toList();
     }
@@ -235,11 +262,13 @@ public class RevenuService {
      *
      * P8b (Hugh 25/05/2026) : exclut les biens EN_CONSTRUCTION qui ne peuvent
      * pas encore generer de revenus.
+     * V2 K (06/06/2026) : exclut aussi les biens sans investisseur.
      */
     public List<StatutDeclarationResponse> statutsTouteLaPlateforme() {
         return proprieteRepository.findAll().stream()
                 .filter(p -> p.getProposeurId() != null)
                 .filter(p -> p.getStatutExploitation() != com.fursa.fursa_backend.model.enumeration.StatutExploitation.EN_CONSTRUCTION)
+                .filter(this::aAuMoinsUnInvestisseur)
                 .map(p -> statutDeclarationCourant(p.getId()))
                 .toList();
     }
