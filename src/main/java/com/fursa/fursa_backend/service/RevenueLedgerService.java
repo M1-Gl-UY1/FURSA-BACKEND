@@ -52,6 +52,7 @@ public class RevenueLedgerService {
     private final long gasPrice;
     private final long gasLimit;
     private final String ledgerAddress;
+    private final BlockchainSyncQueueService queueService;
 
     public RevenueLedgerService(
             BlockchainRpcClient blockchainRpcClient,
@@ -60,13 +61,15 @@ public class RevenueLedgerService {
             @Value("${blockchain.gas-price:20000000000}") long gasPrice,
             // enregistrerRevenu ~160k gas, batch dist peut depasser 500k selon taille.
             @Value("${blockchain.ledger-gas-limit:1500000}") long gasLimit,
-            @Value("${blockchain.revenue-ledger-address:}") String ledgerAddress) {
+            @Value("${blockchain.revenue-ledger-address:}") String ledgerAddress,
+            BlockchainSyncQueueService queueService) {
         this.blockchainRpcClient = blockchainRpcClient;
         this.credentials = credentials;
         this.chainId = chainId;
         this.gasPrice = gasPrice;
         this.gasLimit = gasLimit;
         this.ledgerAddress = ledgerAddress == null ? "" : ledgerAddress.trim();
+        this.queueService = queueService;
         if (this.ledgerAddress.isEmpty()) {
             log.warn("[Ledger] revenue-ledger-address vide : no-op (pas de push on-chain).");
         } else {
@@ -103,26 +106,45 @@ public class RevenueLedgerService {
             long revenuIdBackend) {
         if (!estEligible(proprieteTokenAddress)) return;
         try {
-            byte[] hashBytes = parseBytes32OrZero(hashJustificatifHex);
-            Function fn = new Function(
-                    "enregistrerRevenu",
-                    List.<Type>of(
-                            new Address(proprieteTokenAddress),
-                            new Uint32(BigInteger.valueOf(trimestre)),
-                            new Uint256(BigInteger.valueOf(montantUsd)),
-                            new Uint64(BigInteger.valueOf(dateValidationUnix)),
-                            new Bytes32(hashBytes),
-                            new Uint256(BigInteger.valueOf(revenuIdBackend))
-                    ),
-                    java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
-            );
-            String txHash = broadcast(FunctionEncoder.encode(fn));
+            String txHash = enregistrerRevenuDirect(
+                    proprieteTokenAddress, trimestre, montantUsd,
+                    dateValidationUnix, hashJustificatifHex, revenuIdBackend);
             log.info("[Ledger] enregistrerRevenu prop={} trim={} montant={} revenuId={} tx={}",
                     proprieteTokenAddress, trimestre, montantUsd, revenuIdBackend, txHash);
         } catch (Exception e) {
-            log.error("[Ledger] Echec enregistrerRevenu revenuId={} : {}",
-                    revenuIdBackend, e.getMessage(), e);
+            log.warn("[Ledger] Echec enregistrerRevenu revenuId={} → enqueue : {}",
+                    revenuIdBackend, e.getMessage());
+            queueService.enqueue(
+                    com.fursa.fursa_backend.model.enumeration.TypeSyncBlockchain.ENREGISTRER_REVENU,
+                    revenuIdBackend,
+                    BlockchainSyncQueueService.payloadEnregistrerRevenu(
+                            proprieteTokenAddress, trimestre, montantUsd,
+                            dateValidationUnix, hashJustificatifHex, revenuIdBackend));
         }
+    }
+
+    /** V2 R : variante synchrone (worker queue). Throw au lieu de log silencieux. */
+    public String enregistrerRevenuDirect(
+            String proprieteTokenAddress,
+            int trimestre,
+            long montantUsd,
+            long dateValidationUnix,
+            String hashJustificatifHex,
+            long revenuIdBackend) throws Exception {
+        byte[] hashBytes = parseBytes32OrZero(hashJustificatifHex);
+        Function fn = new Function(
+                "enregistrerRevenu",
+                List.<Type>of(
+                        new Address(proprieteTokenAddress),
+                        new Uint32(BigInteger.valueOf(trimestre)),
+                        new Uint256(BigInteger.valueOf(montantUsd)),
+                        new Uint64(BigInteger.valueOf(dateValidationUnix)),
+                        new Bytes32(hashBytes),
+                        new Uint256(BigInteger.valueOf(revenuIdBackend))
+                ),
+                java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
+        );
+        return broadcast(FunctionEncoder.encode(fn));
     }
 
     /**
@@ -143,28 +165,42 @@ public class RevenueLedgerService {
             return;
         }
         try {
-            List<Address> investisseurs = distributions.keySet().stream()
-                    .map(Address::new).toList();
-            List<Uint256> montants = distributions.values().stream()
-                    .map(m -> new Uint256(BigInteger.valueOf(m))).toList();
-
-            Function fn = new Function(
-                    "enregistrerDistributionBatch",
-                    List.<Type>of(
-                            new Address(proprieteTokenAddress),
-                            new Uint256(BigInteger.valueOf(revenuIdBackend)),
-                            new DynamicArray<>(Address.class, investisseurs),
-                            new DynamicArray<>(Uint256.class, montants)
-                    ),
-                    java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
-            );
-            String txHash = broadcast(FunctionEncoder.encode(fn));
+            String txHash = enregistrerDistributionBatchDirect(
+                    proprieteTokenAddress, revenuIdBackend, distributions);
             log.info("[Ledger] distributionBatch prop={} revenuId={} n={} tx={}",
-                    proprieteTokenAddress, revenuIdBackend, investisseurs.size(), txHash);
+                    proprieteTokenAddress, revenuIdBackend, distributions.size(), txHash);
         } catch (Exception e) {
-            log.error("[Ledger] Echec distributionBatch revenuId={} : {}",
-                    revenuIdBackend, e.getMessage(), e);
+            log.warn("[Ledger] Echec distributionBatch revenuId={} → enqueue : {}",
+                    revenuIdBackend, e.getMessage());
+            queueService.enqueue(
+                    com.fursa.fursa_backend.model.enumeration.TypeSyncBlockchain.ENREGISTRER_DISTRIBUTION,
+                    revenuIdBackend,
+                    BlockchainSyncQueueService.payloadEnregistrerDistribution(
+                            proprieteTokenAddress, revenuIdBackend, distributions));
         }
+    }
+
+    /** V2 R : variante synchrone (worker queue). Throw au lieu de log silencieux. */
+    public String enregistrerDistributionBatchDirect(
+            String proprieteTokenAddress,
+            long revenuIdBackend,
+            Map<String, Long> distributions) throws Exception {
+        List<Address> investisseurs = distributions.keySet().stream()
+                .map(Address::new).toList();
+        List<Uint256> montants = distributions.values().stream()
+                .map(m -> new Uint256(BigInteger.valueOf(m))).toList();
+
+        Function fn = new Function(
+                "enregistrerDistributionBatch",
+                List.<Type>of(
+                        new Address(proprieteTokenAddress),
+                        new Uint256(BigInteger.valueOf(revenuIdBackend)),
+                        new DynamicArray<>(Address.class, investisseurs),
+                        new DynamicArray<>(Uint256.class, montants)
+                ),
+                java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
+        );
+        return broadcast(FunctionEncoder.encode(fn));
     }
 
     // =========================================================================

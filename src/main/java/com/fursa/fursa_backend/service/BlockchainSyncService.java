@@ -45,6 +45,7 @@ public class BlockchainSyncService {
     private final long chainId;
     private final long gasPrice;
     private final long gasLimit;
+    private final BlockchainSyncQueueService queueService;
 
     public BlockchainSyncService(
             BlockchainRpcClient blockchainRpcClient,
@@ -52,12 +53,14 @@ public class BlockchainSyncService {
             @Value("${blockchain.chain-id}") long chainId,
             @Value("${blockchain.gas-price:20000000000}") long gasPrice,
             // setter = transaction simple ~50k gas, on cape a 200k pour marge.
-            @Value("${blockchain.sync-gas-limit:200000}") long gasLimit) {
+            @Value("${blockchain.sync-gas-limit:200000}") long gasLimit,
+            BlockchainSyncQueueService queueService) {
         this.blockchainRpcClient = blockchainRpcClient;
         this.credentials = credentials;
         this.chainId = chainId;
         this.gasPrice = gasPrice;
         this.gasLimit = gasLimit;
+        this.queueService = queueService;
         log.info("BlockchainSyncService initialise : chainId={} gasPrice={} Gwei gasLimit={}",
                 chainId, gasPrice / 1_000_000_000L, gasLimit);
     }
@@ -88,31 +91,54 @@ public class BlockchainSyncService {
             return;
         }
 
+        String contract = propriete.getAdresseContrat();
         try {
-            int raisonCode = mapRaisonToOnchainCode(raison);
-            long sourceIdSafe = sourceId == null ? 0L : sourceId;
-
-            Function fn = new Function(
-                    "syncPrix",
-                    List.of(
-                            new Uint256(prixCourantUsd),
-                            new Int256(BigInteger.valueOf(bonusRentaBps)),
-                            new Uint256(BigInteger.valueOf(bonusDemandeBps)),
-                            new Uint8(BigInteger.valueOf(raisonCode)),
-                            new Uint256(BigInteger.valueOf(sourceIdSafe))
-                    ),
-                    java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
-            );
-
-            String txHash = broadcast(propriete.getAdresseContrat(), FunctionEncoder.encode(fn));
+            String txHash = syncPrixDirect(
+                    contract, prixCourantUsd, bonusRentaBps, bonusDemandeBps, raison, sourceId);
             log.info("[BlockchainSync] syncPrix prop={} contrat={} prix={} renta={}bps dem={}bps tx={}",
-                    propriete.getId(), propriete.getAdresseContrat(),
-                    prixCourantUsd, bonusRentaBps, bonusDemandeBps, txHash);
+                    propriete.getId(), contract, prixCourantUsd,
+                    bonusRentaBps, bonusDemandeBps, txHash);
 
         } catch (Exception e) {
-            log.error("[BlockchainSync] Echec push prix prop={} : {}",
-                    propriete.getId(), e.getMessage(), e);
+            log.warn("[BlockchainSync] Echec sync prix prop={} → enqueue : {}",
+                    propriete.getId(), e.getMessage());
+            // V2 R : on persiste pour retry async via BlockchainSyncQueueWorker.
+            queueService.enqueue(
+                    com.fursa.fursa_backend.model.enumeration.TypeSyncBlockchain.SYNC_PRIX,
+                    propriete.getId(),
+                    BlockchainSyncQueueService.payloadSyncPrix(
+                            contract, prixCourantUsd.longValueExact(),
+                            bonusRentaBps, bonusDemandeBps,
+                            raison == null ? null : raison.name(), sourceId));
         }
+    }
+
+    /**
+     * V2 R : variante synchrone utilisable par le worker de queue. Throw au lieu
+     * de log silencieux. Retourne le txHash en cas de succes.
+     */
+    public String syncPrixDirect(
+            String contractAddress,
+            BigInteger prixCourantUsd,
+            int bonusRentaBps,
+            int bonusDemandeBps,
+            RaisonRecalculPrix raison,
+            Long sourceId) throws Exception {
+        int raisonCode = mapRaisonToOnchainCode(raison);
+        long sourceIdSafe = sourceId == null ? 0L : sourceId;
+
+        Function fn = new Function(
+                "syncPrix",
+                List.<Type>of(
+                        new Uint256(prixCourantUsd),
+                        new Int256(BigInteger.valueOf(bonusRentaBps)),
+                        new Uint256(BigInteger.valueOf(bonusDemandeBps)),
+                        new Uint8(BigInteger.valueOf(raisonCode)),
+                        new Uint256(BigInteger.valueOf(sourceIdSafe))
+                ),
+                java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
+        );
+        return broadcast(contractAddress, FunctionEncoder.encode(fn));
     }
 
     /**
@@ -134,21 +160,39 @@ public class BlockchainSyncService {
             return;
         }
 
+        String contract = propriete.getAdresseContrat();
         try {
-            Function fn = new Function(
-                    "setStatut",
-                    List.<Type>of(new Uint8(BigInteger.valueOf(statutOnchain))),
-                    java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
-            );
-            String txHash = broadcast(propriete.getAdresseContrat(), FunctionEncoder.encode(fn));
+            String txHash = setStatutDirect(contract, nouveauStatut.name());
             log.info("[BlockchainSync] setStatut prop={} contrat={} statut={} -> code={} tx={}",
-                    propriete.getId(), propriete.getAdresseContrat(),
-                    nouveauStatut, statutOnchain, txHash);
+                    propriete.getId(), contract, nouveauStatut, statutOnchain, txHash);
 
         } catch (Exception e) {
-            log.error("[BlockchainSync] Echec push statut prop={} : {}",
-                    propriete.getId(), e.getMessage(), e);
+            log.warn("[BlockchainSync] Echec push statut prop={} → enqueue : {}",
+                    propriete.getId(), e.getMessage());
+            queueService.enqueue(
+                    com.fursa.fursa_backend.model.enumeration.TypeSyncBlockchain.SET_STATUT,
+                    propriete.getId(),
+                    BlockchainSyncQueueService.payloadSetStatut(contract, nouveauStatut.name()));
         }
+    }
+
+    /**
+     * V2 R : variante synchrone utilisable par le worker de queue.
+     * @param statutJavaName "PUBLIEE" | "REJETEE" | "REFUSEE" | ...
+     */
+    public String setStatutDirect(String contractAddress, String statutJavaName) throws Exception {
+        StatutPropriete statut = StatutPropriete.valueOf(statutJavaName);
+        int code = mapStatutToOnchainCode(statut);
+        if (code < 0) {
+            throw new IllegalArgumentException(
+                    "Statut " + statutJavaName + " ne se reflete pas on-chain");
+        }
+        Function fn = new Function(
+                "setStatut",
+                List.<Type>of(new Uint8(BigInteger.valueOf(code))),
+                java.util.Collections.<org.web3j.abi.TypeReference<?>>emptyList()
+        );
+        return broadcast(contractAddress, FunctionEncoder.encode(fn));
     }
 
     // =========================================================================
