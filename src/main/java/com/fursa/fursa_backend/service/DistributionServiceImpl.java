@@ -60,6 +60,8 @@ public class DistributionServiceImpl implements DistributionService {
     private final BlockchainService blockchainService;
     private final EmailService emailService;
     private final RevenueLedgerService revenueLedgerService;
+    private final WalletService walletService;
+    private final FursaMasterWalletService masterWalletService;
 
     /**
      * Phase 1 : calcule et persiste les dividendes (statut VALIDE) pour un revenu.
@@ -104,6 +106,9 @@ public class DistributionServiceImpl implements DistributionService {
         LocalDate aujourdhui = LocalDate.now();
         NumberFormat eurFormat = NumberFormat.getCurrencyInstance(Locale.FRANCE);
 
+        // V2 Z (07/06/2026) : on prepare l'id du master pour les transferts wallet.
+        Long masterUserId = masterWalletService.getMasterUserId();
+
         List<Dividende> dividendes = new ArrayList<>();
         for (Possession possession : possessions) {
             int partsInvestisseur = possession.getNombreDeParts() == null ? 0 : possession.getNombreDeParts();
@@ -120,6 +125,21 @@ public class DistributionServiceImpl implements DistributionService {
 
             Investisseur inv = possession.getInvestisseur();
             if (inv != null) {
+                // V2 Z : transfert wallet master FURSA -> wallet investisseur.
+                // Si le solde master est insuffisant (cas anormal mais possible si
+                // l'admin distribue plusieurs revenus sans avoir crédité le master),
+                // InsufficientFundsException remonte → rollback transactionnel.
+                walletService.debit(
+                        masterUserId, montant,
+                        com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction.DEBIT_DISTRIBUTION_REVENU,
+                        "Distribution dividende — " + propriete.getNom() + " (revenu #" + revenuId + ")",
+                        "dividende", dividende.getId(), null);
+                walletService.credit(
+                        inv.getId(), montant,
+                        com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction.CREDIT_DIVIDENDE,
+                        "Dividende " + propriete.getNom(),
+                        "dividende", dividende.getId(), null);
+
                 notificationService.envoyer(
                         inv,
                         "Dividende recu",

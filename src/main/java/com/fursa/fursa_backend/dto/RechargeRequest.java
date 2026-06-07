@@ -9,14 +9,15 @@ import java.math.BigDecimal;
 /**
  * Recharge du wallet (mode demo / mock).
  *
- * Aucun PSP reel n'est branche : le solde est credite directement. Plafond par
- * recharge pour eviter les abus en attendant l'integration d'un vrai fournisseur
- * de paiement (Yellow Card / Mobile Money).
+ * Aucun PSP reel n'est branche : le solde est credite directement. Plafond
+ * eleve (1 000 000 USD) en mode demo pour ne pas bloquer les tests. A
+ * resserrer drastiquement quand un vrai PSP (Yellow Card / Mobile Money)
+ * sera branche.
  */
 public record RechargeRequest(
         @NotNull(message = "Le montant est obligatoire")
-        @DecimalMin(value = "1.00", message = "Le montant minimum est 1")
-        @DecimalMax(value = "10000.00", message = "Le montant maximum par recharge est 10 000")
+        @DecimalMin(value = "1.00", message = "Le montant minimum est 1 USD")
+        @DecimalMax(value = "1000000.00", message = "Le montant maximum par recharge est 1 000 000 USD")
         BigDecimal montant,
 
         /** Methode affichee (mock) : MOBILE_MONEY | VIREMENT | CARTE. Optionnel. */

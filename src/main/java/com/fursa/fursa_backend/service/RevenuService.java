@@ -35,6 +35,8 @@ public class RevenuService {
     private final FileStorageService fileStorageService;
     private final PrixPartService prixPartService;
     private final RevenueLedgerService revenueLedgerService;
+    private final WalletService walletService;
+    private final FursaMasterWalletService masterWalletService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -141,6 +143,24 @@ public class RevenuService {
         revenu.setPenaliteRetard(penalite);
 
         Revenus saved = revenusRepository.save(revenu);
+
+        // V2 Z (07/06/2026) : workflow wallet-to-escrow. Le propriétaire paye
+        // immédiatement le montant déclaré. Son wallet est débité, le wallet
+        // master FURSA est crédité (escrow virtuel). Si le solde est
+        // insuffisant, walletService.debit lève InsufficientFundsException qui
+        // remontera en 400 + rollback transactionnel (le revenu n'est pas saved).
+        java.math.BigDecimal montant = req.montantTotal();
+        Long masterUserId = masterWalletService.getMasterUserId();
+        walletService.debit(
+                proposeurId, montant,
+                com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction.DEBIT_DECLARATION_REVENU,
+                "Déclaration revenu " + propriete.getNom(),
+                "revenus", saved.getId(), null);
+        walletService.credit(
+                masterUserId, montant,
+                com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction.CREDIT_DECLARATION_REVENU,
+                "Escrow revenu #" + saved.getId() + " (" + propriete.getNom() + ")",
+                "revenus", saved.getId(), null);
 
         // V2 K (06/06/2026) : suffixe penalite retire (penalite supprimee).
         notifierAdmins(
@@ -250,9 +270,25 @@ public class RevenuService {
         r.setMotifRefus(motif);
         Revenus saved = revenusRepository.save(r);
 
+        // V2 Z (07/06/2026) : remboursement intégral du wallet propriétaire
+        // depuis le wallet master FURSA (annule le débit fait à la soumission).
+        if (r.getProposeurId() != null && r.getMontantTotal() != null) {
+            Long masterUserId = masterWalletService.getMasterUserId();
+            walletService.debit(
+                    masterUserId, r.getMontantTotal(),
+                    com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction.AJUSTEMENT_ADMIN,
+                    "Remboursement refus declaration revenu #" + saved.getId(),
+                    "revenus", saved.getId(), null);
+            walletService.credit(
+                    r.getProposeurId(), r.getMontantTotal(),
+                    com.fursa.fursa_backend.model.enumeration.TypeWalletTransaction.CREDIT_REFUND_DECLARATION,
+                    "Remboursement déclaration refusée — " + saved.getPropriete().getNom(),
+                    "revenus", saved.getId(), null);
+        }
+
         notifierProposeur(saved,
                 "Revenu refusé",
-                "Votre déclaration pour \"" + saved.getPropriete().getNom() + "\" a été refusée. Motif : " + motif,
+                "Votre déclaration pour \"" + saved.getPropriete().getNom() + "\" a été refusée. Le montant a été remboursé sur votre wallet. Motif : " + motif,
                 TypeMessage.AVERTISSEMENT
         );
 

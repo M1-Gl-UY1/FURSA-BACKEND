@@ -33,5 +33,19 @@ public enum TypeWalletTransaction {
     DEBIT_WITHDRAW,
 
     /** Ajustement manuel par un admin (correction d'erreur, support utilisateur). Trace le motif. */
-    AJUSTEMENT_ADMIN
+    AJUSTEMENT_ADMIN,
+
+    // ─── V2 Z (07/06/2026) : workflow declaration revenu wallet-to-escrow ───
+
+    /** Debit wallet proprio lors de la soumission d'une declaration de revenu trimestriel. */
+    DEBIT_DECLARATION_REVENU,
+
+    /** Credit wallet master FURSA correspondant au debit ci-dessus (escrow virtuel). */
+    CREDIT_DECLARATION_REVENU,
+
+    /** Credit wallet proprio en cas de refus admin (remboursement integral). */
+    CREDIT_REFUND_DECLARATION,
+
+    /** Debit wallet master lors de la distribution des dividendes aux investisseurs. */
+    DEBIT_DISTRIBUTION_REVENU
 }
