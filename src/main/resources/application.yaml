@@ -101,3 +101,6 @@ blockchain:
   gas-price: ${BLOCKCHAIN_GAS_PRICE:2000000000}
   gas-limit: ${BLOCKCHAIN_GAS_LIMIT:30000000}
   chain-id: ${BLOCKCHAIN_CHAIN_ID:31337}
+  # V2 P (07/06/2026) : RevenueLedger singleton (audit on-chain revenus + distributions).
+  # Vide = LedgerService desactive (no-op silencieux). Renseigner apres deploiement Sepolia.
+  revenue-ledger-address: ${BLOCKCHAIN_REVENUE_LEDGER_ADDRESS:}

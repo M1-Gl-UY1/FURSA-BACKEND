@@ -34,6 +34,7 @@ public class RevenuService {
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
     private final PrixPartService prixPartService;
+    private final RevenueLedgerService revenueLedgerService;
 
     // =========================================================================
     // Création directe par admin (workflow historique)
@@ -174,6 +175,10 @@ public class RevenuService {
             prixPartService.appliquerRevenuValide(saved.getPropriete(), saved);
         }
 
+        // V2 P (07/06/2026) : ancrage on-chain dans le RevenueLedger (audit
+        // public). No-op si ledger non configure ou propriete non tokenisee.
+        ancrerRevenuOnchain(saved);
+
         notifierProposeur(saved,
                 "Revenu validé",
                 "Votre déclaration de revenu pour \"" + saved.getPropriete().getNom() + "\" a été validée. La distribution aux investisseurs sera prochainement effectuée.",
@@ -181,6 +186,57 @@ public class RevenuService {
         );
 
         return toResponse(saved);
+    }
+
+    /**
+     * V2 P : ancrage on-chain d'un revenu valide.
+     * - calcule sha256 du justificatif (preuve d'existence)
+     * - encode le trimestre au format YYYYQ
+     * - push async via RevenueLedgerService
+     */
+    private void ancrerRevenuOnchain(Revenus r) {
+        Propriete p = r.getPropriete();
+        if (p == null || p.getAdresseContrat() == null || p.getAdresseContrat().isBlank()) {
+            return;
+        }
+        try {
+            int trimestre = RevenueLedgerService.trimestreCode(
+                    r.getPeriodeDebut().getYear(),
+                    ((r.getPeriodeDebut().getMonthValue() - 1) / 3) + 1);
+            long montantUsd = r.getMontantTotal().setScale(0, java.math.RoundingMode.HALF_UP).longValueExact();
+            long dateUnix   = r.getDate().atStartOfDay(java.time.ZoneOffset.UTC).toEpochSecond();
+            String hashHex  = hashJustificatifOrNull(r.getJustificatifUrl());
+
+            revenueLedgerService.enregistrerRevenu(
+                    p.getAdresseContrat(), trimestre, montantUsd, dateUnix,
+                    hashHex, r.getId());
+        } catch (Exception e) {
+            // Le ledger est best-effort : un echec ici ne doit jamais bloquer
+            // la validation BDD du revenu.
+            // Log inline pour eviter d'introduire un logger sur la classe (deja
+            // surcharge — on s'appuie sur Spring-Boot par defaut).
+            org.slf4j.LoggerFactory.getLogger(RevenuService.class)
+                    .error("[Ledger] Echec ancrage revenu id={} : {}",
+                            r.getId(), e.getMessage(), e);
+        }
+    }
+
+    private String hashJustificatifOrNull(String justificatifUrl) {
+        if (justificatifUrl == null || justificatifUrl.isBlank()) return null;
+        String nom = extractFileName(justificatifUrl);
+        if (nom == null) return null;
+        try {
+            org.springframework.core.io.Resource res = fileStorageService.load(nom);
+            byte[] bytes;
+            try (var in = res.getInputStream()) {
+                bytes = in.readAllBytes();
+            }
+            return RevenueLedgerService.sha256Hex(bytes);
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(RevenuService.class)
+                    .warn("[Ledger] hash justif indisponible ({}): {}", nom, e.getMessage());
+            return null;
+        }
     }
 
     @Transactional

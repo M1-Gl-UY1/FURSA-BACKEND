@@ -59,6 +59,7 @@ public class DistributionServiceImpl implements DistributionService {
     private final DividendeFactory dividendeFactory;
     private final BlockchainService blockchainService;
     private final EmailService emailService;
+    private final RevenueLedgerService revenueLedgerService;
 
     /**
      * Phase 1 : calcule et persiste les dividendes (statut VALIDE) pour un revenu.
@@ -139,7 +140,50 @@ public class DistributionServiceImpl implements DistributionService {
             revenusRepository.save(revenus);
         }
 
+        // V2 P (07/06/2026) : ancrage on-chain de la distribution dans le
+        // RevenueLedger (audit public). No-op si ledger non configure ou
+        // propriete non tokenisee. Best-effort : un echec ne doit pas faire
+        // tomber la distribution BDD qui vient de reussir.
+        ancrerDistributionOnchain(propriete, revenuId, dividendes);
+
         return dividendes;
+    }
+
+    /**
+     * V2 P : push batch des dividendes vers le RevenueLedger.
+     * Mapping investisseur.wallet_address (on-chain) -> montant USD entier.
+     * Les dividendes d'investisseurs sans wallet sont ignores (pas d'adresse
+     * cible on-chain) mais restent valides en BDD.
+     */
+    private void ancrerDistributionOnchain(Propriete propriete, Long revenuId,
+                                            List<Dividende> dividendes) {
+        if (propriete == null || propriete.getAdresseContrat() == null
+                || propriete.getAdresseContrat().isBlank()) {
+            return;
+        }
+        try {
+            java.util.Map<String, Long> distributions = new java.util.LinkedHashMap<>();
+            for (Dividende d : dividendes) {
+                Investisseur inv = d.getInvestisseur();
+                if (inv == null) continue;
+                String wallet = inv.getWallet_address();
+                if (wallet == null || wallet.isBlank()) continue;
+                long montantUsd = d.getMontantCalcule()
+                        .setScale(0, RoundingMode.HALF_UP).longValueExact();
+                if (montantUsd <= 0) continue;
+                // Si un investisseur a deja une entree (cas tres rare), on cumule.
+                distributions.merge(wallet, montantUsd, Long::sum);
+            }
+            if (distributions.isEmpty()) {
+                log.debug("[Ledger] Skip ancrage distribution revenuId={} : aucun wallet investisseur", revenuId);
+                return;
+            }
+            revenueLedgerService.enregistrerDistributionBatch(
+                    propriete.getAdresseContrat(), revenuId, distributions);
+        } catch (Exception e) {
+            log.error("[Ledger] Echec ancrage distribution revenuId={} : {}",
+                    revenuId, e.getMessage(), e);
+        }
     }
 
     /**
