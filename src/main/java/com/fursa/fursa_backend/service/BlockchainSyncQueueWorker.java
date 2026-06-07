@@ -42,6 +42,7 @@ public class BlockchainSyncQueueWorker {
     private final BlockchainSyncQueueService queueService;
     private final BlockchainSyncService syncService;
     private final RevenueLedgerService ledgerService;
+    private final KycLedgerService kycLedgerService;
 
     /**
      * Cron tres frequent (60s) : sur Sepolia / Polygon, le block time est de
@@ -114,6 +115,21 @@ public class BlockchainSyncQueueWorker {
                 }
                 String tx = ledgerService.enregistrerDistributionBatchDirect(
                         contract, revenuId, dist);
+                queueService.markSuccess(task.getId(), tx);
+            }
+            case ENREGISTRER_KYC -> {
+                String wallet = (String) payload.get("walletAdresse");
+                String hashHex = (String) payload.get("hashHex");
+                long dateValid = asLong(payload.get("dateValidationUnix"));
+                long expireLe = asLong(payload.get("expireLeUnix"));
+                String tx = kycLedgerService.enregistrerKycDirect(
+                        wallet, hashHex, dateValid, expireLe);
+                queueService.markSuccess(task.getId(), tx);
+            }
+            case REVOQUER_KYC -> {
+                String wallet = (String) payload.get("walletAdresse");
+                String motif = (String) payload.get("motif");
+                String tx = kycLedgerService.revoquerKycDirect(wallet, motif);
                 queueService.markSuccess(task.getId(), tx);
             }
         }

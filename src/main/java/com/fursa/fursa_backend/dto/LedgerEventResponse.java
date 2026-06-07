@@ -15,23 +15,30 @@ public record LedgerEventResponse(
         Type type,
         String txHash,
         BigInteger blockNumber,
-        /** Adresse du contrat propriete concernee. */
+        /** Adresse du contrat propriete concernee (REVENU/DIVIDENDE). Null pour KYC. */
         String proprieteToken,
         /** REVENU_ENREGISTRE : trimestre format YYYYQ (ex: 20262 = Q2 2026). */
         Integer trimestre,
         /** REVENU_ENREGISTRE : montant USD entier. DIVIDENDE_DISTRIBUE : idem. */
         BigInteger montantUsd,
-        /** REVENU_ENREGISTRE : sha256 0x... du justificatif (preuve d'existence). */
+        /** REVENU_ENREGISTRE : sha256 0x... du justificatif (preuve d'existence). KYC : hash KYC. */
         String hashJustificatif,
-        /** REVENU_ENREGISTRE : timestamp UNIX de validation. */
+        /** REVENU_ENREGISTRE/KYC : timestamp UNIX. */
         Long dateValidation,
-        /** DIVIDENDE_DISTRIBUE : adresse de l'investisseur destinataire. */
+        /** DIVIDENDE_DISTRIBUE : adresse de l'investisseur destinataire. KYC : wallet titulaire. */
         String investisseur,
-        /** Id BDD du revenu source (pour cross-ref avec la table revenus). */
-        BigInteger revenuIdBackend
+        /** Id BDD du revenu source. KYC : null. */
+        BigInteger revenuIdBackend,
+        /** KYC_ENREGISTRE : timestamp UNIX d'expiration. */
+        Long kycExpireLe,
+        /** KYC_REVOQUE : motif de revocation. */
+        String motif
 ) {
     public enum Type {
         REVENU_ENREGISTRE,
-        DIVIDENDE_DISTRIBUE
+        DIVIDENDE_DISTRIBUE,
+        // V2 T (07/06/2026) : KYC on-chain
+        KYC_ENREGISTRE,
+        KYC_REVOQUE
     }
 }

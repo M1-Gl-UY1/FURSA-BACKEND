@@ -1,6 +1,7 @@
 package com.fursa.fursa_backend.controller;
 
 import com.fursa.fursa_backend.dto.LedgerEventResponse;
+import com.fursa.fursa_backend.service.KycEventReader;
 import com.fursa.fursa_backend.service.LedgerEventReader;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,22 +30,32 @@ import java.util.Map;
 public class AdminLedgerController {
 
     private final LedgerEventReader reader;
+    private final KycEventReader kycReader;
 
-    @Operation(summary = "Etat du Ledger",
-            description = "Indique si le ledger on-chain est configure (adresse renseignee).")
+    @Operation(summary = "Etat des contrats audit on-chain",
+            description = "Indique si le RevenueLedger et le KycRegistry sont configures.")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/status")
     public ResponseEntity<Map<String, Object>> status() {
-        return ResponseEntity.ok(Map.of("actif", reader.estActif()));
+        return ResponseEntity.ok(Map.of(
+                "actif", reader.estActif() || kycReader.estActif(),
+                "ledgerActif", reader.estActif(),
+                "kycActif", kycReader.estActif()
+        ));
     }
 
-    @Operation(summary = "Events recents du ledger",
-            description = "Decode les events RevenuEnregistre + DividendeDistribue sur "
-                       + "les N derniers blocs (defaut 10 000). Tri decroissant par block.")
+    @Operation(summary = "Events recents (Ledger + KYC)",
+            description = "Decode les events RevenuEnregistre + DividendeDistribue + "
+                       + "KycEnregistre + KycRevoque sur les N derniers blocs (defaut 10 000). "
+                       + "Tri decroissant par block.")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/events")
     public ResponseEntity<List<LedgerEventResponse>> events(
             @RequestParam(defaultValue = "10000") int maxBlocks) {
-        return ResponseEntity.ok(reader.getRecent(maxBlocks));
+        List<LedgerEventResponse> merged = new java.util.ArrayList<>();
+        merged.addAll(reader.getRecent(maxBlocks));
+        merged.addAll(kycReader.getRecent(maxBlocks));
+        merged.sort((a, b) -> b.blockNumber().compareTo(a.blockNumber()));
+        return ResponseEntity.ok(merged);
     }
 }

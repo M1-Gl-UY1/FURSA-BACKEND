@@ -41,12 +41,15 @@ public class KycService {
     private final FileStorageService fileStorageService;
     private final EmailService emailService;
     private final AppSettingsService appSettingsService;
+    private final KycLedgerService kycLedgerService;
 
     public KycService(KycSubmissionRepository kycRepository,
                       InvestisseurRepository investisseurRepository,
                       FileStorageService fileStorageService,
                       EmailService emailService,
-                      AppSettingsService appSettingsService) {
+                      AppSettingsService appSettingsService,
+                      KycLedgerService kycLedgerService) {
+        this.kycLedgerService = kycLedgerService;
         this.kycRepository = kycRepository;
         this.investisseurRepository = investisseurRepository;
         this.fileStorageService = fileStorageService;
@@ -202,6 +205,21 @@ public class KycService {
             emailService.envoyerKycValide(inv.getEmail(), inv.getPrenom());
         }
 
+        // V2 T (07/06/2026) : ancrage on-chain RGPD-safe. No-op si :
+        //   - kyc-registry-address non configure
+        //   - investisseur sans wallet on-chain
+        // L'identifiant unique = email (stable, connu du regulateur en cas d'audit).
+        // Async + queue fallback : ne bloque jamais la validation.
+        if (inv.getWallet_address() != null && !inv.getWallet_address().isBlank()) {
+            kycLedgerService.enregistrerKyc(
+                    inv.getWallet_address(),
+                    inv.getPrenom(),
+                    inv.getNom(),
+                    ks.getDateNaissance(),
+                    inv.getEmail()
+            );
+        }
+
         return toAdminResponse(ks);
     }
 
@@ -273,6 +291,12 @@ public class KycService {
         // V2 H.1 (06/06/2026) : email transactionnel via Postal.
         if (inv.getEmail() != null && !inv.getEmail().isBlank()) {
             emailService.envoyerKycRevoque(inv.getEmail(), inv.getPrenom(), motif);
+        }
+
+        // V2 T (07/06/2026) : revocation on-chain (le hash reste mais devient
+        // inutilisable, le statut on-chain bascule en REVOQUE).
+        if (inv.getWallet_address() != null && !inv.getWallet_address().isBlank()) {
+            kycLedgerService.revoquerKyc(inv.getWallet_address(), motif);
         }
         return toAdminResponse(ks);
     }

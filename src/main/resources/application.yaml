@@ -64,6 +64,15 @@ app:
     # (utile pour les tests d'integration ou la phase de seed sans Postal).
     enabled: ${MAIL_ENABLED:true}
 
+  # V2 T (07/06/2026) : config ancrage KYC on-chain.
+  kyc-onchain:
+    # Sel secret pour le hash KYC on-chain. JAMAIS commit en dur en prod.
+    # Doit etre >= 32 chars. Si change apres mise en service, tous les hashes
+    # historiques deviennent inverifiables — donc fige une fois pour toutes.
+    salt: ${KYC_ONCHAIN_SALT:dev-only-salt-min-32-chars-change-in-prod-please}
+    # Duree de validite d'un KYC en jours. Au-dela, le KYC passe en EXPIRE.
+    duree-validite-jours: ${KYC_DUREE_VALIDITE_JOURS:365}
+
 springdoc:
   swagger-ui:
     path: /swagger-ui
@@ -104,3 +113,6 @@ blockchain:
   # V2 P (07/06/2026) : RevenueLedger singleton (audit on-chain revenus + distributions).
   # Vide = LedgerService desactive (no-op silencieux). Renseigner apres deploiement Sepolia.
   revenue-ledger-address: ${BLOCKCHAIN_REVENUE_LEDGER_ADDRESS:}
+  # V2 T (07/06/2026) : KycRegistry singleton (audit on-chain RGPD-safe).
+  # Vide = KycLedgerService desactive (no-op silencieux).
+  kyc-registry-address: ${BLOCKCHAIN_KYC_REGISTRY_ADDRESS:}

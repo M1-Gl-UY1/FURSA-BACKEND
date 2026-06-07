@@ -13,80 +13,50 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * V2 Q (07/06/2026) : decode les events emis par le RevenueLedger pour
- * alimenter la page admin "Audit on-chain".
+ * V2 T (07/06/2026) : reader des events emis par le contrat KycRegistry.
  *
- * Utilise eth_getLogs en JSON-RPC raw (pas de wrapper Web3j genere pour
- * eviter une dependance de plus). Le decodage des topics + data est fait
- * a la main suivant la spec ABI.
+ * Decode KycEnregistre + KycRevoque en LedgerEventResponse (unifie avec les
+ * events RevenueLedger pour la page admin Audit on-chain).
  *
- * Performance : pour Sepolia / Polygon, un range de 10 000 blocs (~33 minutes
- * sur Polygon ou 33h sur Sepolia) suffit pour la plupart des cas d'admin
- * (vue "derniers events"). Pour un historique complet, paginer via blockFrom/To.
+ * Si BLOCKCHAIN_KYC_REGISTRY_ADDRESS est vide, retourne une liste vide.
  */
 @Service
 @Slf4j
-public class LedgerEventReader {
+public class KycEventReader {
 
-    /** Topic[0] = keccak256("RevenuEnregistre(address,uint256,uint32,uint256,bytes32,uint64)"). */
-    private static final String TOPIC_REVENU_ENREGISTRE = sigHash(
-            "RevenuEnregistre(address,uint256,uint32,uint256,bytes32,uint64)");
+    private static final String TOPIC_KYC_ENREGISTRE = sigHash(
+            "KycEnregistre(address,bytes32,uint64,uint64)");
 
-    /** Topic[0] = keccak256("DividendeDistribue(address,address,uint256,uint256)"). */
-    private static final String TOPIC_DIVIDENDE_DISTRIBUE = sigHash(
-            "DividendeDistribue(address,address,uint256,uint256)");
+    private static final String TOPIC_KYC_REVOQUE = sigHash(
+            "KycRevoque(address,uint64,string)");
 
     private final BlockchainRpcClient rpc;
-    private final String ledgerAddress;
+    private final String kycRegistryAddress;
 
-    public LedgerEventReader(
+    public KycEventReader(
             BlockchainRpcClient rpc,
-            @Value("${blockchain.revenue-ledger-address:}") String ledgerAddress) {
+            @Value("${blockchain.kyc-registry-address:}") String kycRegistryAddress) {
         this.rpc = rpc;
-        this.ledgerAddress = ledgerAddress == null ? "" : ledgerAddress.trim();
+        this.kycRegistryAddress = kycRegistryAddress == null ? "" : kycRegistryAddress.trim();
     }
 
     public boolean estActif() {
-        return !ledgerAddress.isEmpty();
+        return !kycRegistryAddress.isEmpty();
     }
 
-    /**
-     * Recupere les events sur les N derniers blocs (defaut 10 000). Retour
-     * trie par blockNumber decroissant (plus recent en premier).
-     *
-     * @param maxBlocks nombre de blocs a remonter depuis le bloc courant
-     */
     public List<LedgerEventResponse> getRecent(int maxBlocks) {
-        if (!estActif()) {
-            log.debug("[LedgerReader] Ledger non configure, no-op");
-            return Collections.emptyList();
-        }
+        if (!estActif()) return Collections.emptyList();
         try {
             BigInteger latest = getLatestBlock();
             BigInteger from = latest.subtract(BigInteger.valueOf(Math.max(1, maxBlocks)));
             if (from.signum() < 0) from = BigInteger.ZERO;
-            return getRange(from, latest);
-        } catch (Exception e) {
-            log.error("[LedgerReader] Echec lecture events : {}", e.getMessage(), e);
-            return Collections.emptyList();
-        }
-    }
-
-    /**
-     * Recupere les events sur un range explicite. blockTo peut etre null = latest.
-     */
-    public List<LedgerEventResponse> getRange(BigInteger blockFrom, BigInteger blockTo) {
-        if (!estActif()) return Collections.emptyList();
-        try {
             List<LedgerEventResponse> all = new ArrayList<>();
-            all.addAll(fetchAndDecode(blockFrom, blockTo, TOPIC_REVENU_ENREGISTRE));
-            all.addAll(fetchAndDecode(blockFrom, blockTo, TOPIC_DIVIDENDE_DISTRIBUE));
-            // Tri decroissant par blockNumber pour afficher le plus recent en haut.
+            all.addAll(fetchAndDecode(from, latest, TOPIC_KYC_ENREGISTRE));
+            all.addAll(fetchAndDecode(from, latest, TOPIC_KYC_REVOQUE));
             all.sort((a, b) -> b.blockNumber().compareTo(a.blockNumber()));
             return all;
         } catch (Exception e) {
-            log.error("[LedgerReader] Echec lecture range {}-{} : {}",
-                    blockFrom, blockTo, e.getMessage(), e);
+            log.error("[KycReader] Echec lecture events : {}", e.getMessage(), e);
             return Collections.emptyList();
         }
     }
@@ -109,7 +79,7 @@ public class LedgerEventReader {
         String toHex = to == null ? "latest" : "0x" + to.toString(16);
 
         String body = "{\"jsonrpc\":\"2.0\",\"method\":\"eth_getLogs\",\"params\":[{"
-                + "\"address\":\"" + ledgerAddress + "\","
+                + "\"address\":\"" + kycRegistryAddress + "\","
                 + "\"fromBlock\":\"" + fromHex + "\","
                 + "\"toBlock\":\"" + toHex + "\","
                 + "\"topics\":[\"" + topic0 + "\"]"
@@ -118,21 +88,16 @@ public class LedgerEventReader {
         var response = rpc.sendRpc(body);
         String responseBody = response.body();
         if (!responseBody.contains("\"result\":[")) {
-            log.warn("[LedgerReader] reponse RPC inattendue : {}", responseBody);
+            log.warn("[KycReader] reponse RPC inattendue : {}", responseBody);
             return Collections.emptyList();
         }
         return parseLogsArray(responseBody, topic0);
     }
 
-    /**
-     * Parser tres simple du tableau de logs JSON. On evite jackson pour ne pas
-     * elargir la surface ; les logs etheriens ont un schema stable.
-     */
     private List<LedgerEventResponse> parseLogsArray(String json, String topic0) {
         List<LedgerEventResponse> out = new ArrayList<>();
         int start = json.indexOf("\"result\":[");
         if (start < 0) return out;
-        // Position du premier '{' apres "result":[
         int idx = json.indexOf('{', start);
         while (idx >= 0) {
             int end = findMatchingBrace(json, idx);
@@ -142,10 +107,9 @@ public class LedgerEventReader {
                 LedgerEventResponse ev = decodeOneLog(logJson, topic0);
                 if (ev != null) out.add(ev);
             } catch (Exception e) {
-                log.warn("[LedgerReader] log indecodable : {}", e.getMessage());
+                log.warn("[KycReader] log indecodable : {}", e.getMessage());
             }
             idx = json.indexOf('{', end + 1);
-            // Stop si on est sorti du tableau (premier ']' apres la position courante)
             int closeArr = json.indexOf(']', end + 1);
             if (closeArr >= 0 && idx > closeArr) break;
         }
@@ -171,69 +135,70 @@ public class LedgerEventReader {
         String dataHex = extractField(logJson, "data");
         List<String> topics = extractTopics(logJson);
 
-        if (topics.isEmpty() || !topic0.equalsIgnoreCase(topics.get(0))) {
-            return null;
-        }
+        if (topics.isEmpty() || !topic0.equalsIgnoreCase(topics.get(0))) return null;
 
         BigInteger blockNumber = blockNumberHex == null ? BigInteger.ZERO
                 : Numeric.decodeQuantity(blockNumberHex);
 
-        if (TOPIC_REVENU_ENREGISTRE.equalsIgnoreCase(topic0)) {
-            return decodeRevenu(txHash, blockNumber, topics, dataHex);
-        } else if (TOPIC_DIVIDENDE_DISTRIBUE.equalsIgnoreCase(topic0)) {
-            return decodeDividende(txHash, blockNumber, topics, dataHex);
+        if (TOPIC_KYC_ENREGISTRE.equalsIgnoreCase(topic0)) {
+            return decodeEnregistre(txHash, blockNumber, topics, dataHex);
+        } else if (TOPIC_KYC_REVOQUE.equalsIgnoreCase(topic0)) {
+            return decodeRevoque(txHash, blockNumber, topics, dataHex);
         }
         return null;
     }
 
-    private LedgerEventResponse decodeRevenu(String txHash, BigInteger blockNumber,
-                                              List<String> topics, String dataHex) {
-        // topics : [topic0, propAddress, revenuIdBackend]
-        // data   : trimestre (uint32 pad32) | montantUsd (uint256) | hashJustif (bytes32) | dateValidation (uint64 pad32)
-        String prop = topicToAddress(topics.get(1));
-        BigInteger revenuId = topicToUint(topics.get(2));
-
+    private LedgerEventResponse decodeEnregistre(String txHash, BigInteger blockNumber,
+                                                  List<String> topics, String dataHex) {
+        // topics : [topic0, wallet]
+        // data : hashKyc (bytes32) | dateValidation (uint64 pad32) | expireLe (uint64 pad32)
+        String wallet = topicToAddress(topics.get(1));
         byte[] data = Numeric.hexStringToByteArray(strip0x(dataHex));
-        BigInteger trimestre  = readUint256(data, 0);
-        BigInteger montant    = readUint256(data, 32);
-        String     hashJustif = "0x" + Numeric.toHexStringNoPrefix(
-                java.util.Arrays.copyOfRange(data, 64, 96));
-        BigInteger dateUnix   = readUint256(data, 96);
+        String hashKyc = "0x" + Numeric.toHexStringNoPrefix(
+                java.util.Arrays.copyOfRange(data, 0, 32));
+        BigInteger dateValid = readUint256(data, 32);
+        BigInteger expireLe = readUint256(data, 64);
 
         return new LedgerEventResponse(
-                LedgerEventResponse.Type.REVENU_ENREGISTRE,
-                txHash, blockNumber, prop,
-                trimestre.intValueExact(), montant,
-                hashJustif, dateUnix.longValueExact(),
-                null, revenuId,
-                null, null
-        );
-    }
-
-    private LedgerEventResponse decodeDividende(String txHash, BigInteger blockNumber,
-                                                 List<String> topics, String dataHex) {
-        // topics : [topic0, propAddress, investisseur, revenuIdBackend]
-        // data   : montantUsd (uint256)
-        String prop = topicToAddress(topics.get(1));
-        String inv  = topicToAddress(topics.get(2));
-        BigInteger revenuId = topicToUint(topics.get(3));
-
-        byte[] data = Numeric.hexStringToByteArray(strip0x(dataHex));
-        BigInteger montant = readUint256(data, 0);
-
-        return new LedgerEventResponse(
-                LedgerEventResponse.Type.DIVIDENDE_DISTRIBUE,
-                txHash, blockNumber, prop,
-                null, montant,
+                LedgerEventResponse.Type.KYC_ENREGISTRE,
+                txHash, blockNumber, null,
                 null, null,
-                inv, revenuId,
-                null, null
+                hashKyc, dateValid.longValueExact(),
+                wallet, null,
+                expireLe.longValueExact(), null
         );
     }
 
-    // =========================================================================
-    // Helpers JSON / ABI
-    // =========================================================================
+    private LedgerEventResponse decodeRevoque(String txHash, BigInteger blockNumber,
+                                               List<String> topics, String dataHex) {
+        // topics : [topic0, wallet]
+        // data : dateRevocation (uint64 pad32) | offset string | length string | content
+        String wallet = topicToAddress(topics.get(1));
+        byte[] data = Numeric.hexStringToByteArray(strip0x(dataHex));
+        BigInteger dateRevoc = readUint256(data, 0);
+        String motif = decodeStringAtOffset(data, 32);
+
+        return new LedgerEventResponse(
+                LedgerEventResponse.Type.KYC_REVOQUE,
+                txHash, blockNumber, null,
+                null, null,
+                null, dateRevoc.longValueExact(),
+                wallet, null,
+                null, motif
+        );
+    }
+
+    private String decodeStringAtOffset(byte[] data, int offsetWord) {
+        // data[offsetWord..offsetWord+32] = offset (en octets) du debut du string
+        BigInteger offBig = readUint256(data, offsetWord);
+        int strOffset = offBig.intValueExact();
+        if (strOffset + 32 > data.length) return "";
+        BigInteger lenBig = readUint256(data, strOffset);
+        int len = lenBig.intValueExact();
+        int start = strOffset + 32;
+        if (start + len > data.length) return "";
+        return new String(data, start, len, java.nio.charset.StandardCharsets.UTF_8);
+    }
 
     private static String sigHash(String signature) {
         return "0x" + Numeric.toHexStringNoPrefix(Hash.sha3(signature.getBytes()));
@@ -243,9 +208,9 @@ public class LedgerEventReader {
         String key = "\"" + field + "\":\"";
         int i = json.indexOf(key);
         if (i < 0) return null;
-        int start = i + key.length();
-        int end = json.indexOf('"', start);
-        return end < 0 ? null : json.substring(start, end);
+        int s = i + key.length();
+        int e = json.indexOf('"', s);
+        return e < 0 ? null : json.substring(s, e);
     }
 
     private static List<String> extractTopics(String json) {
@@ -263,14 +228,9 @@ public class LedgerEventReader {
     }
 
     private static String topicToAddress(String topic) {
-        // Topic = 32 bytes, adresse = 20 derniers bytes (pad gauche).
         String clean = strip0x(topic);
         if (clean.length() < 40) return "0x" + clean;
         return "0x" + clean.substring(clean.length() - 40);
-    }
-
-    private static BigInteger topicToUint(String topic) {
-        return Numeric.decodeQuantity(topic);
     }
 
     private static BigInteger readUint256(byte[] data, int offset) {
