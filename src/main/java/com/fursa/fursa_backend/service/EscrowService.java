@@ -332,7 +332,7 @@ public class EscrowService {
         BigDecimal m = montant.setScale(2, RoundingMode.HALF_UP);
         if (e.getSolde().compareTo(m) < 0) {
             throw new IllegalStateException("Solde escrow insuffisant : " + e.getSolde()
-                    + " EUR disponibles, " + m + " EUR demandes.");
+                    + " USD disponibles, " + m + " USD demandes.");
         }
         e.setSolde(e.getSolde().subtract(m));
         escrowRepository.save(e);

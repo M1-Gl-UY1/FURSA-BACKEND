@@ -339,7 +339,7 @@ public class MarchePrimaireService {
             persistIdempotencyWallet(idempotencyKey, investisseurId, response);
         }
 
-        log.info("Achat via wallet : inv={} prop={} parts={} montant={} EUR (statutPossession={})",
+        log.info("Achat via wallet : inv={} prop={} parts={} montant={} USD (statutPossession={})",
                 investisseurId, propriete.getId(), request.getNombreParts(), montantTotal, statutPoss);
 
         notifierAchat(investisseur, propriete, request.getNombreParts(), montantTotal);
@@ -612,12 +612,13 @@ public class MarchePrimaireService {
             throw new IllegalStateException("Parts insuffisantes. Disponibles : " + propriete.getPartsDisponibles());
         }
 
-        // Calcul des montants. V1.5 : on suppose une devise unique au niveau plateforme (EUR par defaut).
-        // V2 : on prendra investisseur.preferredCurrency ou la devise envoyee par le front.
+        // Calcul des montants. Decision Hugh 22/05/2026 : USD est la devise unique de la plateforme.
+        // V2 (post-Yellow Card) : on prendra investisseur.preferredCurrency ou la devise envoyee par le front
+        // pour permettre les paiements en monnaie locale africaine convertis en USDC.
         BigDecimal montantFiat = propriete.getPrixUnitairePart()
                 .multiply(BigDecimal.valueOf(request.getNombreParts()))
                 .setScale(2, RoundingMode.HALF_UP);
-        String deviseFiat = "EUR";
+        String deviseFiat = "USD";
         BigDecimal montantUsdc = deviseRateService.convertirEnUsdc(montantFiat, deviseFiat);
 
         PaymentProvider provider = providerRegistry.getActive();

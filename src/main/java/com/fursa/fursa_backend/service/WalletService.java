@@ -160,7 +160,7 @@ public class WalletService {
         tx.setMetadata(metadata);
         WalletTransaction saved = walletTransactionRepository.save(tx);
 
-        log.info("Wallet {} : credit +{} EUR ({}). Nouveau solde : {} EUR",
+        log.info("Wallet {} : credit +{} USD ({}). Nouveau solde : {} USD",
                 w.getId(), montantNormalise, type, nouveauSolde);
         return saved;
     }
@@ -197,7 +197,7 @@ public class WalletService {
         tx.setMetadata(metadata);
         WalletTransaction saved = walletTransactionRepository.save(tx);
 
-        log.info("Wallet {} : debit -{} EUR ({}). Nouveau solde : {} EUR",
+        log.info("Wallet {} : debit -{} USD ({}). Nouveau solde : {} USD",
                 w.getId(), montantNormalise, type, nouveauSolde);
         return saved;
     }

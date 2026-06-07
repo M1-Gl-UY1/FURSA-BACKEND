@@ -118,7 +118,7 @@ public class UserController {
         userRepository.save(inv);
 
         // Phase 10a : creation automatique du wallet polymorphique a l'inscription.
-        // Le wallet est cree avec solde=0 EUR. Toute defaillance ici ne doit pas bloquer
+        // Le wallet est cree avec solde=0 USD. Toute defaillance ici ne doit pas bloquer
         // l'inscription : on logue et on continue (le wallet sera cree a la 1ere consultation).
         try {
             walletService.createForUser(inv.getId());

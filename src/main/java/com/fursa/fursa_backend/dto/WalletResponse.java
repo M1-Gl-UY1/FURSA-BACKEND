@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
  * Phase 10a : representation publique d'un wallet utilisateur.
  *
  * Utilise pour /api/wallet/me et /api/admin/wallets.
- * Le solde est en EUR pour MVP (multi-devise en V2).
+ * Le solde est en USD (decision Hugh 22/05/2026). Multi-devise via DeviseRate en V2.
  */
 public record WalletResponse(
         Long id,

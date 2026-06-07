@@ -44,7 +44,7 @@ public class WalletTransaction {
     private TypeWalletTransaction type;
 
     /**
-     * Montant signe : > 0 = credit, < 0 = debit. En EUR.
+     * Montant signe : > 0 = credit, < 0 = debit. En USD.
      */
     @Column(name = "montant", nullable = false, precision = 15, scale = 2)
     private BigDecimal montant;

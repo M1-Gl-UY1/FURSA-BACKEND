@@ -14,8 +14,8 @@ public class InsufficientFundsException extends IllegalStateException {
     private final BigDecimal montantDemande;
 
     public InsufficientFundsException(BigDecimal soldeDisponible, BigDecimal montantDemande) {
-        super("Solde insuffisant : " + soldeDisponible + " EUR disponibles, "
-                + montantDemande + " EUR demandes.");
+        super("Solde insuffisant : " + soldeDisponible + " USD disponibles, "
+                + montantDemande + " USD demandes.");
         this.soldeDisponible = soldeDisponible;
         this.montantDemande = montantDemande;
     }

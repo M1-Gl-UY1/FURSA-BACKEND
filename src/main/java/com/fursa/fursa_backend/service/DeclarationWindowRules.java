@@ -21,12 +21,12 @@ public final class DeclarationWindowRules {
     /** Jour limite (inclus) de la fenetre normale, sans penalite. */
     public static final int JOUR_FERMETURE_FENETRE = 15;
 
-    /** Penalite forfaitaire si declaration apres le 15. */
-    public static final BigDecimal PENALITE_RETARD_USD = new BigDecimal("300.00");
-
-    /** Alias pour retro-compatibilite. A supprimer en V2. */
+    /**
+     * V2 K (06/06/2026) : penalite de retard supprimee a la demande du PO.
+     * Constante conservee pour reference historique mais inutilisee.
+     */
     @Deprecated
-    public static final BigDecimal PENALITE_RETARD_EUR = PENALITE_RETARD_USD;
+    public static final BigDecimal PENALITE_RETARD_USD = new BigDecimal("300.00");
 
     private DeclarationWindowRules() {}
 
