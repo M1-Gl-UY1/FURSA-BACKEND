@@ -44,6 +44,13 @@ services:
       - BLOCKCHAIN_CHAIN_ID=${BLOCKCHAIN_CHAIN_ID:?required}
       - BLOCKCHAIN_GAS_PRICE=${BLOCKCHAIN_GAS_PRICE:-2000000000}
       - BLOCKCHAIN_GAS_LIMIT=${BLOCKCHAIN_GAS_LIMIT:-300000}
+      # V2 P+T (07/06/2026) : audit on-chain (revenus + KYC). Optionnels : si
+      # vides, les services tombent en no-op silencieux (pas d'erreur).
+      - BLOCKCHAIN_REVENUE_LEDGER_ADDRESS=${BLOCKCHAIN_REVENUE_LEDGER_ADDRESS:-}
+      - BLOCKCHAIN_KYC_REGISTRY_ADDRESS=${BLOCKCHAIN_KYC_REGISTRY_ADDRESS:-}
+      # Sel secret pour hash KYC RGPD-safe. NE JAMAIS perdre / changer apres mise en service.
+      - KYC_ONCHAIN_SALT=${KYC_ONCHAIN_SALT:-}
+      - KYC_DUREE_VALIDITE_JOURS=${KYC_DUREE_VALIDITE_JOURS:-365}
       # V2 G.6 (05/06/2026) : Postal SMTP. Tous optionnels : si MAIL_HOST
       # est vide, le service tombe en log-only sans casser le backend.
       - MAIL_HOST=${MAIL_HOST:-}
