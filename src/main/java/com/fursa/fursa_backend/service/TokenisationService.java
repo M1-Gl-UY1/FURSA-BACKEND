@@ -19,6 +19,9 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class TokenisationService {
 
+    /** V2 O (07/06/2026) : version par defaut pour tout nouveau deploiement. */
+    public static final String CONTRAT_VERSION_DEFAUT = "V2";
+
     private final ProprieteRepository proprieteRepository;
     private final BlockchainRpcClient blockchainRpcClient;
     private final Credentials credentials;
@@ -77,22 +80,29 @@ public class TokenisationService {
 
         propriete.setTransactionHash(txHash);
         propriete.setStatut(StatutPropriete.EN_TOKENISATION);
+        // V2 O (07/06/2026) : nouveaux deploiements basculent en V2 (prix mutable).
+        propriete.setContratVersion(CONTRAT_VERSION_DEFAUT);
         Propriete saved = proprieteRepository.save(propriete);
-        log.info("Propriete {} passe en EN_TOKENISATION, le worker prendra le relais", id);
+        log.info("Propriete {} passe en EN_TOKENISATION (contrat={}), worker prendra le relais",
+                id, CONTRAT_VERSION_DEFAUT);
         return saved;
     }
 
     /**
      * Construit, signe et broadcast la transaction de deploiement du smart contract
      * pour cette propriete. Renvoie le txHash. Ne touche pas a la BDD.
+     *
+     * V2 O (07/06/2026) : utilise ProprieteTokenV2 (prix mutable + devise + statut).
+     * Devise FURSA = USD (decision Hugh 22/05).
      */
     private String broadcastDeploiement(Propriete propriete) throws Exception {
-        String bytecode = lireBytecode();
-        String encodedParams = encodeConstructorParams(
+        String bytecode = lireBytecodeV2();
+        String encodedParams = encodeConstructorParamsV2(
                 propriete.getNom(),
                 propriete.getId(),
                 propriete.getNombreTotalPart(),
-                propriete.getPrixUnitairePart().toBigInteger()
+                propriete.getPrixUnitairePart().toBigInteger(),
+                "USD"
         );
         String data = bytecode + encodedParams;
 
@@ -229,7 +239,60 @@ public class TokenisationService {
         return saved;
     }
 
-    // ── Lit le bytecode depuis le JSON compilé par Hardhat ────────────────
+    // ── V2 O : lit le bytecode du contrat V2 ──────────────────────────────
+    private String lireBytecodeV2() throws Exception {
+        return lireBytecodeDepuis("/abi/ProprieteTokenV2.json");
+    }
+
+    // ── V2 O : encode le constructeur V2 (5 params : nom, id, parts, prix, devise) ──
+    // ABI layout pour deux strings + trois uints :
+    //   offset string1 (32) | id (32) | parts (32) | prix (32) | offset string2 (32)
+    //   | length string1 (32) | content string1 (padded) | length string2 (32) | content string2 (padded)
+    private String encodeConstructorParamsV2(
+            String nom, Long idBackend, Integer nombreParts,
+            BigInteger prixInitial, String devise) {
+        byte[] nomBytes    = nom.getBytes(StandardCharsets.UTF_8);
+        byte[] deviseBytes = devise.getBytes(StandardCharsets.UTF_8);
+
+        // Position du 1er string : 5 mots de 32 bytes = 160 octets
+        int offsetNom = 32 * 5;
+        // Position du 2eme string : offsetNom + length nom (32) + contenu nom paddé
+        int offsetDevise = offsetNom + 32 + alignTo32(nomBytes.length);
+
+        String offNomHex     = pad32(BigInteger.valueOf(offsetNom));
+        String idEncoded     = pad32(BigInteger.valueOf(idBackend));
+        String partsEncoded  = pad32(BigInteger.valueOf(nombreParts));
+        String prixEncoded   = pad32(prixInitial);
+        String offDeviseHex  = pad32(BigInteger.valueOf(offsetDevise));
+        String nomLen        = pad32(BigInteger.valueOf(nomBytes.length));
+        String nomContent    = padRight(Numeric.toHexStringNoPrefix(nomBytes));
+        String deviseLen     = pad32(BigInteger.valueOf(deviseBytes.length));
+        String deviseContent = padRight(Numeric.toHexStringNoPrefix(deviseBytes));
+
+        return offNomHex + idEncoded + partsEncoded + prixEncoded + offDeviseHex
+                + nomLen + nomContent + deviseLen + deviseContent;
+    }
+
+    private static int alignTo32(int n) {
+        int rem = n % 32;
+        return rem == 0 ? n : n + (32 - rem);
+    }
+
+    private String lireBytecodeDepuis(String resourcePath) throws Exception {
+        var is = getClass().getResourceAsStream(resourcePath);
+        if (is == null) {
+            throw new RuntimeException("Fichier introuvable : " + resourcePath);
+        }
+        String json = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        int idx = json.indexOf("\"bytecode\": \"0x");
+        if (idx == -1) idx = json.indexOf("\"bytecode\":\"0x");
+        if (idx == -1) throw new RuntimeException("bytecode introuvable dans " + resourcePath);
+        int start = json.indexOf("0x", idx);
+        int end = json.indexOf("\"", start);
+        return json.substring(start + 2, end);  // sans le 0x
+    }
+
+    // ── Lit le bytecode V1 historique ─────────────────────────────────────
     private String lireBytecode() throws Exception {
         try {
             log.info("Ouverture fichier JSON...");

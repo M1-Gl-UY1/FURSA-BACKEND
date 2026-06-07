@@ -66,6 +66,15 @@ public class Propriete {
     private String adresseContrat;
     private String transactionHash;
 
+    /**
+     * V2 O (07/06/2026) : version du contrat deploye on-chain.
+     *   V1 = ProprieteToken (legacy, prix immuable)
+     *   V2 = ProprieteTokenV2 (prix mutable + bonus + statut sync via BlockchainSyncService)
+     * Null tant que le bien n'a pas ete tokenise.
+     */
+    @Column(name = "contrat_version", length = 8)
+    private String contratVersion;
+
     @OneToMany(mappedBy = "propriete")
     private List<Revenus> revenus;
 

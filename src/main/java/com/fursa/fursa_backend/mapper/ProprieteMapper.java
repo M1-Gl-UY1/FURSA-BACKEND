@@ -154,6 +154,7 @@ public class ProprieteMapper {
                 // Blockchain
                 .adresseContrat(p.getAdresseContrat())
                 .transactionHash(p.getTransactionHash())
+                .contratVersion(p.getContratVersion())
                 // P1 (Hugh 22/05/2026)
                 .pays(p.getPays())
                 .ville(p.getVille())

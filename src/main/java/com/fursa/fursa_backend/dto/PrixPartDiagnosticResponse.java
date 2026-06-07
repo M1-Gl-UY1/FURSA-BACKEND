@@ -15,6 +15,12 @@ import java.util.List;
 public record PrixPartDiagnosticResponse(
         Long proprieteId,
         String proprieteNom,
+        /** V2 O : "V1" (legacy immuable) | "V2" (sync on-chain) | null si pas tokenise. */
+        String contratVersion,
+        /** Adresse du contrat on-chain (null si pas tokenise). */
+        String adresseContrat,
+        /** Hash de la tx de deploiement (null si pas tokenise). */
+        String transactionHash,
         BigDecimal prixInitial,
         BigDecimal prixCourant,
         /** Variation prix_courant / prix_initial - 1, en % (ex: 12.50 = +12.5%). */

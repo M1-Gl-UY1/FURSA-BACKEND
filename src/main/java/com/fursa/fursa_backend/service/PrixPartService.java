@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.util.List;
 
@@ -35,6 +36,7 @@ public class PrixPartService {
 
     private final ProprieteRepository proprieteRepository;
     private final HistoriquePrixPartRepository historiqueRepository;
+    private final BlockchainSyncService blockchainSyncService;
 
     // ========================================================================
     // Constantes de la formule (voir PRIX_DYNAMIQUE_FURSA.md §3.3, §4.3, §5)
@@ -139,6 +141,20 @@ public class PrixPartService {
         HistoriquePrixPart saved = historiqueRepository.save(snapshot);
         log.info("[PrixPart] Recalcul prop={} {} -> {} ({}%) raison={}",
                 proprieteId, prixInitial, prixFinal, variationPct, raison);
+
+        // V2 O (07/06/2026) : si le bien est tokenise en V2, on pousse le
+        // nouveau prix + bonus on-chain (async, ne bloque pas).
+        // Bonus stockes en fraction (0.05 = 5%), convertis en bps (500) pour le contrat.
+        int bonusRentaBps   = bonusRenta.multiply(new BigDecimal("10000"))
+                                        .setScale(0, RoundingMode.HALF_UP)
+                                        .intValueExact();
+        int bonusDemandeBps = bonusDemande.multiply(new BigDecimal("10000"))
+                                          .setScale(0, RoundingMode.HALF_UP)
+                                          .intValueExact();
+        // Prix en unite entiere USD (cf prix_initial qui est en USD entier dans la formule).
+        BigInteger prixOnchain = prixFinal.setScale(0, RoundingMode.HALF_UP).toBigInteger();
+        blockchainSyncService.pushPrixCourant(
+                p, prixOnchain, bonusRentaBps, bonusDemandeBps, raison, sourceId);
 
         return toResponse(saved);
     }
@@ -286,6 +302,9 @@ public class PrixPartService {
         return new PrixPartDiagnosticResponse(
                 p.getId(),
                 p.getNom(),
+                p.getContratVersion(),
+                p.getAdresseContrat(),
+                p.getTransactionHash(),
                 prixInitial,
                 prixCourant,
                 variationPct,

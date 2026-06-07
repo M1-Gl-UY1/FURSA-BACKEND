@@ -50,6 +50,7 @@ public class ProprieteService {
     private final CategorieDocumentRefService categorieDocumentRefService;
     private final SectionPhotoRefService sectionPhotoRefService;
     private final EmailService emailService;
+    private final BlockchainSyncService blockchainSyncService;
 
     @Transactional
     public Propriete creerPropriete(ProprieteRequest request, List<MultipartFile> fichiers) {
@@ -224,6 +225,10 @@ public class ProprieteService {
         }
         propriete.setStatut(StatutPropriete.PUBLIEE);
         Propriete saved = proprieteRepository.save(propriete);
+
+        // V2 O (07/06/2026) : si le bien est tokenise en V2, on reflete le
+        // statut on-chain. No-op si V1 ou non tokenise.
+        blockchainSyncService.pushStatut(saved, StatutPropriete.PUBLIEE);
 
         String lienBien = "/opportunites/" + saved.getId();
 

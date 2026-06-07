@@ -47,6 +47,8 @@ public class ProprieteResponse {
     // --- Blockchain : tokenisation propriete ---
     private String adresseContrat;
     private String transactionHash;
+    /** V2 O : "V1" (legacy immuable) | "V2" (prix mutable sync) | null si pas tokenise. */
+    private String contratVersion;
 
     // --- P1 (reunion Hugh 22/05/2026) : refonte fiche bien ---
     private String pays;
