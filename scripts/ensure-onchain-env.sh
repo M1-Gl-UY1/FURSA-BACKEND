@@ -17,10 +17,11 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
 fi
 
-# Valeurs canoniques deployees sur Sepolia (07/06/2026).
+# Valeurs canoniques deployees sur Sepolia (08/06/2026 - V2 CC reset prod).
+# Anciens singletons (07/06) abandonnes apres purge complete BDD/uploads.
 # Si Polygon mainnet : changer ici puis re-executer.
-LEDGER_ADDR="0x7Df9A1365f000eF722fC3172f23aCDB0Cc5e5A23"
-KYC_ADDR="0x21C7474C15223a47286F1132f19bae8960c95e20"
+LEDGER_ADDR="0xf5c515A73Bb453759179e7d6cA13929ca93d3Dc6"
+KYC_ADDR="0xAEC8A668a3bB52D9f6Ca2440FEC187d827d4fE2f"
 
 # Backup avant modification.
 TS=$(date +%Y%m%d-%H%M%S)
