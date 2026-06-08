@@ -44,15 +44,24 @@ public class UserController {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final AuthenticationManager authenticationManager;
-    private final com.fursa.fursa_backend.service.AuthenticatedInvestisseurService authInvestisseur;
     private final com.fursa.fursa_backend.config.LoginRateLimiter loginRateLimiter;
     private final RefreshTokenService refreshTokenService;
     private final com.fursa.fursa_backend.service.WalletService walletService;
 
-    @Operation(summary = "Profil de l'utilisateur courant", description = "Retourne le profil de l'investisseur authentifie.")
+    @Operation(summary = "Profil de l'utilisateur courant",
+            description = "Retourne le profil de l'utilisateur authentifie (investisseur OU admin).")
     @GetMapping("/me")
     public ResponseEntity<RegisterResponse> me() {
-        return ResponseEntity.ok(new RegisterResponse(authInvestisseur.current()));
+        // V2 DD (08/06/2026) : fix 403 pour les admins.
+        // authInvestisseur.current() refuse les admins (cast Investisseur exigee).
+        // On lit directement depuis le SecurityContext pour supporter les 2 roles.
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()
+                || !(auth.getPrincipal() instanceof com.fursa.fursa_backend.model.User user)) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(new RegisterResponse(user));
     }
 
     @Operation(summary = "Lister les utilisateurs (admin)")
