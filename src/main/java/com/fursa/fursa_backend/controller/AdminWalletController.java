@@ -48,17 +48,20 @@ public class AdminWalletController {
         return ResponseEntity.ok(walletService.listTransactionsForAdmin(userId));
     }
 
-    @Operation(summary = "Ajustement manuel admin",
-            description = """
-                    Permet d'ajuster manuellement le solde d'un wallet (correction d'erreur,
-                    geste commercial, support utilisateur).
-                    Le montant peut etre positif (credit) ou negatif (debit).
-                    Le motif est obligatoire et trace dans l'historique pour l'audit.""")
+    /**
+     * V2 BB (08/06/2026) : endpoint d'ajustement manuel DESACTIVE.
+     * Decision PO : l'admin n'a plus le droit de crediter/debiter un wallet.
+     * Tout mouvement de wallet passe desormais par les flows metier (achat,
+     * vente, dividende, recharge PSP, retrait valide). Le code de
+     * walletService.ajustementAdmin reste disponible pour des scripts ops
+     * one-shot si besoin, mais n'est plus expose en API.
+     */
+    @Operation(summary = "[DEPRECATED] Ajustement manuel admin",
+            description = "Endpoint retire en V2 BB. Renvoie 410 Gone.")
     @PostMapping("/user/{userId}/ajuster")
-    public ResponseEntity<WalletTransactionResponse> ajuster(
+    public ResponseEntity<Void> ajuster(
             @PathVariable Long userId,
             @Valid @RequestBody AjustementWalletRequest req) {
-        var tx = walletService.ajustementAdmin(userId, req.montant(), req.motif());
-        return ResponseEntity.ok(walletService.toResponse(tx));
+        return ResponseEntity.status(org.springframework.http.HttpStatus.GONE).build();
     }
 }

@@ -402,9 +402,18 @@ public class ProprieteBrouillonService {
         if (p.getProposeurId() == null || !p.getProposeurId().equals(callerId)) {
             throw new AccessDeniedException("Vous n'etes pas le proposeur de ce brouillon.");
         }
-        if (p.getStatut() != StatutPropriete.BROUILLON) {
+        // V2 BB (08/06/2026) : edition propriete autorisee tant que pas tokenisee.
+        // Statuts editables : BROUILLON, EN_REVIEW, ACCEPTEE.
+        // Statuts NON editables : EN_TOKENISATION (tx broadcast en cours),
+        // PUBLIEE (deja tokenisee, immuable on-chain), REFUSEE, EN_ATTENTE legacy.
+        StatutPropriete s = p.getStatut();
+        boolean editable = s == StatutPropriete.BROUILLON
+                || s == StatutPropriete.EN_REVIEW
+                || s == StatutPropriete.ACCEPTEE;
+        if (!editable) {
             throw new IllegalStateException(
-                "Cette propriete n'est plus un brouillon (statut : " + p.getStatut() + ").");
+                "Cette propriete ne peut plus etre modifiee (statut : " + s + "). "
+                + "Modifications autorisees uniquement avant tokenisation.");
         }
         return p;
     }

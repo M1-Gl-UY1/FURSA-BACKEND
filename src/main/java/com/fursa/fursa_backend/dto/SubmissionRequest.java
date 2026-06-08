@@ -133,11 +133,15 @@ public class SubmissionRequest {
     private Integer nombreTotalPart;
 
     /**
-     * Conservation du prix unitaire (calcule a partir de prixVenteTotal et nombreTotalPart
-     * pour retro-compat avec l'ancien flux). Le service peut le recalculer si necessaire.
+     * Prix unitaire d'une part (= prixVenteTotal * fractionVenduePct / nombreTotalPart).
+     *
+     * V2 BB (08/06/2026) : minimum 100 USD par part (decision PO).
+     * Le ticket d'entree investisseur commence a 100 USD : on refuse les
+     * proprietes qui creeraient des parts moins cheres (sinon le seuil
+     * promis aux investisseurs est viole).
      */
     @NotNull
-    @DecimalMin(value = "0.01")
+    @DecimalMin(value = "100.00", message = "Le prix unitaire d'une part doit etre d'au moins 100 USD. Augmente le prix de vente ou reduis le nombre de parts.")
     private BigDecimal prixUnitairePart;
 
     @NotNull

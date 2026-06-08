@@ -3,15 +3,18 @@ package com.fursa.fursa_backend.seed;
 import com.fursa.fursa_backend.model.Admin;
 import com.fursa.fursa_backend.model.Annonce;
 import com.fursa.fursa_backend.model.Investisseur;
+import com.fursa.fursa_backend.model.KycSubmission;
 import com.fursa.fursa_backend.model.Possession;
 import com.fursa.fursa_backend.model.Propriete;
 import com.fursa.fursa_backend.model.Revenus;
 import com.fursa.fursa_backend.model.enumeration.Role;
+import com.fursa.fursa_backend.model.enumeration.StatutKyc;
 import com.fursa.fursa_backend.repository.UserRepository;
 import com.fursa.fursa_backend.model.enumeration.StatutAnnonce;
 import com.fursa.fursa_backend.model.enumeration.StatutPropriete;
 import com.fursa.fursa_backend.repository.AnnonceRepository;
 import com.fursa.fursa_backend.repository.InvestisseurRepository;
+import com.fursa.fursa_backend.repository.KycSubmissionRepository;
 import com.fursa.fursa_backend.repository.PossessionRepository;
 import com.fursa.fursa_backend.repository.ProprieteRepository;
 import com.fursa.fursa_backend.repository.RevenusRepository;
@@ -34,6 +37,7 @@ public class DataSeeder implements CommandLineRunner {
     private final RevenusRepository revenusRepository;
     private final AnnonceRepository annonceRepository;
     private final PasswordEncoder passwordEncoder;
+    private final KycSubmissionRepository kycSubmissionRepository;
 
     public DataSeeder(ProprieteRepository proprieteRepository,
                       InvestisseurRepository investisseurRepository,
@@ -41,7 +45,8 @@ public class DataSeeder implements CommandLineRunner {
                       PossessionRepository possessionRepository,
                       RevenusRepository revenusRepository,
                       AnnonceRepository annonceRepository,
-                      PasswordEncoder passwordEncoder) {
+                      PasswordEncoder passwordEncoder,
+                      KycSubmissionRepository kycSubmissionRepository) {
         this.proprieteRepository = proprieteRepository;
         this.investisseurRepository = investisseurRepository;
         this.userRepository = userRepository;
@@ -49,6 +54,27 @@ public class DataSeeder implements CommandLineRunner {
         this.revenusRepository = revenusRepository;
         this.annonceRepository = annonceRepository;
         this.passwordEncoder = passwordEncoder;
+        this.kycSubmissionRepository = kycSubmissionRepository;
+    }
+
+    /**
+     * V2 BB (08/06/2026) : seede une KycSubmission APPROVED pour les
+     * investisseurs demo. Sans ca, isVerified=true cote user mais aucun
+     * dossier visible dans l'onglet KYC admin (desynchro signalee par PO).
+     */
+    private void seedKycApprove(Investisseur inv) {
+        KycSubmission k = new KycSubmission();
+        k.setInvestisseur(inv);
+        k.setStatut(StatutKyc.APPROVED);
+        k.setNationalite("CM");
+        k.setPaysResidence("CM");
+        k.setDateNaissance(LocalDate.of(1990, 1, 1));
+        k.setDeclarationSurHonneur(true);
+        k.setIsPep(false);
+        k.setSubmittedAt(java.time.LocalDateTime.now().minusDays(7));
+        k.setReviewedAt(java.time.LocalDateTime.now().minusDays(7));
+        k.setNombreReSubmissions(0);
+        kycSubmissionRepository.save(k);
     }
 
     @Override
@@ -73,6 +99,7 @@ public class DataSeeder implements CommandLineRunner {
         investor1.setIsVerified(true);
         investor1.setWallet_address("0xABCDEF1234567890ABCDEF1234567890ABCDEF12");
         investisseurRepository.save(investor1);
+        seedKycApprove(investor1);
 
         Investisseur investor2 = new Investisseur();
         investor2.setEmail("investor2@fursa.test");
@@ -84,6 +111,7 @@ public class DataSeeder implements CommandLineRunner {
         investor2.setIsVerified(true);
         investor2.setWallet_address("0x1234567890ABCDEF1234567890ABCDEF12345678");
         investisseurRepository.save(investor2);
+        seedKycApprove(investor2);
 
         Investisseur investor3 = new Investisseur();
         investor3.setEmail("investor3@fursa.test");
@@ -95,6 +123,7 @@ public class DataSeeder implements CommandLineRunner {
         investor3.setIsVerified(true);
         investor3.setWallet_address("0xFEDCBA0987654321FEDCBA0987654321FEDCBA09");
         investisseurRepository.save(investor3);
+        seedKycApprove(investor3);
 
         Propriete prop1 = new Propriete();
         prop1.setNom("Fumba Town Villa");
