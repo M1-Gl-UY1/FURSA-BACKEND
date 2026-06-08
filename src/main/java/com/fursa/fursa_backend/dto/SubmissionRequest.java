@@ -144,7 +144,15 @@ public class SubmissionRequest {
     @DecimalMin(value = "100.00", message = "Le prix unitaire d'une part doit etre d'au moins 100 USD. Augmente le prix de vente ou reduis le nombre de parts.")
     private BigDecimal prixUnitairePart;
 
+    /**
+     * Rentabilite annuelle previsionnelle en % (ex: 8.0 = 8% par an).
+     *
+     * V2 GG (08/06/2026) : minimum 5% (decision PO). En dessous, l'attractivite
+     * du bien pour les investisseurs FURSA est insuffisante et la confiance
+     * dans la plateforme se degrade.
+     */
     @NotNull
+    @DecimalMin(value = "5.0", message = "La rentabilite annuelle previsionnelle doit etre d'au moins 5%.")
     private Double rentabilitePrevue;
 
     // --- Etape 6 : Video de visite guidee ---
