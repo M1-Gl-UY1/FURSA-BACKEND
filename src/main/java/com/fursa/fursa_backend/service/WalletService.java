@@ -59,9 +59,10 @@ public class WalletService {
         if (walletRepository.existsByUserId(userId)) {
             return walletRepository.findByUserId(userId).orElseThrow();
         }
-        Investisseur user = userRepository.findById(userId)
-                .filter(u -> u instanceof Investisseur)
-                .map(u -> (Investisseur) u)
+        // V2 HH (09/06/2026) : accepte tout User (investisseur OU admin).
+        // L'admin a un wallet "master FURSA" qui sert d'escrow virtuel pour
+        // les revenus declares avant distribution aux investisseurs.
+        com.fursa.fursa_backend.model.User user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User introuvable : " + userId));
 
         Wallet w = new Wallet();
@@ -261,13 +262,16 @@ public class WalletService {
     // =========================================================================
 
     public WalletResponse toResponse(Wallet w) {
-        Investisseur u = w.getUser();
+        // V2 HH : Wallet.user est maintenant typee User. Nom/prenom sont dispo
+        // uniquement pour les Investisseur (les admins n'ont pas ces champs).
+        com.fursa.fursa_backend.model.User u = w.getUser();
+        Investisseur asInv = (u instanceof Investisseur i) ? i : null;
         return new WalletResponse(
                 w.getId(),
                 u == null ? null : u.getId(),
                 u == null ? null : u.getEmail(),
-                u == null ? null : u.getNom(),
-                u == null ? null : u.getPrenom(),
+                asInv == null ? null : asInv.getNom(),
+                asInv == null ? null : asInv.getPrenom(),
                 w.getSolde(),
                 w.getDevise(),
                 w.getCreatedAt(),

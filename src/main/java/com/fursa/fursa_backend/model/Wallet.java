@@ -33,12 +33,17 @@ public class Wallet {
     private Long id;
 
     /**
-     * User proprietaire du wallet (investisseur ou proprietaire de bien).
-     * Polymorphique car n'importe quel role peut avoir un wallet.
+     * User proprietaire du wallet. Type generique User (et non Investisseur)
+     * pour supporter aussi les wallets admin (V2 Z : master wallet FURSA pour
+     * l'escrow des revenus declares).
+     *
+     * V2 HH (09/06/2026) : type elargi de Investisseur a User. Avant ca, le
+     * wallet de l'admin (master) provoquait une PropertyAccessException Hibernate
+     * a l'hydratation ("Can not set Investisseur field ... to User").
      */
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_user", nullable = false, unique = true)
-    private Investisseur user;
+    private User user;
 
     /** Solde courant en USD. Toujours >= 0. */
     @Column(name = "solde", nullable = false, precision = 15, scale = 2)
