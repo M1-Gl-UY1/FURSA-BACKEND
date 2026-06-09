@@ -101,6 +101,19 @@ public class RevenuService {
                             + "qu'a partir du moment ou au moins une part a ete vendue.");
         }
 
+        // V2 HH (09/06/2026) : seuil 100% collecte obligatoire pour declarer.
+        // Tant que toutes les parts ne sont pas vendues, l'escrow est en cours
+        // de collecte et le bien n'est pas considere comme exploitable au sens
+        // FURSA. Distribuer des dividendes sans avoir l'ensemble des investisseurs
+        // serait incoherent (ratios fausses) et bloquerait la repartition future.
+        if (dispo != null && dispo > 0) {
+            int pct = total == null || total == 0 ? 0 : (vendues * 100 / total);
+            throw new IllegalStateException(
+                    "Toutes les parts du bien ne sont pas encore vendues (" + pct + "% collecte, "
+                            + dispo + " parts restantes). La declaration de revenu est possible "
+                            + "uniquement quand le bien atteint 100% de collecte.");
+        }
+
         // V2 L (06/06/2026) : le proprio doit choisir un trimestre clos. On
         // resout le trimestre cible depuis periodeDebut (ou today si non fourni)
         // et on (a) rejette les trimestres pas encore termines, (b) rejette les
