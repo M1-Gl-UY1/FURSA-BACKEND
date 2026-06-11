@@ -1,28 +1,34 @@
 package com.fursa.fursa_backend.service;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 
 /**
- * V2 G.6 (05/06/2026) : envoi des emails transactionnels via Postal (SMTP).
+ * V2 II (12/06/2026) : envoi des emails transactionnels via l'API HTTP Postal
+ * (auparavant V2 G.6 utilisait SMTP, refactore pour passer en API REST).
  *
- * <p>Postal est deja installe sur le VPS FURSA. Les credentials passent via
- * variables d'environnement (cf {@code application.yaml} spring.mail.*).
+ * <p>Postal expose une API REST sur le VPS. La config se fait via 4 variables
+ * d'environnement :
+ * <ul>
+ *   <li>{@code POSTAL_HOST} : ex. {@code 84.247.183.206:5080}</li>
+ *   <li>{@code POSTAL_API_KEY} : credential du server FURSA (cree dans l'admin)</li>
+ *   <li>{@code FROM_EMAIL} : ex. {@code noreply@fursa.seed-innov.com}</li>
+ *   <li>{@code FROM_NAME} : ex. {@code FURSA}</li>
+ * </ul>
  *
- * <p>Si {@code app.mail.enabled=false} ou {@code spring.mail.host} est vide,
- * le service tombe en "log-only" : les emails sont logges au lieu d'etre
- * envoyes (utile pour les tests d'integration ou un environnement sans Postal).
+ * <p>Si {@code POSTAL_HOST} ou {@code POSTAL_API_KEY} est vide, le service
+ * tombe en "log-only" : les emails sont logges au lieu d'etre envoyes (utile
+ * pour les tests d'integration ou un environnement sans Postal).
  *
  * <p>Tous les envois sont {@code @Async} : ils ne bloquent pas le thread de
  * la requete utilisateur. Si l'envoi echoue, l'exception est loggee mais
@@ -32,41 +38,50 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+
     private final boolean enabled;
     private final String fromAddress;
     private final String fromName;
     private final String frontBaseUrl;
-    private final String smtpHost;
+    private final String postalHost;
+    private final String postalApiKey;
 
     public EmailService(
-            JavaMailSender mailSender,
             @Value("${app.mail.enabled:true}") boolean enabled,
             @Value("${app.mail.from:noreply@fursa.seed-innov.com}") String fromAddress,
             @Value("${app.mail.from-name:FURSA}") String fromName,
             @Value("${app.mail.front-base-url:https://fursa.seed-innov.com}") String frontBaseUrl,
-            @Value("${spring.mail.host:}") String smtpHost) {
-        this.mailSender = mailSender;
+            @Value("${POSTAL_HOST:}") String postalHost,
+            @Value("${POSTAL_API_KEY:}") String postalApiKey) {
         this.enabled = enabled;
         this.fromAddress = fromAddress;
         this.fromName = fromName;
         this.frontBaseUrl = frontBaseUrl;
-        this.smtpHost = smtpHost;
+        this.postalHost = postalHost == null ? "" : postalHost.trim();
+        this.postalApiKey = postalApiKey == null ? "" : postalApiKey.trim();
     }
 
     // ========================================================================
-    // Bas niveau : envoi brut
+    // Bas niveau : envoi brut via API HTTP Postal
     // ========================================================================
 
     /**
      * Envoi d'un email HTML simple (utilise par les helpers metier).
      * Asynchrone : ne bloque pas le thread appelant.
+     *
+     * <p>Format API Postal : POST http://{POSTAL_HOST}/api/v1/send/message
+     * avec header {@code X-Server-API-Key} et body JSON
+     * {@code {"to":[...], "from":"...", "subject":"...", "html_body":"..."}}.
      */
     @Async
     public void envoyer(String to, String sujet, String corpsHtml) {
-        if (!enabled || smtpHost == null || smtpHost.isBlank()) {
-            log.info("[Email LOG-ONLY] to={} sujet={} (mail.enabled={}, smtp.host='{}')",
-                    to, sujet, enabled, smtpHost);
+        if (!enabled || postalHost.isBlank() || postalApiKey.isBlank()) {
+            log.info("[Email LOG-ONLY] to={} sujet={} (enabled={}, postal.host='{}', api-key={})",
+                    to, sujet, enabled, postalHost,
+                    postalApiKey.isBlank() ? "absent" : "present");
             return;
         }
         if (to == null || to.isBlank()) {
@@ -74,22 +89,74 @@ public class EmailService {
             return;
         }
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
-            helper.setFrom(new InternetAddress(fromAddress, fromName, StandardCharsets.UTF_8.name()));
-            helper.setTo(to);
-            helper.setSubject(sujet);
-            helper.setText(corpsHtml, true);
-            mailSender.send(message);
-            log.info("[Email] Envoye to={} sujet={}", to, sujet);
-        } catch (MessagingException | UnsupportedEncodingException e) {
-            log.error("[Email] Echec envoi to={} sujet={} : {}", to, sujet, e.getMessage(), e);
+            String fromFull = fromName.isBlank()
+                    ? fromAddress
+                    : fromName + " <" + fromAddress + ">";
+            String body = "{"
+                    + "\"to\":[" + jsonString(to) + "],"
+                    + "\"from\":" + jsonString(fromFull) + ","
+                    + "\"subject\":" + jsonString(sujet) + ","
+                    + "\"html_body\":" + jsonString(corpsHtml)
+                    + "}";
+
+            // Postal supporte http (interne au VPS) ou https. On force http si
+            // le user a juste donne l'IP:port (cas par defaut sur le VPS FURSA).
+            String scheme = postalHost.startsWith("http://") || postalHost.startsWith("https://")
+                    ? "" : "http://";
+            URI uri = URI.create(scheme + postalHost + "/api/v1/send/message");
+
+            HttpRequest req = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Content-Type", "application/json")
+                    .header("X-Server-API-Key", postalApiKey)
+                    .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+            int code = resp.statusCode();
+            if (code >= 200 && code < 300 && resp.body().contains("\"status\":\"success\"")) {
+                log.info("[Email] Envoye to={} sujet={} (postal code={})", to, sujet, code);
+            } else {
+                log.error("[Email] Echec Postal HTTP {} to={} sujet={} body={}",
+                        code, to, sujet, resp.body());
+            }
         } catch (Exception e) {
-            // Postal peut etre temporairement down (timeout SMTP). On ne fait pas
+            // Postal peut etre temporairement down (timeout). On ne fait pas
             // echouer le flow metier : la notif in-app reste creee.
-            log.error("[Email] Erreur SMTP (probablement Postal indispo) to={} : {}",
-                    to, e.getMessage());
+            log.error("[Email] Erreur appel API Postal to={} sujet={} : {}",
+                    to, sujet, e.getMessage());
         }
+    }
+
+    /**
+     * Echappe une chaine pour insertion dans un JSON (encadre par des "double quotes").
+     * Gere les caracteres speciaux de base : guillemets, backslash, retours ligne, tabs, control chars.
+     */
+    private static String jsonString(String s) {
+        if (s == null) return "null";
+        StringBuilder sb = new StringBuilder(s.length() + 16);
+        sb.append('"');
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"' -> sb.append("\\\"");
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        sb.append('"');
+        return sb.toString();
     }
 
     // ========================================================================
