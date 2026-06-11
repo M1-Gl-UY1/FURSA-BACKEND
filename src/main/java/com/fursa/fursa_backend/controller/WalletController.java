@@ -50,15 +50,23 @@ public class WalletController {
 
     @Operation(summary = "Recharger mon wallet (mode demo)",
             description = """
-                    Recharge le wallet de l'investisseur courant. MODE DEMO : aucun paiement reel
-                    n'est encaisse, le solde est credite directement (type TOPUP). Plafond 10 000 par recharge.
-                    A remplacer par une vraie integration PSP (Yellow Card / Mobile Money) avant mise en prod reelle.""")
-    @PreAuthorize("hasRole('INVESTISSEUR')")
+                    Recharge le wallet de l'utilisateur courant (investisseur OU admin).
+                    MODE DEMO : aucun paiement reel n'est encaisse, le solde est credite directement
+                    (type TOPUP). Plafond 1 000 000 par recharge.
+                    A remplacer par une vraie integration PSP (Yellow Card / Mobile Money) avant
+                    mise en prod reelle.
+                    V2 JJ (12/06/2026) : autorise aussi les admins (utile pour seed/test ; l'admin
+                    a un wallet master mais peut aussi avoir besoin de fonds en demo).""")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/me/recharger")
     public ResponseEntity<WalletTransactionResponse> recharger(@Valid @RequestBody RechargeRequest request) {
-        Long userId = authInvestisseur.currentId();
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof com.fursa.fursa_backend.model.User u)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
         WalletTransactionResponse tx = walletService.toResponse(
-                walletService.rechargerMock(userId, request.montant(), request.methode()));
+                walletService.rechargerMock(u.getId(), request.montant(), request.methode()));
         return ResponseEntity.status(HttpStatus.CREATED).body(tx);
     }
 
